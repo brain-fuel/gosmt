@@ -52,6 +52,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | QF_BOOL cold construct + check | ~467–475 ns, 1,584 B, 10 allocs | ~0.98–1.08 ms, 200 B, 13 allocs | green | red (target ≤6 allocs) |
 | QF_IDL warm check | ~3.33 ns, 0 B, 0 allocs | ~147 us, 0 B, 0 allocs | green | green |
 | QF_IDL cold construct + check | ~827 ns–1.02 us, 2,704 B, 8 allocs | ~1.07–1.23 ms, 320 B, 20 allocs | green | green (target ≤10 allocs) |
+| QF_LIA exact single-equation model construction + evaluation | ~848–852 ns, 3,712 B, 7 allocs | ~1.30–1.40 ms, 224 B, 15 allocs | green | green (target ≤7 allocs) |
 | ground QF_UF cold construct + check | ~398–399 ns, 1,504 B, 14 allocs | ~0.86–1.01 ms, 304 B, 21 allocs | green | red (target ≤10 allocs) |
 | binary ground QF_UF cold construct + check | ~667–789 ns, 2,008 B, 15 allocs | ~0.85–1.01 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
 | QF_BOOL 5-into-4 pigeonhole construct + check | ~11.13–11.22 us, 30,320 B, 27 allocs | ~1.12–1.21 ms, 6,536 B, 360 allocs | green | green (target ≤180 allocs) |
@@ -96,6 +97,14 @@ small-tableau arenas with unbounded overflow then reduced it to 5 (89%) while
 the pinned Z3 binding remained at 19. Across five equal-count comparative runs,
 the slowest GoSMT endpoint was still more than 300x faster than the fastest Z3
 endpoint; both independent gates are green.
+
+The QF_LIA workload solves `2*x = 2`, constructs an exact integer model, and
+evaluates `x` through both official APIs. A compact divisibility path reduced
+the first branch-and-bound implementation from 95 allocations to 7. Across
+three equal-count runs, the slowest GoSMT endpoint remained over 1,500x faster
+than Z3's fastest endpoint and used fewer than half its 15 allocations. General
+multi-row branch-and-bound remains separately visible and is not represented
+as allocation-green by this compact gate.
 
 The mixed EUF+QF_LRA row partitions normalized conjuncts into inline,
 polarity-aware theory arenas and merges independent arithmetic models. It fell

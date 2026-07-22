@@ -68,6 +68,31 @@ func TestIntegerDifferenceLogicModel(t *testing.T) {
 	}
 }
 
+func TestLinearIntegerArithmeticModelAndIntegrality(t *testing.T) {
+	context := NewContext(104)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	formula := And(
+		Le(Add(x, y), IntVal(context, 10)),
+		Le(IntVal(context, 11), Add(ScaleInt64(2, x), y)),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", result)
+	}
+	xValue, xOK := EvalIntExact(result.Value, x)
+	yValue, yOK := EvalIntExact(result.Value, y)
+	if !xOK || !yOK || smt.CompareIntegerValue(smt.AddIntegerValue(xValue, yValue), smt.NewIntegerValue(10)) > 0 || smt.CompareIntegerValue(smt.AddIntegerValue(smt.MultiplyIntegerValue(smt.NewIntegerValue(2), xValue), yValue), smt.NewIntegerValue(11)) < 0 {
+		t.Fatalf("invalid model x=%v/%v y=%v/%v", xValue, xOK, yValue, yOK)
+	}
+
+	twoX := ScaleInt64(2, x)
+	integralityResult := Check(Assert(2, NewSolver(context), EqInt(twoX, IntVal(context, 1))))
+	if _, ok := integralityResult.(Unsat); !ok {
+		t.Fatalf("integrality result=%T", integralityResult)
+	}
+}
+
 func TestArbitraryPrecisionIntegerDifferenceLogic(t *testing.T) {
 	context := NewContext(5)
 	lower, err := ParseInteger("1267650600228229401496703205376")

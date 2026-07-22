@@ -1382,7 +1382,100 @@ func TestRandomLinearRealSystemsAgreeWithPinnedZ3(t *testing.T) {
 			t.Fatalf("example %d: run Z3: %v\n%s", example, err, output)
 		}
 		if want := strings.TrimSpace(string(output)); ours != want {
-			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, ours, want, script)
+			t.Fatalf("example %d: gosmt=%s (%#v) z3=%s\n%s", example, ours, result, want, script)
+		}
+	}
+}
+
+func TestRandomLinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	type relation struct {
+		coefficients [3]int
+		bound        int
+		equal        bool
+	}
+	random := rand.New(rand.NewSource(41))
+	context := NewContext(105)
+	variables := []IntExpr{
+		IntConst(context, "x", 1),
+		IntConst(context, "y", 2),
+		IntConst(context, "z", 3),
+	}
+	for example := 0; example < 96; example++ {
+		constraints := []BoolExpr{
+			Le(IntVal(context, -5), variables[0]), Le(variables[0], IntVal(context, 5)),
+			Le(IntVal(context, -5), variables[1]), Le(variables[1], IntVal(context, 5)),
+			Le(IntVal(context, -5), variables[2]), Le(variables[2], IntVal(context, 5)),
+		}
+		relations := make([]relation, 0, 5)
+		var assertions strings.Builder
+		assertions.WriteString("(assert (and (<= -5 x) (<= x 5) (<= -5 y) (<= y 5) (<= -5 z) (<= z 5)))\n")
+		for index := 0; index < 5; index++ {
+			current := relation{bound: random.Intn(19) - 9, equal: index == 0 && example%3 == 0}
+			terms := make([]IntExpr, 0, 3)
+			encoded := make([]string, 0, 3)
+			for variable, expression := range variables {
+				coefficient := random.Intn(9) - 4
+				current.coefficients[variable] = coefficient
+				if coefficient == 0 {
+					continue
+				}
+				terms = append(terms, ScaleInt64(int64(coefficient), expression))
+				encoded = append(encoded, fmt.Sprintf("(* %d %c)", coefficient, 'x'+rune(variable)))
+			}
+			left := IntVal(context, 0)
+			leftText := "0"
+			if len(terms) != 0 {
+				left = Add(terms...)
+				leftText = "(+ " + strings.Join(encoded, " ") + ")"
+			}
+			if current.equal {
+				constraints = append(constraints, EqInt(left, IntVal(context, int64(current.bound))))
+				fmt.Fprintf(&assertions, "(assert (= %s %d))\n", leftText, current.bound)
+			} else {
+				constraints = append(constraints, Le(left, IntVal(context, int64(current.bound))))
+				fmt.Fprintf(&assertions, "(assert (<= %s %d))\n", leftText, current.bound)
+			}
+			relations = append(relations, current)
+		}
+		result := Check(Assert(example+1, NewSolver(context), And(constraints...)))
+		ours := "sat"
+		if _, ok := result.(Unsat); ok {
+			ours = "unsat"
+		} else if _, ok := result.(Unknown); ok {
+			ours = "unknown"
+		}
+		script := "(set-logic QF_LIA)\n(declare-const x Int)\n(declare-const y Int)\n(declare-const z Int)\n" + assertions.String() + "(check-sat)\n"
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s", example, err, output)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s (%#v) z3=%s\n%s", example, ours, result, want, script)
+		}
+		if sat, ok := result.(Sat); ok {
+			values := [3]int64{}
+			for index, variable := range variables {
+				value, found := EvalInt(sat.Value, variable)
+				if !found || value < -5 || value > 5 {
+					t.Fatalf("example %d: invalid model value %d=(%d,%v)", example, index, value, found)
+				}
+				values[index] = value
+			}
+			for _, relation := range relations {
+				left := int64(0)
+				for index, coefficient := range relation.coefficients {
+					left += int64(coefficient) * values[index]
+				}
+				if relation.equal && left != int64(relation.bound) || !relation.equal && left > int64(relation.bound) {
+					t.Fatalf("example %d: invalid model relation=%+v values=%v", example, relation, values)
+				}
+			}
 		}
 	}
 }

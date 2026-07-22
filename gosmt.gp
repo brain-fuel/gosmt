@@ -521,6 +521,14 @@ func Sub(0 c nat, left IntExpr[c], right IntExpr[c]) IntExpr[c] {
 	return subtractInteger(left, right)
 }
 
+func ScaleInt(0 c nat, coefficient smt.IntegerValue, value IntExpr[c]) IntExpr[c] {
+	match value { case intExprValue(contextID, term): return intExprValue(contextID, smt.ScaleInteger(coefficient, term)) }
+}
+
+func ScaleInt64(0 c nat, coefficient int64, value IntExpr[c]) IntExpr[c] {
+	return ScaleInt(smt.NewIntegerValue(coefficient), value)
+}
+
 func Le(0 c nat, left IntExpr[c], right IntExpr[c]) BoolExpr[c] {
 	return compareInteger(left, right, false)
 }

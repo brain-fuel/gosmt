@@ -25,6 +25,7 @@ const (
 	booleanFastArrayStoreReadValue
 	booleanFastBitVectorArrayStoreReadValue
 	booleanFastBitVectorArrayEquality
+	booleanFastIntegerLinearEquality
 )
 
 type booleanFast struct {
@@ -48,6 +49,7 @@ type booleanFast struct {
 	arrayStoreReadValue          smt.ArrayStoreReadValueRelation
 	bitVectorArrayStoreReadValue smt.BitVectorArrayStoreReadValueRelation
 	bitVectorArrayEquality       smt.BitVectorArrayEqualityRelation
+	integerLinearEquality        smt.IntegerLinearEquality
 	negated                      bool
 }
 
@@ -1508,6 +1510,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.bitVectorArrayStoreReadValue
 	case booleanFastBitVectorArrayEquality:
 		return fast.bitVectorArrayEquality
+	case booleanFastIntegerLinearEquality:
+		return fast.integerLinearEquality
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}
@@ -1538,6 +1542,9 @@ func fastEqInteger(left, right IntExpr) BoolExpr {
 	}
 	if relation, ok := smt.CompactIntegerArrayStoreReadValueEquality(left.term, right.term); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastArrayStoreReadValue, arrayStoreReadValue: relation}}
+	}
+	if relation, ok := smt.CompactIntegerLinearEquality(left.term, right.term); ok {
+		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerLinearEquality, integerLinearEquality: relation}}
 	}
 	return fastBooleanAtom(left.contextID, smt.Equal{Left: left.term, Right: right.term})
 }

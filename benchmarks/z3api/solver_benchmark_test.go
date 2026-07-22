@@ -1248,6 +1248,41 @@ func BenchmarkGroundUFBVUnaryCongruenceCold(b *testing.B) {
 	})
 }
 
+func BenchmarkLinearIntegerModelCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(24)
+			x := gosmt.IntConst(context, "x", 1)
+			formula := gosmt.EqInt(gosmt.ScaleInt64(2, x), gosmt.IntVal(context, 2))
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalInt(result.Value, x); !found || value != 1 {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			formula := context.MkEq(context.MkMul(context.MkInt(2, intSort), x), context.MkInt(2, intSort))
+			solver := context.NewSolverForLogic("QF_LIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, ok := solver.Model().Eval(x, true); !ok {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanPigeonholeCold(b *testing.B) {
 	const pigeons, holes = 5, 4
 	b.Run("gosmt", func(b *testing.B) {
