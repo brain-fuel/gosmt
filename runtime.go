@@ -30,6 +30,7 @@ const (
 	booleanFastIntegerLinearChoice
 	booleanFastIntegerDivModRelation
 	booleanFastIntegerDivModSystem
+	booleanFastUninterpretedEUFRelation
 )
 
 type booleanFast struct {
@@ -57,7 +58,142 @@ type booleanFast struct {
 	integerLinearChoice          smt.IntegerLinearChoice
 	integerDivModRelation        smt.IntegerDivModRelation
 	integerDivModSystem          smt.IntegerDivModSystem
+	uninterpretedEUFRelation     smt.UninterpretedEUFRelation
 	negated                      bool
+}
+
+const (
+	uninterpretedFastNone = iota
+	uninterpretedFastSymbol
+	uninterpretedFastUnaryApplication
+	uninterpretedFastBinaryApplication
+)
+
+type uninterpretedFast struct {
+	kind         uint8
+	sortID       int
+	symbolID     int
+	functionID   int
+	firstSortID  int
+	secondSortID int
+	firstID      int
+	secondID     int
+	symbolName   string
+	functionName string
+	secondName   string
+}
+
+type uninterpretedUnaryFunctionFast struct {
+	valid    bool
+	domainID int
+	rangeID  int
+	id       int
+	name     string
+}
+
+type uninterpretedBinaryFunctionFast struct {
+	valid    bool
+	firstID  int
+	secondID int
+	rangeID  int
+	id       int
+	name     string
+}
+
+func fastUninterpretedSymbol(context, sort, id int, name string) UninterpretedExpr {
+	return uninterpretedExprValue{contextID: context, fast: uninterpretedFast{kind: uninterpretedFastSymbol, sortID: sort, symbolID: id, symbolName: name}}
+}
+
+func fastUninterpretedUnaryFunction(context, domain, codomain, id int, name string) UnaryFunc {
+	return unaryFuncValue{contextID: context, fast: uninterpretedUnaryFunctionFast{valid: true, domainID: domain, rangeID: codomain, id: id, name: name}}
+}
+
+func fastUninterpretedBinaryFunction(context, first, second, codomain, id int, name string) BinaryFunc {
+	return binaryFuncValue{contextID: context, fast: uninterpretedBinaryFunctionFast{valid: true, firstID: first, secondID: second, rangeID: codomain, id: id, name: name}}
+}
+
+func fastApplyUninterpreted(function UnaryFunc, argument UninterpretedExpr) UninterpretedExpr {
+	if function.contextID != argument.contextID {
+		panic("gosmt: erased uninterpreted application context mismatch")
+	}
+	if function.fast.valid {
+		if argument.fast.kind == uninterpretedFastSymbol {
+			return uninterpretedExprValue{contextID: function.contextID, fast: uninterpretedFast{
+				kind: uninterpretedFastUnaryApplication, sortID: function.fast.rangeID, functionID: function.fast.id,
+				firstSortID: function.fast.domainID, firstID: argument.fast.symbolID,
+				functionName: function.fast.name, symbolName: argument.fast.symbolName,
+			}}
+		}
+	}
+	core := function.function
+	if core == nil {
+		core = smt.DeclareUnaryFunction(function.fast.domainID, function.fast.rangeID, function.fast.id, function.fast.name)
+	}
+	return uninterpretedExprValue{contextID: function.contextID, term: smt.ApplyUnary(core, materializeUninterpreted(argument))}
+}
+
+func fastApplyBinaryUninterpreted(function BinaryFunc, left, right UninterpretedExpr) UninterpretedExpr {
+	if function.contextID != left.contextID || function.contextID != right.contextID {
+		panic("gosmt: erased binary application context mismatch")
+	}
+	if function.fast.valid && left.fast.kind == uninterpretedFastSymbol && right.fast.kind == uninterpretedFastSymbol {
+		return uninterpretedExprValue{contextID: function.contextID, fast: uninterpretedFast{
+			kind: uninterpretedFastBinaryApplication, sortID: function.fast.rangeID, functionID: function.fast.id,
+			firstSortID: function.fast.firstID, secondSortID: function.fast.secondID,
+			firstID: left.fast.symbolID, secondID: right.fast.symbolID,
+			functionName: function.fast.name, symbolName: left.fast.symbolName, secondName: right.fast.symbolName,
+		}}
+	}
+	core := function.function
+	if core == nil {
+		core = smt.DeclareBinaryFunction(function.fast.firstID, function.fast.secondID, function.fast.rangeID, function.fast.id, function.fast.name)
+	}
+	return uninterpretedExprValue{contextID: function.contextID, term: smt.ApplyBinary(core, materializeUninterpreted(left), materializeUninterpreted(right))}
+}
+
+func fastEqUninterpreted(left, right UninterpretedExpr) BoolExpr {
+	if left.contextID != right.contextID {
+		panic("gosmt: erased uninterpreted equality context mismatch")
+	}
+	leftCompact, leftOK := compactUninterpretedTerm(left.fast)
+	rightCompact, rightOK := compactUninterpretedTerm(right.fast)
+	if leftOK && rightOK {
+		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastUninterpretedEUFRelation, uninterpretedEUFRelation: smt.UninterpretedEUFRelation{Left: leftCompact, Right: rightCompact}}}
+	}
+	return fastBooleanAtom(left.contextID, smt.Equal{Left: materializeUninterpreted(left), Right: materializeUninterpreted(right)})
+}
+
+func compactUninterpretedTerm(value uninterpretedFast) (smt.UninterpretedEUFTerm, bool) {
+	switch value.kind {
+	case uninterpretedFastSymbol:
+		return smt.UninterpretedEUFTerm{Kind: 1, SortID: value.sortID, SymbolID: value.symbolID}, true
+	case uninterpretedFastUnaryApplication:
+		return smt.UninterpretedEUFTerm{Kind: 2, SortID: value.sortID, FunctionID: value.functionID, FirstSortID: value.firstSortID, FirstID: value.firstID}, true
+	case uninterpretedFastBinaryApplication:
+		return smt.UninterpretedEUFTerm{Kind: 3, SortID: value.sortID, FunctionID: value.functionID, FirstSortID: value.firstSortID, SecondSortID: value.secondSortID, FirstID: value.firstID, SecondID: value.secondID}, true
+	default:
+		return smt.UninterpretedEUFTerm{}, false
+	}
+}
+
+func materializeUninterpreted(value UninterpretedExpr) smt.Term[smt.UninterpretedSort] {
+	if value.term != nil {
+		return value.term
+	}
+	switch value.fast.kind {
+	case uninterpretedFastSymbol:
+		return smt.UninterpretedConstant(value.fast.sortID, value.fast.symbolID, value.fast.symbolName)
+	case uninterpretedFastUnaryApplication:
+		function := smt.DeclareUnaryFunction(value.fast.firstSortID, value.fast.sortID, value.fast.functionID, value.fast.functionName)
+		argument := smt.UninterpretedConstant(value.fast.firstSortID, value.fast.firstID, value.fast.symbolName)
+		return smt.ApplyUnary(function, argument)
+	case uninterpretedFastBinaryApplication:
+		function := smt.DeclareBinaryFunction(value.fast.firstSortID, value.fast.secondSortID, value.fast.sortID, value.fast.functionID, value.fast.functionName)
+		first := smt.UninterpretedConstant(value.fast.firstSortID, value.fast.firstID, value.fast.symbolName)
+		second := smt.UninterpretedConstant(value.fast.secondSortID, value.fast.secondID, value.fast.secondName)
+		return smt.ApplyBinary(function, first, second)
+	}
+	panic("gosmt: invalid erased uninterpreted expression")
 }
 
 const (
@@ -1144,6 +1280,10 @@ func fastNot(value BoolExpr) BoolExpr {
 		value.fast.kind = booleanFastIntegerLinearEquality
 		return value
 	}
+	if value.fast.kind == booleanFastUninterpretedEUFRelation {
+		value.fast.uninterpretedEUFRelation.Negated = !value.fast.uninterpretedEUFRelation.Negated
+		return value
+	}
 	return boolExprValue{contextID: value.contextID, term: smt.Not{Value: materializeBoolean(value.term, value.fast)}}
 }
 
@@ -1174,6 +1314,27 @@ func fastOr(values []BoolExpr) BoolExpr {
 
 func fastAnd(values []BoolExpr) BoolExpr {
 	context := booleanContext(values)
+	if cnf, ok := compactBooleanCNF(values); ok {
+		return boolExprValue{contextID: context, term: cnf}
+	}
+	allUninterpretedEUF := len(values) > 0
+	for _, value := range values {
+		allUninterpretedEUF = allUninterpretedEUF && value.fast.kind == booleanFastUninterpretedEUFRelation
+	}
+	if allUninterpretedEUF {
+		conjunction := smt.UninterpretedEUFConjunction{Count: len(values)}
+		if len(values) > len(conjunction.Inline) {
+			conjunction.Overflow = make([]smt.UninterpretedEUFRelation, len(values))
+		}
+		for index, value := range values {
+			if conjunction.Overflow != nil {
+				conjunction.Overflow[index] = value.fast.uninterpretedEUFRelation
+			} else {
+				conjunction.Inline[index] = value.fast.uninterpretedEUFRelation
+			}
+		}
+		return boolExprValue{contextID: context, term: conjunction}
+	}
 	equalityCount, divModCount, allDivMod := 0, 0, len(values) > 0
 	for _, value := range values {
 		switch value.fast.kind {
@@ -1493,6 +1654,43 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	return boolExprValue{contextID: context, term: smt.BooleanCNF{Literals: literals, ClauseEnds: ends}}
 }
 
+func compactBooleanCNF(values []BoolExpr) (smt.BooleanInlineCNF, bool) {
+	var cnf smt.BooleanInlineCNF
+	if len(values) == 0 || len(values) > len(cnf.ClauseEnds) {
+		return cnf, false
+	}
+	for _, value := range values {
+		switch value.fast.kind {
+		case booleanFastLiteral:
+			if cnf.LiteralCount == len(cnf.Literals) {
+				return smt.BooleanInlineCNF{}, false
+			}
+			if literal := value.fast.inline[0]; literal < -64 || literal > 64 || literal == 0 {
+				return smt.BooleanInlineCNF{}, false
+			}
+			cnf.Literals[cnf.LiteralCount] = value.fast.inline[0]
+			cnf.LiteralCount++
+		case booleanFastClause:
+			literals := fastLiterals(value.fast)
+			if len(literals) == 0 || cnf.LiteralCount+len(literals) > len(cnf.Literals) {
+				return smt.BooleanInlineCNF{}, false
+			}
+			for _, literal := range literals {
+				if literal < -64 || literal > 64 || literal == 0 {
+					return smt.BooleanInlineCNF{}, false
+				}
+			}
+			copy(cnf.Literals[cnf.LiteralCount:], literals)
+			cnf.LiteralCount += len(literals)
+		default:
+			return smt.BooleanInlineCNF{}, false
+		}
+		cnf.ClauseEnds[cnf.ClauseCount] = cnf.LiteralCount
+		cnf.ClauseCount++
+	}
+	return cnf, true
+}
+
 func booleanContext(values []BoolExpr) int {
 	if len(values) == 0 {
 		return 0
@@ -1565,6 +1763,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.integerDivModRelation
 	case booleanFastIntegerDivModSystem:
 		return fast.integerDivModSystem
+	case booleanFastUninterpretedEUFRelation:
+		return fast.uninterpretedEUFRelation
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}

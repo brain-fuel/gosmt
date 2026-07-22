@@ -25,6 +25,23 @@ func TestContextIndexedBooleanSolve(t *testing.T) {
 	}
 }
 
+func TestBooleanInlineCNFFallsBackForWideSymbolIDs(t *testing.T) {
+	context := NewContext(101)
+	a := BoolConst(context, "a", 100)
+	b := BoolConst(context, "b", 101)
+	formula := And(Or(a, b), Not(a))
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	if value, found := EvalBool(result.Value, a); !found || value {
+		t.Fatalf("a=(%v,%v)", value, found)
+	}
+	if value, found := EvalBool(result.Value, b); !found || !value {
+		t.Fatalf("b=(%v,%v)", value, found)
+	}
+}
+
 func TestUnsatIsExhaustive(t *testing.T) {
 	context := NewContext(9)
 	a := BoolConst(context, "a", 1)
@@ -197,6 +214,20 @@ func TestGroundUninterpretedFunctionCongruence(t *testing.T) {
 	a := UninterpretedConst(1, context, "a", 1)
 	b := UninterpretedConst(1, context, "b", 2)
 	f := DeclareUnary(1, 2, context, "f", 1)
+	formula := And(
+		EqUninterpreted(a, b),
+		Not(EqUninterpreted(ApplyUninterpreted(f, a), ApplyUninterpreted(f, b))),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("result=%T", result)
+	}
+}
+
+func TestGroundUninterpretedFunctionZeroIdentifiersUseCompactPath(t *testing.T) {
+	context := NewContext(102)
+	a := UninterpretedConst(0, context, "a", 0)
+	b := UninterpretedConst(0, context, "b", 1)
+	f := DeclareUnary(0, 0, context, "f", 0)
 	formula := And(
 		EqUninterpreted(a, b),
 		Not(EqUninterpreted(ApplyUninterpreted(f, a), ApplyUninterpreted(f, b))),

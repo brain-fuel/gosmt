@@ -49,15 +49,15 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | QF_BOOL workload | GoSMT | Z3 4.16.0 | Throughput gate | Allocation gate |
 |---|---:|---:|---|---|
 | QF_BOOL warm check | ~3.33 ns, 0 B, 0 allocs | ~40 us, 0 B, 0 allocs | green | green |
-| QF_BOOL cold construct + check | ~467–475 ns, 1,584 B, 10 allocs | ~0.98–1.08 ms, 200 B, 13 allocs | green | red (target ≤6 allocs) |
+| QF_BOOL cold construct + check | ~1.315–1.335 us, 4,176 B, 5 allocs | ~0.85–1.05 ms, 200 B, 13 allocs | green | green (target ≤6 allocs) |
 | QF_IDL warm check | ~3.33 ns, 0 B, 0 allocs | ~147 us, 0 B, 0 allocs | green | green |
 | QF_IDL cold construct + check | ~827 ns–1.02 us, 2,704 B, 8 allocs | ~1.07–1.23 ms, 320 B, 20 allocs | green | green (target ≤10 allocs) |
 | QF_LIA exact single-equation model construction + evaluation | ~763–772 ns, 3,264 B, 6 allocs | ~1.30–1.40 ms, 224 B, 15 allocs | green | green (target ≤7 allocs) |
 | QF_LIA general two-row model construction + two evaluations | ~5.68–5.74 us, 3,680 B, 13 allocs | ~1.45–1.53 ms, 424 B, 28 allocs | green | green (target ≤14 allocs) |
 | Boolean QF_LIA disjunction+disequality model construction + evaluation | ~7.19–7.24 us, 3,552 B, 7 allocs | ~1.28–1.41 ms, 304 B, 20 allocs | green | green (target ≤10 allocs) |
 | QF_LIA signed Euclidean div/mod model construction + two evaluations | ~1.46–1.49 us, 4,144 B, 9 allocs | ~1.28–1.40 ms, 352 B, 23 allocs | green | green (target ≤11 allocs) |
-| ground QF_UF cold construct + check | ~398–399 ns, 1,504 B, 14 allocs | ~0.86–1.01 ms, 304 B, 21 allocs | green | red (target ≤10 allocs) |
-| binary ground QF_UF cold construct + check | ~667–789 ns, 2,008 B, 15 allocs | ~0.85–1.01 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
+| ground QF_UF cold construct + check | ~1.330–1.341 us, 4,680 B, 8 allocs | ~0.78–1.00 ms, 304 B, 21 allocs | green | green (target ≤10 allocs) |
+| binary ground QF_UF cold construct + check | ~1.691–1.712 us, 4,824 B, 9 allocs | ~0.83–0.97 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
 | QF_BOOL 5-into-4 pigeonhole construct + check | ~11.13–11.22 us, 30,320 B, 27 allocs | ~1.12–1.21 ms, 6,536 B, 360 allocs | green | green (target ≤180 allocs) |
 | QF_BOOL 7-into-6 pigeonhole construct + check | ~1.19–1.21 ms, 277,217 B, 44 allocs | ~2.89–2.91 ms, 24,728 B, 1,078 allocs | green | green (target ≤539 allocs) |
 | QF_LRA cold construct + exact check | ~5.08–5.22 us, 3,200 B, 5 allocs | ~1.77–2.81 ms, 304 B, 19 allocs | green | green (target ≤9 allocs) |
@@ -312,26 +312,24 @@ materialization. It uses 4 allocations versus Z3's 22 and ~769–770 ns versus
 ~1.01–1.12 ms: 81.8% fewer visible Go allocations and over 1,300x
 conservative throughput.
 
-Inside the solver-neutral `std/smt` layer, QF_BOOL cold allocation count fell
-from 20 in the initial CNF/DPLL implementation to 5, a 75% reduction; warm
-checks remain allocation-free. GoSMT's QF_BOOL compatibility-layer count fell
-from 25 to 12 (52%), clearing its internal reduction milestone. The stricter
-Z3-relative target of at most 6 allocations remains independently red.
+Inside the solver-neutral `std/smt` layer, a fixed-capacity `BooleanInlineCNF`
+keeps small authored clauses, propagation state, and models stack-backed while
+the existing watched-literal solver remains the general path. GoSMT's complete
+cold public workload now uses 5 allocations versus the pinned Z3 binding's 13,
+clearing the stricter Z3-relative target of at most 6; warm checks remain
+allocation-free.
 
-The ground-EUF standard-library core fell from 12 to 4 allocations per cold
-congruence check (67%) after moving its union-find and relation storage into
-inline arenas. Its latency improved from 275–277 ns to 235–240 ns. The GoSMT
-compatibility construction boundary still records 14 allocations, so the
-independent Z3-relative allocation gate remains red even though throughput is
-more than three orders of magnitude faster.
+The ground-EUF standard-library core retains union-find and relation storage in
+inline arenas. Compact, sort-bearing `UninterpretedEUFTerm` relations now let
+Go+ preserve dependent sort indices without allocating the general AST for
+symbol and shallow-application workloads. The complete unary public workload
+uses 8 allocations versus Z3's 21, clearing the target of at most 10.
 
 Binary EUF retains both argument sorts and the result sort in Go+ indices. Its
 same-harness contradiction equates both arguments and disequates the two
-applications. A compact polarity-bearing Boolean conjunction reduced the
-initial GoSMT result from 17 to 15 allocations, exactly half of the pinned Z3
-binding's 30, while the conservative throughput endpoints remain over 1,000x
-apart. This new binary workload clears both gates; it does not retroactively
-waive the independently red unary cold-allocation row.
+applications. Compact terms plus the polarity-bearing conjunction reduce the
+full public workload from 15 to 9 allocations versus the pinned binding's 30;
+both unary and binary EUF rows now clear their independent gates.
 
 The first-UIP CDCL implementation learns 17 clauses on the direct 5-into-4
 pigeonhole workload. Reusing conflict-analysis state reduced that core

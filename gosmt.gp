@@ -31,13 +31,13 @@ type ArrayExpr[c nat, I any, E any] enum { arrayExprValue(ContextID int, Term sm
 type BitVecArrayExpr[c nat, iw nat, ew nat] enum { bitVecArrayExprValue(ContextID int, Term smt.Term[smt.ArraySort[smt.BitVecSort[iw], smt.BitVecSort[ew]]], Fast bitVecArrayFast) BitVecArrayExpr[c, iw, ew] }
 //goplus:derive off
 //goplus:repr transparent
-type UninterpretedExpr[c nat, s nat] enum { uninterpretedExprValue(ContextID int, Term smt.Term[smt.UninterpretedSort[s]]) UninterpretedExpr[c, s] }
+type UninterpretedExpr[c nat, s nat] enum { uninterpretedExprValue(ContextID int, Term smt.Term[smt.UninterpretedSort[s]], Fast uninterpretedFast) UninterpretedExpr[c, s] }
 //goplus:derive off
 //goplus:repr transparent
-type UnaryFunc[c nat, d nat, r nat] enum { unaryFuncValue(ContextID int, Function smt.UnaryFunction[d, r]) UnaryFunc[c, d, r] }
+type UnaryFunc[c nat, d nat, r nat] enum { unaryFuncValue(ContextID int, Function smt.UnaryFunction[d, r], Fast uninterpretedUnaryFunctionFast) UnaryFunc[c, d, r] }
 //goplus:derive off
 //goplus:repr transparent
-type BinaryFunc[c nat, a nat, b nat, r nat] enum { binaryFuncValue(ContextID int, Function smt.BinaryFunction[a, b, r]) BinaryFunc[c, a, b, r] }
+type BinaryFunc[c nat, a nat, b nat, r nat] enum { binaryFuncValue(ContextID int, Function smt.BinaryFunction[a, b, r], Fast uninterpretedBinaryFunctionFast) BinaryFunc[c, a, b, r] }
 //goplus:derive off
 //goplus:repr transparent
 type RealFunc[c nat] enum { realFuncValue(ContextID int, Function smt.SortedUnaryFunction[smt.RealSort, smt.RealSort], Fast realFunctionFast) RealFunc[c] }
@@ -453,51 +453,27 @@ func ApplyBitVecBinary(0 c nat, 0 firstWidth nat, 0 secondWidth nat, 0 rangeWidt
 }
 
 func UninterpretedConst(sort nat, 0 c nat, context Context[c], name string, id int) UninterpretedExpr[c, sort] {
-	match context { case contextValue(contextID): return uninterpretedExprValue(contextID, smt.UninterpretedConstant(sort, id, name)) }
+	match context { case contextValue(contextID): return fastUninterpretedSymbol(contextID, int(sort), id, name) }
 }
 
 func DeclareUnary(domain nat, codomain nat, 0 c nat, context Context[c], name string, id int) UnaryFunc[c, domain, codomain] {
-	match context { case contextValue(contextID): return unaryFuncValue(contextID, smt.DeclareUnaryFunction(domain, codomain, id, name)) }
+	match context { case contextValue(contextID): return fastUninterpretedUnaryFunction(contextID, int(domain), int(codomain), id, name) }
 }
 
 func DeclareBinary(first nat, second nat, codomain nat, 0 c nat, context Context[c], name string, id int) BinaryFunc[c, first, second, codomain] {
-	match context { case contextValue(contextID): return binaryFuncValue(contextID, smt.DeclareBinaryFunction(first, second, codomain, id, name)) }
+	match context { case contextValue(contextID): return fastUninterpretedBinaryFunction(contextID, int(first), int(second), int(codomain), id, name) }
 }
 
 func ApplyUninterpreted(0 c nat, 0 domain nat, 0 codomain nat, function UnaryFunc[c, domain, codomain], argument UninterpretedExpr[c, domain]) UninterpretedExpr[c, codomain] {
-	match function {
-	case unaryFuncValue(contextID, core):
-		match argument {
-		case uninterpretedExprValue(argumentContext, term):
-			if contextID != argumentContext { panic("gosmt: erased uninterpreted application context mismatch") }
-			return uninterpretedExprValue(contextID, smt.ApplyUnary(core, term))
-		}
-	}
+	return fastApplyUninterpreted(function, argument)
 }
 
 func ApplyBinaryUninterpreted(0 c nat, 0 first nat, 0 second nat, 0 codomain nat, function BinaryFunc[c, first, second, codomain], left UninterpretedExpr[c, first], right UninterpretedExpr[c, second]) UninterpretedExpr[c, codomain] {
-	match function {
-	case binaryFuncValue(contextID, core):
-		match left {
-		case uninterpretedExprValue(leftContext, leftTerm):
-			match right {
-			case uninterpretedExprValue(rightContext, rightTerm):
-				if contextID != leftContext || contextID != rightContext { panic("gosmt: erased binary application context mismatch") }
-				return uninterpretedExprValue(contextID, smt.ApplyBinary(core, leftTerm, rightTerm))
-			}
-		}
-	}
+	return fastApplyBinaryUninterpreted(function, left, right)
 }
 
 func EqUninterpreted(0 c nat, 0 sort nat, left UninterpretedExpr[c, sort], right UninterpretedExpr[c, sort]) BoolExpr[c] {
-	match left {
-	case uninterpretedExprValue(contextID, leftTerm):
-		match right {
-		case uninterpretedExprValue(rightContext, rightTerm):
-			if contextID != rightContext { panic("gosmt: erased uninterpreted equality context mismatch") }
-			return fastBooleanAtom(contextID, smt.Equal(leftTerm, rightTerm))
-		}
-	}
+	return fastEqUninterpreted(left, right)
 }
 
 func Not(0 c nat, value BoolExpr[c]) BoolExpr[c] {
