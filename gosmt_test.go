@@ -1,0 +1,698 @@
+package gosmt
+
+import (
+	"testing"
+
+	"goforge.dev/goplus/std/smt"
+	"goforge.dev/goplus/std/smtlib"
+)
+
+func TestContextIndexedBooleanSolve(t *testing.T) {
+	context := NewContext(7)
+	a := BoolConst(context, "a", 1)
+	b := BoolConst(context, "b", 2)
+	formula := And(Or(a, b), Not(a))
+	result := Check(Assert(11, NewSolver(context), formula))
+	sat, ok := result.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", result)
+	}
+	if value, found := EvalBool(sat.Value, a); !found || value {
+		t.Fatalf("a=(%v,%v)", value, found)
+	}
+	if value, found := EvalBool(sat.Value, b); !found || !value {
+		t.Fatalf("b=(%v,%v)", value, found)
+	}
+}
+
+func TestUnsatIsExhaustive(t *testing.T) {
+	context := NewContext(9)
+	a := BoolConst(context, "a", 1)
+	result := Check(Assert(1, NewSolver(context), And(a, Not(a))))
+	if _, ok := result.(Unsat); !ok {
+		t.Fatalf("result=%T", result)
+	}
+}
+
+func TestAssumptionUnsatCore(t *testing.T) {
+	context := NewContext(3)
+	a := BoolConst(context, "a", 1)
+	b := BoolConst(context, "b", 2)
+	solver := Assert(1, NewSolver(context), Or(a, b))
+	result, ok := CheckAssuming(solver, Not(a), Not(b), BoolValue(context, true)).(AssumptionUnsat)
+	if !ok {
+		t.Fatalf("result=%T", result)
+	}
+	if len(result.Indices) != 2 || result.Indices[0] != 0 || result.Indices[1] != 1 {
+		t.Fatalf("core=%v", result.Indices)
+	}
+}
+
+func TestIntegerDifferenceLogicModel(t *testing.T) {
+	context := NewContext(4)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	formula := And(
+		Le(Sub(x, y), IntVal(context, 3)),
+		Le(y, IntVal(context, 2)),
+		Le(IntVal(context, 4), x),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", result)
+	}
+	xValue, xFound := EvalInt(result.Value, x)
+	yValue, yFound := EvalInt(result.Value, y)
+	if !xFound || !yFound || xValue-yValue > 3 || yValue > 2 || xValue < 4 {
+		t.Fatalf("model x=%d/%v y=%d/%v", xValue, xFound, yValue, yFound)
+	}
+}
+
+func TestArbitraryPrecisionIntegerDifferenceLogic(t *testing.T) {
+	context := NewContext(5)
+	lower, err := ParseInteger("1267650600228229401496703205376")
+	if err != nil {
+		t.Fatal(err)
+	}
+	upper, err := ParseInteger("1267650600228229401496703205377")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := IntConst(context, "wide", 1)
+	formula := And(Le(IntValExact(context, lower), x), Le(x, IntValExact(context, upper)))
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	value, found := EvalIntExact(result.Value, x)
+	if !found || value.String() < lower.String() || value.String() > upper.String() {
+		t.Fatalf("value=%s/%v", value.String(), found)
+	}
+}
+
+func TestSMTLibArbitraryPrecisionIntegerModel(t *testing.T) {
+	script := `(declare-const x Int)
+(assert (= x 1267650600228229401496703205376))
+(check-sat)
+(get-value (x))`
+	executed, ok := ExecuteSMTLib(script).(smtlib.Executed)
+	if !ok || len(executed.Responses) != 4 {
+		t.Fatalf("result=%#v", executed)
+	}
+	values, ok := executed.Responses[3].(smtlib.ValuesAvailable)
+	if !ok || len(values.Values) != 1 {
+		t.Fatalf("values=%#v", executed.Responses[3])
+	}
+	value, ok := values.Values[0].(smtlib.ArbitraryIntegerValue)
+	if !ok || value.Value.String() != "1267650600228229401496703205376" {
+		t.Fatalf("value=%#v", values.Values[0])
+	}
+}
+
+func TestSMTLibSyntaxBoundary(t *testing.T) {
+	result, ok := ParseSMTLib(`(set-logic QF_IDL) (declare-const x Int) (assert (<= x 3)) (check-sat)`).(smtlib.Parsed)
+	if !ok || len(result.Commands) != 4 {
+		t.Fatalf("result=%#v", result)
+	}
+}
+
+func TestSMTLibExecutionBoundary(t *testing.T) {
+	result, ok := ExecuteSMTLib(`(declare-const a Bool) (assert a) (check-sat) (get-value (a))`).(smtlib.Executed)
+	if !ok {
+		t.Fatalf("result=%#v", ExecuteSMTLib(`(check-sat)`))
+	}
+	if _, ok := result.Responses[2].(smtlib.Satisfiable); !ok {
+		t.Fatalf("check=%T", result.Responses[2])
+	}
+}
+
+func TestGroundUninterpretedFunctionCongruence(t *testing.T) {
+	context := NewContext(12)
+	a := UninterpretedConst(1, context, "a", 1)
+	b := UninterpretedConst(1, context, "b", 2)
+	f := DeclareUnary(1, 2, context, "f", 1)
+	formula := And(
+		EqUninterpreted(a, b),
+		Not(EqUninterpreted(ApplyUninterpreted(f, a), ApplyUninterpreted(f, b))),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("result=%T", result)
+	}
+}
+
+func TestGroundBinaryUninterpretedFunctionCongruence(t *testing.T) {
+	context := NewContext(12)
+	a := UninterpretedConst(1, context, "a", 1)
+	aPrime := UninterpretedConst(1, context, "a-prime", 2)
+	b := UninterpretedConst(2, context, "b", 3)
+	bPrime := UninterpretedConst(2, context, "b-prime", 4)
+	combine := DeclareBinary(1, 2, 3, context, "combine", 5)
+	formula := And(
+		EqUninterpreted(a, aPrime),
+		EqUninterpreted(b, bPrime),
+		Not(EqUninterpreted(
+			ApplyBinaryUninterpreted(combine, a, b),
+			ApplyBinaryUninterpreted(combine, aPrime, bPrime),
+		)),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("result=%T", result)
+	}
+}
+
+func TestDisjointEUFLinearRealCombination(t *testing.T) {
+	context := NewContext(15)
+	a := UninterpretedConst(1, context, "a", 1)
+	b := UninterpretedConst(1, context, "b", 2)
+	function := DeclareUnary(1, 1, context, "f", 3)
+	x := RealConst(context, "x", 4)
+	formula := And(
+		Not(EqUninterpreted(a, b)),
+		EqUninterpreted(ApplyUninterpreted(function, a), ApplyUninterpreted(function, b)),
+		LeReal(RealVal(context, Rational(1, 1)), x),
+		LeReal(x, RealVal(context, Rational(2, 1))),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	value, found := EvalReal(result.Value, x)
+	if !found || CompareRational(value, Rational(1, 1)) < 0 || CompareRational(value, Rational(2, 1)) > 0 {
+		t.Fatalf("x=%s/%v", value, found)
+	}
+}
+
+func TestRealFunctionCongruenceAndSharedBoundary(t *testing.T) {
+	context := NewContext(16)
+	x := RealConst(context, "x", 1)
+	y := RealConst(context, "y", 2)
+	function := DeclareRealFunction(context, "f", 3)
+	congruence := And(
+		EqReal(x, y),
+		Not(EqReal(ApplyRealFunction(function, x), ApplyRealFunction(function, y))),
+	)
+	if result := Check(Assert(1, NewSolver(context), congruence)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("congruence result=%T", result)
+	}
+	shared := And(
+		LeReal(x, y),
+		LeReal(y, x),
+		Not(EqReal(ApplyRealFunction(function, x), ApplyRealFunction(function, y))),
+	)
+	if result := Check(Assert(2, NewSolver(context), shared)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("shared result=%T", result)
+	}
+}
+
+func TestRealFunctionApplicationsInsideArithmeticArePurified(t *testing.T) {
+	context := NewContext(17)
+	x := RealConst(context, "x", 1)
+	y := RealConst(context, "y", 2)
+	zero := RealVal(context, Rational(0, 1))
+	function := DeclareRealFunction(context, "f", 3)
+	formula := And(
+		EqReal(x, y),
+		LeReal(ApplyRealFunction(function, x), zero),
+		LtReal(zero, ApplyRealFunction(function, y)),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("result=%T", result)
+	}
+}
+
+func TestRealBinaryFunctionApplicationsInsideArithmeticArePurified(t *testing.T) {
+	context := NewContext(71)
+	x := RealConst(context, "x", 1)
+	y := RealConst(context, "y", 2)
+	zero := RealVal(context, Rational(0, 1))
+	function := DeclareRealBinary(context, "combine", 3)
+	left := ApplyRealBinary(function, AddReal(x, RealVal(context, Rational(1, 1))), y)
+	right := ApplyRealBinary(function, AddReal(y, RealVal(context, Rational(1, 1))), x)
+	formula := And(
+		EqReal(x, y),
+		LeReal(left, zero),
+		LtReal(zero, right),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("binary applications with congruent affine arguments should be unsatisfiable")
+	}
+}
+
+func TestIndexedBitVectorOperations(t *testing.T) {
+	context := NewContext(72)
+	x := BitVecConst(8, context, "x", 1)
+	value := BitVecValue(8, context, 0xa5)
+	masked := AndBitVec(x, BitVecValue(8, context, 0x0f))
+	formula := And(
+		EqBitVec(x, value),
+		Not(EqBitVec(masked, BitVecValue(8, context, 0x05))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("indexed bit-vector contradiction should be unsatisfiable")
+	}
+	wrapped := AddBitVec(BitVecValue(8, context, 255), BitVecValue(8, context, 1))
+	if _, ok := Check(Assert(2, NewSolver(context), Not(EqBitVec(wrapped, BitVecValue(8, context, 0))))).(Unsat); !ok {
+		t.Fatal("indexed 8-bit addition should wrap")
+	}
+}
+
+func TestIndexedBitVectorModel(t *testing.T) {
+	context := NewContext(73)
+	x := BitVecConst(8, context, "x", 1)
+	result := Check(Assert(1, NewSolver(context), EqBitVec(x, BitVecValue(8, context, 0xa5))))
+	sat, ok := result.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", result)
+	}
+	value, ok := ModelBitVec(sat.Value, x)
+	bits, small := value.Uint64()
+	if !ok || !small || bits != 0xa5 {
+		t.Fatalf("model value=(%#x,%v,%v)", bits, small, ok)
+	}
+}
+
+func TestBitVectorIntegerConversions(t *testing.T) {
+	context := NewContext(1)
+	x := BitVecConst(8, context, "x", 1)
+	formula := And(
+		EqBitVec(x, BitVecValue(8, context, 0xff)),
+		EqInt(BvToNat(x), IntVal(context, 255)),
+		EqInt(BvToInt(x), IntVal(context, -1)),
+		EqBitVec(IntToBitVec(8, IntVal(context, -129)), BitVecValue(8, context, 0x7f)),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Sat); return ok }() == false {
+		t.Fatalf("result=%#v", result)
+	}
+}
+
+func TestGroundIntegerArrayReadOverWrite(t *testing.T) {
+	context := NewContext(31)
+	base := ConstIntArray(IntVal(context, 0))
+	updated := StoreIntArray(base, IntVal(context, 7), IntVal(context, 42))
+	nested := StoreIntArray(updated, IntVal(context, 8), IntVal(context, 99))
+	formula := And(
+		EqInt(SelectIntArray(updated, IntVal(context, 7)), IntVal(context, 42)),
+		EqInt(SelectIntArray(updated, IntVal(context, 8)), IntVal(context, 0)),
+		EqInt(SelectIntArray(nested, IntVal(context, 7)), IntVal(context, 42)),
+		EqInt(SelectIntArray(nested, IntVal(context, 8)), IntVal(context, 99)),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Sat); return ok }() == false {
+		t.Fatalf("result=%#v", result)
+	}
+	contradiction := Not(EqInt(SelectIntArray(updated, IntVal(context, 7)), IntVal(context, 42)))
+	if result := Check(Assert(2, NewSolver(context), contradiction)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("contradiction=%#v", result)
+	}
+}
+
+func TestGroundIntegerArraySelectCongruence(t *testing.T) {
+	context := NewContext(32)
+	a := IntArrayConst(context, "a", 1)
+	b := IntArrayConst(context, "b", 2)
+	index := IntVal(context, 7)
+	formula := And(EqArray(a, b), Not(EqInt(SelectIntArray(a, index), SelectIntArray(b, index))))
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("result=%#v", result)
+	}
+}
+
+func TestGroundIntegerArraySymbolicIndex(t *testing.T) {
+	context := NewContext(33)
+	a := IntArrayConst(context, "a", 1)
+	i := IntConst(context, "i", 11)
+	j := IntConst(context, "j", 12)
+	formula := And(EqInt(i, j), Not(EqInt(SelectIntArray(StoreIntArray(a, i, IntVal(context, 42)), j), IntVal(context, 42))))
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("result=%#v", result)
+	}
+}
+
+func TestGroundIntegerArrayExtensionalModel(t *testing.T) {
+	context := NewContext(34)
+	a := IntArrayConst(context, "a", 31)
+	b := IntArrayConst(context, "b", 32)
+	seven := IntVal(context, 7)
+	formula := And(Not(EqArray(a, b)), EqInt(SelectIntArray(a, seven), IntVal(context, 42)))
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%#v", Check(Assert(1, NewSolver(context), formula)))
+	}
+	sevenValue, sevenOK := EvalIntArray(result.Value, a, smt.NewIntegerValue(7))
+	aWitness, aOK := EvalIntArray(result.Value, a, smt.NewIntegerValue(8))
+	bWitness, bOK := EvalIntArray(result.Value, b, smt.NewIntegerValue(8))
+	if !sevenOK || smt.CompareIntegerValue(sevenValue, smt.NewIntegerValue(42)) != 0 {
+		t.Fatalf("a[7]=%v/%v", sevenValue, sevenOK)
+	}
+	if !aOK || !bOK || smt.CompareIntegerValue(aWitness, bWitness) == 0 {
+		t.Fatalf("witness a[8]=%v/%v b[8]=%v/%v", aWitness, aOK, bWitness, bOK)
+	}
+}
+
+func TestGroundIntegerArrayStoreExtensionality(t *testing.T) {
+	context := NewContext(35)
+	a := IntArrayConst(context, "a", 41)
+	seven, eight := IntVal(context, 7), IntVal(context, 8)
+	identity := StoreIntArray(a, seven, SelectIntArray(a, seven))
+	left := StoreIntArray(StoreIntArray(a, seven, IntVal(context, 1)), eight, IntVal(context, 2))
+	right := StoreIntArray(StoreIntArray(a, eight, IntVal(context, 2)), seven, IntVal(context, 1))
+	formula := And(EqArray(identity, a), Not(EqArray(left, right)))
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("result=%#v", result)
+	}
+	different := Not(EqArray(StoreIntArray(a, seven, IntVal(context, 1)), StoreIntArray(a, seven, IntVal(context, 2))))
+	if result := Check(Assert(2, NewSolver(context), different)); func() bool { _, ok := result.(Sat); return ok }() == false {
+		t.Fatalf("different=%#v", result)
+	}
+}
+
+func TestGroundIntegerArrayCrossBaseStoreEquality(t *testing.T) {
+	context := NewContext(36)
+	a := IntArrayConst(context, "a", 51)
+	b := IntArrayConst(context, "b", 52)
+	seven, eight := IntVal(context, 7), IntVal(context, 8)
+	left := StoreIntArray(a, seven, IntVal(context, 1))
+	right := StoreIntArray(b, seven, IntVal(context, 1))
+	formula := And(EqArray(left, right), Not(EqInt(SelectIntArray(a, eight), SelectIntArray(b, eight))))
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("outside bridge=%#v", result)
+	}
+	overwritten := And(
+		EqArray(left, right),
+		EqInt(SelectIntArray(a, seven), IntVal(context, 2)),
+		EqInt(SelectIntArray(b, seven), IntVal(context, 3)),
+	)
+	result, ok := Check(Assert(2, NewSolver(context), overwritten)).(Sat)
+	if !ok {
+		t.Fatalf("overwritten=%#v", Check(Assert(2, NewSolver(context), overwritten)))
+	}
+	aOutside, aOK := EvalIntArray(result.Value, a, smt.NewIntegerValue(8))
+	bOutside, bOK := EvalIntArray(result.Value, b, smt.NewIntegerValue(8))
+	if !aOK || !bOK || smt.CompareIntegerValue(aOutside, bOutside) != 0 {
+		t.Fatalf("model bridge a[8]=%v/%v b[8]=%v/%v", aOutside, aOK, bOutside, bOK)
+	}
+}
+
+func TestGroundIntegerArrayConstantBaseEquality(t *testing.T) {
+	context := NewContext(37)
+	a := IntArrayConst(context, "a", 61)
+	zero := ConstIntArray(IntVal(context, 0))
+	seven, eight := IntVal(context, 7), IntVal(context, 8)
+	formula := And(EqArray(a, zero), Not(EqInt(SelectIntArray(a, eight), IntVal(context, 0))))
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("default=%#v", result)
+	}
+	overwritten := And(
+		EqArray(StoreIntArray(a, seven, IntVal(context, 0)), StoreIntArray(zero, seven, IntVal(context, 0))),
+		EqInt(SelectIntArray(a, seven), IntVal(context, 5)),
+	)
+	result, ok := Check(Assert(2, NewSolver(context), overwritten)).(Sat)
+	if !ok {
+		t.Fatalf("overwritten=%#v", Check(Assert(2, NewSolver(context), overwritten)))
+	}
+	outside, found := EvalIntArray(result.Value, a, smt.NewIntegerValue(8))
+	if !found || smt.CompareIntegerValue(outside, smt.NewIntegerValue(0)) != 0 {
+		t.Fatalf("model a[8]=%v/%v", outside, found)
+	}
+}
+
+func TestMixedArrayArithmeticSolving(t *testing.T) {
+	context := NewContext(38)
+	a := IntArrayConst(context, "a", 71)
+	i := IntConst(context, "i", 91)
+	j := IntConst(context, "j", 92)
+	value := IntVal(context, 42)
+	readConflict := Not(EqInt(SelectIntArray(StoreIntArray(a, i, value), j), value))
+	equalBounds := And(Le(i, j), Le(j, i), readConflict)
+	if result := Check(Assert(1, NewSolver(context), equalBounds)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("shared indices=%#v", result)
+	}
+	strictBounds := And(Lt(i, j), readConflict)
+	result, ok := Check(Assert(2, NewSolver(context), strictBounds)).(Sat)
+	if !ok {
+		t.Fatalf("distinct indices=%#v", Check(Assert(2, NewSolver(context), strictBounds)))
+	}
+	iValue, iOK := EvalIntExact(result.Value, i)
+	jValue, jOK := EvalIntExact(result.Value, j)
+	if !iOK || !jOK || smt.CompareIntegerValue(iValue, jValue) >= 0 {
+		t.Fatalf("model i=%v/%v j=%v/%v", iValue, iOK, jValue, jOK)
+	}
+	exactIndex := IntVal(context, 7)
+	arrayLaw := EqInt(SelectIntArray(StoreIntArray(a, exactIndex, value), exactIndex), value)
+	bvConflict := Not(EqBitVec(BitVecValue(8, context, 0xa5), BitVecValue(8, context, 0xa5)))
+	if result := Check(Assert(3, NewSolver(context), And(arrayLaw, bvConflict))); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("array+BV=%#v", result)
+	}
+}
+
+func TestGroundBitVectorArrayReadOverWrite(t *testing.T) {
+	context := NewContext(40)
+	base := ConstBitVecArray(4, BitVecValue(8, context, 0))
+	three := BitVecValue(4, context, 3)
+	four := BitVecValue(4, context, 4)
+	value := BitVecValue(8, context, 0xa5)
+	updated := StoreBitVecArray(base, three, value)
+	formula := And(
+		EqBitVec(SelectBitVecArray(updated, three), value),
+		EqBitVec(SelectBitVecArray(updated, four), BitVecValue(8, context, 0)),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Sat); return ok }() == false {
+		t.Fatalf("result=%#v", result)
+	}
+	contradiction := Not(EqBitVec(SelectBitVecArray(updated, three), value))
+	if result := Check(Assert(2, NewSolver(context), contradiction)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("contradiction=%#v", result)
+	}
+	symbol := BitVecArrayConst(4, 8, context, "memory", 1)
+	symbolUpdated := StoreBitVecArray(symbol, three, value)
+	if result := Check(Assert(3, NewSolver(context), Not(EqBitVec(SelectBitVecArray(symbolUpdated, three), value)))); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("symbol read-over-write=%#v", result)
+	}
+}
+
+func TestGroundBitVectorArrayCongruence(t *testing.T) {
+	context := NewContext(41)
+	left := BitVecArrayConst(4, 8, context, "left", 1)
+	right := BitVecArrayConst(4, 8, context, "right", 2)
+	index := BitVecValue(4, context, 7)
+	formula := And(
+		EqBitVecArray(left, right),
+		Not(EqBitVec(SelectBitVecArray(left, index), SelectBitVecArray(right, index))),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("result=%#v", result)
+	}
+}
+
+func TestGroundBitVectorArraySymbolicIndex(t *testing.T) {
+	context := NewContext(42)
+	array := BitVecArrayConst(4, 8, context, "memory", 1)
+	left := BitVecConst(4, context, "i", 2)
+	right := BitVecConst(4, context, "j", 3)
+	value := BitVecValue(8, context, 0xa5)
+	formula := And(
+		EqBitVec(left, right),
+		Not(EqBitVec(SelectBitVecArray(StoreBitVecArray(array, left, value), right), value)),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("result=%#v", result)
+	}
+}
+
+func TestIndexedBitVectorOrdering(t *testing.T) {
+	context := NewContext(74)
+	x := BitVecConst(8, context, "x", 1)
+	formula := And(
+		EqBitVec(x, BitVecValue(8, context, 0x7f)),
+		Not(UltBitVec(x, BitVecValue(8, context, 0x80))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("127 must be unsigned-less than 128")
+	}
+	if _, ok := Check(Assert(2, NewSolver(context), Not(SltBitVec(BitVecValue(8, context, 0xff), BitVecValue(8, context, 0))))).(Unsat); !ok {
+		t.Fatal("signed -1 must be less than zero")
+	}
+}
+
+func TestIndexedBitVectorSubtractionAndMultiplication(t *testing.T) {
+	context := NewContext(75)
+	x := BitVecConst(8, context, "x", 1)
+	formula := And(
+		EqBitVec(x, BitVecValue(8, context, 13)),
+		Not(EqBitVec(MulBitVec(x, BitVecValue(8, context, 7)), BitVecValue(8, context, 91))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("symbol-dependent modular multiplication should be exact")
+	}
+	underflow := SubBitVec(BitVecValue(8, context, 0), BitVecValue(8, context, 1))
+	if _, ok := Check(Assert(2, NewSolver(context), Not(EqBitVec(underflow, BitVecValue(8, context, 0xff))))).(Unsat); !ok {
+		t.Fatal("subtraction should wrap at the indexed width")
+	}
+}
+
+func TestIndexedBitVectorShifts(t *testing.T) {
+	context := NewContext(76)
+	x := BitVecConst(8, context, "x", 1)
+	formula := And(
+		EqBitVec(x, BitVecValue(8, context, 0x81)),
+		Not(EqBitVec(LshrBitVec(x, BitVecValue(8, context, 4)), BitVecValue(8, context, 8))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("symbol-dependent logical shift should be exact")
+	}
+	if _, ok := Check(Assert(2, NewSolver(context), Not(EqBitVec(AshrBitVec(BitVecValue(8, context, 0x80), BitVecValue(8, context, 9)), BitVecValue(8, context, 0xff))))).(Unsat); !ok {
+		t.Fatal("out-of-range arithmetic shift should sign-fill")
+	}
+}
+
+func TestIndexedBitVectorDivisionAndRemainder(t *testing.T) {
+	context := NewContext(77)
+	x := BitVecConst(8, context, "x", 1)
+	formula := And(
+		EqBitVec(x, BitVecValue(8, context, 100)),
+		Not(EqBitVec(UdivBitVec(x, BitVecValue(8, context, 7)), BitVecValue(8, context, 14))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("symbol-dependent unsigned division should be exact")
+	}
+	zero := BitVecValue(8, context, 0)
+	if _, ok := Check(Assert(2, NewSolver(context), Not(EqBitVec(SdivBitVec(BitVecValue(8, context, 0x80), zero), BitVecValue(8, context, 1))))).(Unsat); !ok {
+		t.Fatal("negative signed division by zero should yield one")
+	}
+}
+
+func TestIndexedBitVectorStructuralOperators(t *testing.T) {
+	context := NewContext(78)
+	x := BitVecConst(8, context, "x", 1)
+	upper := ExtractBitVec(7, 4, x)
+	formula := And(
+		EqBitVec(x, BitVecValue(8, context, 0xab)),
+		Not(EqBitVec(upper, BitVecValue(4, context, 0xa))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("symbol-dependent extraction should preserve computed width")
+	}
+	joined := ConcatBitVec(4, 4, BitVecValue(4, context, 0xa), BitVecValue(4, context, 0xb))
+	if _, ok := Check(Assert(2, NewSolver(context), Not(EqBitVec(joined, BitVecValue(8, context, 0xab))))).(Unsat); !ok {
+		t.Fatal("concatenation should add indexed widths")
+	}
+}
+
+func TestIndexedBitVectorRotateRepeatOperators(t *testing.T) {
+	context := NewContext(79)
+	x := BitVecConst(8, context, "x", 1)
+	formula := And(
+		EqBitVec(x, BitVecValue(8, context, 0x81)),
+		Not(EqBitVec(RotateLeftBitVec(1, x), BitVecValue(8, context, 0x03))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("symbol-dependent rotation should be exact")
+	}
+	repeated := RepeatBitVec(2, BitVecValue(4, context, 0xa))
+	if _, ok := Check(Assert(2, NewSolver(context), Not(EqBitVec(repeated, BitVecValue(8, context, 0xaa))))).(Unsat); !ok {
+		t.Fatal("repeat should multiply the indexed width")
+	}
+	script := `(set-logic QF_BV)
+(assert (= ((_ rotate_right 1) #x03) #x81))
+(assert (= ((_ repeat 2) #xa) #xaa))
+(check-sat)`
+	result, ok := ExecuteSMTLib(script).(smtlib.Executed)
+	if !ok || len(result.Responses) != 4 {
+		t.Fatalf("SMT-LIB result=%#v", result)
+	}
+}
+
+func TestIndexedBitVectorOverflowPredicates(t *testing.T) {
+	context := NewContext(80)
+	x := BitVecConst(8, context, "x", 1)
+	formula := And(
+		EqBitVec(x, BitVecValue(8, context, 0xff)),
+		Not(UaddOverflowBitVec(x, BitVecValue(8, context, 1))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("symbol-dependent unsigned-add overflow should be exact")
+	}
+	boundaries := []BoolExpr{
+		SaddOverflowBitVec(BitVecValue(8, context, 0x7f), BitVecValue(8, context, 1)),
+		UsubOverflowBitVec(BitVecValue(8, context, 0), BitVecValue(8, context, 1)),
+		SsubOverflowBitVec(BitVecValue(8, context, 0x80), BitVecValue(8, context, 1)),
+		UmulOverflowBitVec(BitVecValue(8, context, 0x10), BitVecValue(8, context, 0x10)),
+		SmulOverflowBitVec(BitVecValue(8, context, 0x40), BitVecValue(8, context, 2)),
+		SdivOverflowBitVec(BitVecValue(8, context, 0x80), BitVecValue(8, context, 0xff)),
+		NegOverflowBitVec(BitVecValue(8, context, 0x80)),
+	}
+	for index, predicate := range boundaries {
+		if _, ok := Check(Assert(index+2, NewSolver(context), Not(predicate))).(Unsat); !ok {
+			t.Fatalf("boundary %d should overflow", index)
+		}
+	}
+}
+
+func TestGroundBitVectorUninterpretedFunctions(t *testing.T) {
+	context := NewContext(81)
+	x := BitVecConst(8, context, "x", 1)
+	y := BitVecConst(8, context, "y", 2)
+	function := DeclareBitVecFunction(8, 4, context, "f", 3)
+	formula := And(
+		EqBitVec(x, y),
+		Not(EqBitVec(ApplyBitVecFunction(function, x), ApplyBitVecFunction(function, y))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("unary QF_UFBV congruence should be exact")
+	}
+	a := BitVecConst(4, context, "a", 4)
+	b := BitVecConst(4, context, "b", 5)
+	binary := DeclareBitVecBinary(8, 4, 16, context, "combine", 6)
+	left := ApplyBitVecBinary(binary, x, a)
+	right := ApplyBitVecBinary(binary, y, b)
+	if _, ok := Check(Assert(2, NewSolver(context), And(EqBitVec(x, y), EqBitVec(a, b), Not(EqBitVec(left, right))))).(Unsat); !ok {
+		t.Fatal("binary QF_UFBV congruence should be exact")
+	}
+}
+
+func TestExactLinearRealModel(t *testing.T) {
+	context := NewContext(13)
+	x := RealConst(context, "x", 1)
+	y := RealConst(context, "y", 2)
+	formula := And(
+		LeReal(AddReal(x, y), RealVal(context, Rational(3, 1))),
+		LeReal(RealVal(context, Rational(1, 2)), x),
+		LtReal(RealVal(context, Rational(1, 3)), y),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	xValue, xOK := EvalReal(result.Value, x)
+	yValue, yOK := EvalReal(result.Value, y)
+	if !xOK || !yOK || xValue.Sign() < 0 || yValue.Sign() <= 0 {
+		t.Fatalf("model x=%s/%v y=%s/%v", xValue, xOK, yValue, yOK)
+	}
+}
+
+func TestExactLinearRealFastPathOverflowsInlineCoefficients(t *testing.T) {
+	context := NewContext(14)
+	variables := []RealExpr{
+		RealConst(context, "a", 1), RealConst(context, "b", 2),
+		RealConst(context, "c", 3), RealConst(context, "d", 4),
+		RealConst(context, "e", 5), RealConst(context, "f", 6),
+	}
+	formula := And(
+		LeReal(AddReal(variables...), RealVal(context, Rational(6, 1))),
+		LeReal(RealVal(context, Rational(1, 1)), variables[0]),
+		LeReal(RealVal(context, Rational(1, 1)), variables[1]),
+		LeReal(RealVal(context, Rational(1, 1)), variables[2]),
+		LeReal(RealVal(context, Rational(1, 1)), variables[3]),
+		LeReal(RealVal(context, Rational(1, 1)), variables[4]),
+		LeReal(RealVal(context, Rational(1, 1)), variables[5]),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	for index, variable := range variables {
+		value, found := EvalReal(result.Value, variable)
+		if !found || CompareRational(value, Rational(1, 1)) < 0 {
+			t.Fatalf("variable %d=%s/%v", index, value, found)
+		}
+	}
+}

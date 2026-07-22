@@ -1,0 +1,17 @@
+# Roadmap
+
+1. Typed hash-consed AST, symbols, contexts, immutable snapshots, diagnostics.
+2. CDCL SAT with watched literals, VSIDS, restarts, clause learning, cores.
+3. Congruence closure and Nelson–Oppen theory combination.
+4. Exact rationals plus simplex/cuts for LRA/LIA and difference logic.
+5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
+6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
+7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
+8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.
+9. Z3 differential farm, SMT-COMP corpus, proof/model validation, fuzz/race.
+10. Per-family 2× throughput and 50% allocation reductions, independent consumer,
+    versioned GoForge/pkg.go.dev release.
+
+Performance is gated separately for construction, simplification, SAT, each
+theory, incremental traces, parsing, model extraction, and optimization. No
+aggregate score can compensate for a workload family below either target.
