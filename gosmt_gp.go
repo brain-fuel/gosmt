@@ -759,6 +759,9 @@ func EqBitVecArray(left BitVecArrayExpr, right BitVecArrayExpr) BoolExpr {
 			if contextID != rightContext {
 				panic("gosmt: erased bit-vector array context mismatch")
 			}
+			if result, ok := fastEqBitVectorArray(contextID, leftFast, rightFast); ok {
+				return result
+			}
 			return fastBooleanAtom(contextID, smt.Equal{Left: materializeBitVectorArray(leftTerm, leftFast), Right: materializeBitVectorArray(rightTerm, rightFast)})
 		default:
 			panic("goplus: impossible enum value in match")
@@ -1429,18 +1432,43 @@ func EvalIntArray(model Model, array ArrayExpr[smt.IntSort, smt.IntSort], index 
 	}
 }
 
-//goplus:dep EvalReal(0 c nat, 0 a nat, model Model[c, a], expression RealExpr[c]) (smt.Rational, bool)
-func EvalReal(model Model, expression RealExpr) (smt.Rational, bool) {
+//goplus:dep EvalBitVecArray(0 c nat, 0 a nat, 0 indexWidth nat, 0 elementWidth nat, model Model[c, a], array BitVecArrayExpr[c, indexWidth, elementWidth], index smt.BitVectorValue) (smt.BitVectorValue, bool)
+func EvalBitVecArray(model Model, array BitVecArrayExpr, index smt.BitVectorValue) (smt.BitVectorValue, bool) {
 	switch __gp_m69 := any(model).(type) {
 	case modelValue:
 		context := __gp_m69.contextID
 		core := __gp_m69.core
 
-		switch __gp_m70 := any(expression).(type) {
-		case realExprValue:
-			expressionContext := __gp_m70.contextID
+		switch __gp_m70 := any(array).(type) {
+		case bitVecArrayExprValue:
+			arrayContext := __gp_m70.contextID
 			term := __gp_m70.term
 			fast := __gp_m70.fast
+
+			if context != arrayContext {
+				panic("gosmt: erased model/bit-vector-array context mismatch")
+			}
+			return smt.BitVectorArrayValue(core, materializeBitVectorArray(term, fast), index)
+		default:
+			panic("goplus: impossible enum value in match")
+		}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep EvalReal(0 c nat, 0 a nat, model Model[c, a], expression RealExpr[c]) (smt.Rational, bool)
+func EvalReal(model Model, expression RealExpr) (smt.Rational, bool) {
+	switch __gp_m71 := any(model).(type) {
+	case modelValue:
+		context := __gp_m71.contextID
+		core := __gp_m71.core
+
+		switch __gp_m72 := any(expression).(type) {
+		case realExprValue:
+			expressionContext := __gp_m72.contextID
+			term := __gp_m72.term
+			fast := __gp_m72.fast
 
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")

@@ -81,6 +81,8 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | mixed QF_AUFLIA IDL-to-array index equality exchange | ~830–834 ns, 2,328 B, 7 allocs | ~0.941–1.110 ms, 352 B, 22 allocs | green | green (target ≤11 allocs) |
 | ground QF_AUFBV exact-index read-over-write | ~554–560 ns, 2,088 B, 4 allocs | ~1.06–1.15 ms, 248 B, 16 allocs | green | green (target ≤8 allocs) |
 | ground QF_AUFBV symbolic-index equality exchange | ~865–868 ns, 2,296 B, 5 allocs | ~1.05–1.16 ms, 360 B, 23 allocs | green | green (target ≤11 allocs) |
+| ground QF_AUFBV extensional model + two evaluations | ~1.31–1.32 us, 8,208 B, 8 allocs | ~1.12–1.18 ms, 272 B, 18 allocs | green | green (target ≤9 allocs) |
+| ground QF_AUFBV two-store extensionality | ~769–770 ns, 2,088 B, 4 allocs | ~1.01–1.12 ms, 344 B, 22 allocs | green | green (target ≤11 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -267,6 +269,20 @@ corresponding 8-bit stored value. The stdlib's typed
 congruence, while GoSMT preserves the one-store witness compactly. It uses 5
 allocations versus Z3's 23 and ~865–868 ns versus ~1.05–1.16 ms: over 78%
 fewer visible Go allocations and over 1,200x conservative throughput.
+
+The QF_AUFBV extensional-model workload requires two arrays to differ, checks
+the generated 4-bit witness, and evaluates both 8-bit values. Width-aware
+symbols retain the evidence needed after dependent-index erasure. The complete
+path uses 8 allocations versus Z3's 18 and ~1.31–1.32 us versus
+~1.12–1.18 ms: 55.6% fewer visible Go allocations and over 840x conservative
+throughput.
+
+The two-store QF_AUFBV workload denies equality between extensionally
+identical arrays whose distinct updates occur in opposite order. The compact
+GoSMT witness normalizes overwrites and compares the finite update maps before
+materialization. It uses 4 allocations versus Z3's 22 and ~769–770 ns versus
+~1.01–1.12 ms: 81.8% fewer visible Go allocations and over 1,300x
+conservative throughput.
 
 Inside the solver-neutral `std/smt` layer, QF_BOOL cold allocation count fell
 from 20 in the initial CNF/DPLL implementation to 5, a 75% reduction; warm

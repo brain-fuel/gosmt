@@ -650,6 +650,38 @@ func TestRandomGroundBitVectorArraySymbolicIndicesAgreeWithPinnedZ3(t *testing.T
 	}
 }
 
+func TestRandomGroundBitVectorArrayStoreExtensionalityAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x42564153544f5245))
+	for example := 0; example < 64; example++ {
+		firstIndex := random.Intn(16)
+		secondIndex := (firstIndex + 1 + random.Intn(15)) & 0xf
+		firstValue, secondValue := random.Intn(256), random.Intn(256)
+		rightSecondValue := secondValue
+		if example%2 != 0 {
+			rightSecondValue = (rightSecondValue + 1) & 0xff
+		}
+		script := fmt.Sprintf(`(set-logic QF_AUFBV)
+(declare-const a (Array (_ BitVec 4) (_ BitVec 8)))
+(assert (= (store (store a #x%x #x%02x) #x%x #x%02x)
+           (store (store a #x%x #x%02x) #x%x #x%02x)))
+(check-sat)`, firstIndex, firstValue, secondIndex, secondValue, secondIndex, rightSecondValue, firstIndex, firstValue)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestRandomGroundArrayCongruenceAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

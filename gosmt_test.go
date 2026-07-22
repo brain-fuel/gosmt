@@ -483,6 +483,54 @@ func TestGroundBitVectorArrayCongruence(t *testing.T) {
 	}
 }
 
+func TestGroundBitVectorArrayDisequality(t *testing.T) {
+	context := NewContext(43)
+	left := BitVecArrayConst(4, 8, context, "left", 1)
+	right := BitVecArrayConst(4, 8, context, "right", 2)
+	if result := Check(Assert(1, NewSolver(context), Not(EqBitVecArray(left, right)))); func() bool { _, ok := result.(Sat); return ok }() == false {
+		t.Fatalf("distinct arrays=%#v", result)
+	}
+	formula := And(EqBitVecArray(left, right), Not(EqBitVecArray(left, right)))
+	if result := Check(Assert(2, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("equal and distinct=%#v", result)
+	}
+}
+
+func TestGroundBitVectorArrayExtensionalModel(t *testing.T) {
+	context := NewContext(45)
+	left := BitVecArrayConst(4, 8, context, "left", 1)
+	right := BitVecArrayConst(4, 8, context, "right", 2)
+	result, ok := Check(Assert(1, NewSolver(context), Not(EqBitVecArray(left, right)))).(Sat)
+	if !ok {
+		t.Fatalf("result=%#v", Check(Assert(1, NewSolver(context), Not(EqBitVecArray(left, right)))))
+	}
+	index := smt.NewBitVectorUint64(4, 0)
+	leftValue, leftOK := EvalBitVecArray(result.Value, left, index)
+	rightValue, rightOK := EvalBitVecArray(result.Value, right, index)
+	if !leftOK || !rightOK || smt.EqualBitVectorValue(leftValue, rightValue) {
+		t.Fatalf("left=%#v/%v right=%#v/%v", leftValue, leftOK, rightValue, rightOK)
+	}
+}
+
+func TestGroundBitVectorArrayStoreExtensionality(t *testing.T) {
+	context := NewContext(44)
+	base := BitVecArrayConst(4, 8, context, "memory", 1)
+	three := BitVecValue(4, context, 3)
+	four := BitVecValue(4, context, 4)
+	one := BitVecValue(8, context, 1)
+	two := BitVecValue(8, context, 2)
+	left := StoreBitVecArray(StoreBitVecArray(base, three, one), four, two)
+	right := StoreBitVecArray(StoreBitVecArray(base, four, two), three, one)
+	if result := Check(Assert(1, NewSolver(context), Not(EqBitVecArray(left, right)))); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("commuting stores=%#v", result)
+	}
+	overwrite := StoreBitVecArray(StoreBitVecArray(base, three, one), three, two)
+	final := StoreBitVecArray(base, three, two)
+	if result := Check(Assert(2, NewSolver(context), Not(EqBitVecArray(overwrite, final)))); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("overwrite=%#v", result)
+	}
+}
+
 func TestGroundBitVectorArraySymbolicIndex(t *testing.T) {
 	context := NewContext(42)
 	array := BitVecArrayConst(4, 8, context, "memory", 1)

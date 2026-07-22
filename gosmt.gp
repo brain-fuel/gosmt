@@ -251,6 +251,7 @@ func EqBitVecArray(0 c nat, 0 indexWidth nat, 0 elementWidth nat, left BitVecArr
 		match right {
 		case bitVecArrayExprValue(rightContext, rightTerm, rightFast):
 			if contextID != rightContext { panic("gosmt: erased bit-vector array context mismatch") }
+			if result, ok := fastEqBitVectorArray(contextID, leftFast, rightFast); ok { return result }
 			return fastBooleanAtom(contextID, smt.Equal{Left: materializeBitVectorArray(leftTerm, leftFast), Right: materializeBitVectorArray(rightTerm, rightFast)})
 		}
 	}
@@ -630,6 +631,17 @@ func EvalIntArray(0 c nat, 0 a nat, model Model[c, a], array ArrayExpr[c, smt.In
 		case arrayExprValue(arrayContext, term, fast):
 			if context != arrayContext { panic("gosmt: erased model/array context mismatch") }
 			return smt.IntegerArrayValue(core, materializeArray(term, fast), index)
+		}
+	}
+}
+
+func EvalBitVecArray(0 c nat, 0 a nat, 0 indexWidth nat, 0 elementWidth nat, model Model[c, a], array BitVecArrayExpr[c, indexWidth, elementWidth], index smt.BitVectorValue) (smt.BitVectorValue, bool) {
+	match model {
+	case modelValue(context, core):
+		match array {
+		case bitVecArrayExprValue(arrayContext, term, fast):
+			if context != arrayContext { panic("gosmt: erased model/bit-vector-array context mismatch") }
+			return smt.BitVectorArrayValue(core, materializeBitVectorArray(term, fast), index)
 		}
 	}
 }

@@ -24,6 +24,7 @@ const (
 	booleanFastArrayReadValue
 	booleanFastArrayStoreReadValue
 	booleanFastBitVectorArrayStoreReadValue
+	booleanFastBitVectorArrayEquality
 )
 
 type booleanFast struct {
@@ -46,6 +47,7 @@ type booleanFast struct {
 	arrayReadValue               smt.ArrayReadValueRelation
 	arrayStoreReadValue          smt.ArrayStoreReadValueRelation
 	bitVectorArrayStoreReadValue smt.BitVectorArrayStoreReadValueRelation
+	bitVectorArrayEquality       smt.BitVectorArrayEqualityRelation
 	negated                      bool
 }
 
@@ -82,6 +84,7 @@ const (
 	bitVecArrayFastNone = iota
 	bitVecArrayFastSymbol
 	bitVecArrayFastStore
+	bitVecArrayFastStore2
 )
 
 type bitVecArrayFast struct {
@@ -92,6 +95,8 @@ type bitVecArrayFast struct {
 	symbolName    string
 	index         uint64
 	value         uint64
+	secondIndex   uint64
+	secondValue   uint64
 	indexSymbolID int
 	symbolicIndex bool
 }
@@ -100,7 +105,7 @@ func fastBitVectorArraySymbol(context, indexWidth, elementWidth, id int, name st
 	if indexWidth <= 64 && elementWidth <= 64 {
 		return bitVecArrayExprValue{contextID: context, fast: bitVecArrayFast{kind: bitVecArrayFastSymbol, indexWidth: uint8(indexWidth), elementWidth: uint8(elementWidth), symbolID: id, symbolName: name}}
 	}
-	return bitVecArrayExprValue{contextID: context, term: smt.ArrayConst[smt.BitVecSort, smt.BitVecSort](id, name)}
+	return bitVecArrayExprValue{contextID: context, term: smt.BitVectorArrayConst(indexWidth, elementWidth, id, name)}
 }
 
 func fastBitVectorUint64(value bitVectorFast) (uint64, bool) {
@@ -113,8 +118,19 @@ func fastBitVectorUint64(value bitVectorFast) (uint64, bool) {
 func storeFastBitVectorArray(array bitVecArrayFast, index, value bitVectorFast) (bitVecArrayFast, bool) {
 	indexValue, indexOK := fastBitVectorUint64(index)
 	storedValue, valueOK := fastBitVectorUint64(value)
-	if array.kind != bitVecArrayFastSymbol || !valueOK || (!indexOK && index.kind != bitVectorFastSymbol) {
+	if (array.kind != bitVecArrayFastSymbol && array.kind != bitVecArrayFastStore) || !valueOK || (!indexOK && index.kind != bitVectorFastSymbol) {
 		return bitVecArrayFast{}, false
+	}
+	if array.kind == bitVecArrayFastStore {
+		if array.symbolicIndex || !indexOK {
+			return bitVecArrayFast{}, false
+		}
+		if array.index == indexValue {
+			array.value = storedValue
+			return array, true
+		}
+		array.kind, array.secondIndex, array.secondValue = bitVecArrayFastStore2, indexValue, storedValue
+		return array, true
 	}
 	array.kind, array.index, array.value = bitVecArrayFastStore, indexValue, storedValue
 	if !indexOK {
@@ -145,15 +161,56 @@ func materializeBitVectorArray(term smt.Term[smt.ArraySort[smt.BitVecSort, smt.B
 	if fast.kind == bitVecArrayFastNone {
 		return term
 	}
-	base := smt.ArrayConst[smt.BitVecSort, smt.BitVecSort](fast.symbolID, fast.symbolName)
-	if fast.kind == bitVecArrayFastStore {
+	base := smt.BitVectorArrayConst(int(fast.indexWidth), int(fast.elementWidth), fast.symbolID, fast.symbolName)
+	if fast.kind == bitVecArrayFastStore || fast.kind == bitVecArrayFastStore2 {
 		var index smt.Term[smt.BitVecSort] = smt.BitVecVal(int(fast.indexWidth), fast.index)
 		if fast.symbolicIndex {
 			index = smt.BitVecConst(int(fast.indexWidth), fast.indexSymbolID, "")
 		}
-		return smt.Store(base, index, smt.BitVecVal(int(fast.elementWidth), fast.value))
+		base = smt.Store(base, index, smt.BitVecVal(int(fast.elementWidth), fast.value))
+		if fast.kind == bitVecArrayFastStore2 {
+			base = smt.Store(base, smt.BitVecVal(int(fast.indexWidth), fast.secondIndex), smt.BitVecVal(int(fast.elementWidth), fast.secondValue))
+		}
+		return base
 	}
 	return base
+}
+
+func fastEqBitVectorArray(context int, left, right bitVecArrayFast) (BoolExpr, bool) {
+	if left.kind == bitVecArrayFastSymbol && right.kind == bitVecArrayFastSymbol && left.indexWidth == right.indexWidth && left.elementWidth == right.elementWidth {
+		return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastBitVectorArrayEquality, bitVectorArrayEquality: smt.BitVectorArrayEqualityRelation{
+			LeftID: left.symbolID, RightID: right.symbolID, IndexWidth: int(left.indexWidth), ElementWidth: int(left.elementWidth),
+		}}}, true
+	}
+	if left.kind == bitVecArrayFastNone || right.kind == bitVecArrayFastNone || left.symbolID != right.symbolID || left.indexWidth != right.indexWidth || left.elementWidth != right.elementWidth || left.symbolicIndex || right.symbolicIndex {
+		return BoolExpr{}, false
+	}
+	count := func(value bitVecArrayFast) int {
+		if value.kind == bitVecArrayFastStore2 {
+			return 2
+		}
+		if value.kind == bitVecArrayFastStore {
+			return 1
+		}
+		return 0
+	}
+	leftCount, rightCount := count(left), count(right)
+	if leftCount != rightCount {
+		return BoolExpr{}, false
+	}
+	equal := true
+	if leftCount >= 1 {
+		firstMatches := left.index == right.index && left.value == right.value
+		if leftCount == 2 {
+			firstMatches = firstMatches || left.index == right.secondIndex && left.value == right.secondValue
+		}
+		equal = equal && firstMatches
+	}
+	if leftCount == 2 {
+		secondMatches := left.secondIndex == right.index && left.secondValue == right.value || left.secondIndex == right.secondIndex && left.secondValue == right.secondValue
+		equal = equal && secondMatches
+	}
+	return boolExprValue{contextID: context, term: smt.Bool{Value: equal}}, true
 }
 
 const (
@@ -1066,6 +1123,10 @@ func fastNot(value BoolExpr) BoolExpr {
 		value.fast.bitVectorArrayStoreReadValue.Negated = !value.fast.bitVectorArrayStoreReadValue.Negated
 		return value
 	}
+	if value.fast.kind == booleanFastBitVectorArrayEquality {
+		value.fast.bitVectorArrayEquality.Negated = !value.fast.bitVectorArrayEquality.Negated
+		return value
+	}
 	return boolExprValue{contextID: value.contextID, term: smt.Not{Value: materializeBoolean(value.term, value.fast)}}
 }
 
@@ -1445,6 +1506,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.arrayStoreReadValue
 	case booleanFastBitVectorArrayStoreReadValue:
 		return fast.bitVectorArrayStoreReadValue
+	case booleanFastBitVectorArrayEquality:
+		return fast.bitVectorArrayEquality
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}

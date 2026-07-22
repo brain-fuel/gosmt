@@ -7,7 +7,7 @@ require (
 	goforge.dev/gosmt v0.0.0
 )
 
-require goforge.dev/goplus/std v0.0.0 // indirect
+require goforge.dev/goplus/std v0.29.0
 
 replace goforge.dev/goplus/std => ../../../goplus/std
 

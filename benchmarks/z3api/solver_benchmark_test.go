@@ -707,6 +707,81 @@ func BenchmarkGroundBitVectorArraySymbolicIndexCold(b *testing.B) {
 	})
 }
 
+func BenchmarkGroundBitVectorArrayExtensionalModelCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(35)
+			left := gosmt.BitVecArrayConst(4, 8, context, "a", 1)
+			right := gosmt.BitVecArrayConst(4, 8, context, "b", 2)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), gosmt.Not(gosmt.EqBitVecArray(left, right)))).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			index := smt.NewBitVectorUint64(4, 0)
+			leftValue, leftOK := gosmt.EvalBitVecArray(result.Value, left, index)
+			rightValue, rightOK := gosmt.EvalBitVecArray(result.Value, right, index)
+			if !leftOK || !rightOK || smt.EqualBitVectorValue(leftValue, rightValue) {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			indexSort, elementSort := context.MkBvSort(4), context.MkBvSort(8)
+			arraySort := context.MkArraySort(indexSort, elementSort)
+			left := context.MkConst(context.MkStringSymbol("a"), arraySort)
+			right := context.MkConst(context.MkStringSymbol("b"), arraySort)
+			solver := context.NewSolverForLogic("QF_AUFBV")
+			solver.Assert(context.MkNot(context.MkEq(left, right)))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			index := context.MkBV(0, 4)
+			if _, ok := solver.Model().Eval(context.MkSelect(left, index), true); !ok {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+}
+
+func BenchmarkGroundBitVectorArrayStoreExtensionalityCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(36)
+			array := gosmt.BitVecArrayConst(4, 8, context, "a", 1)
+			three, four := gosmt.BitVecValue(4, context, 3), gosmt.BitVecValue(4, context, 4)
+			one, two := gosmt.BitVecValue(8, context, 1), gosmt.BitVecValue(8, context, 2)
+			left := gosmt.StoreBitVecArray(gosmt.StoreBitVecArray(array, three, one), four, two)
+			right := gosmt.StoreBitVecArray(gosmt.StoreBitVecArray(array, four, two), three, one)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), gosmt.Not(gosmt.EqBitVecArray(left, right)))).(gosmt.Unsat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			indexSort, elementSort := context.MkBvSort(4), context.MkBvSort(8)
+			arraySort := context.MkArraySort(indexSort, elementSort)
+			array := context.MkConst(context.MkStringSymbol("a"), arraySort)
+			three, four := context.MkBV(3, 4), context.MkBV(4, 4)
+			one, two := context.MkBV(1, 8), context.MkBV(2, 8)
+			left := context.MkStore(context.MkStore(array, three, one), four, two)
+			right := context.MkStore(context.MkStore(array, four, two), three, one)
+			solver := context.NewSolverForLogic("QF_AUFBV")
+			solver.Assert(context.MkNot(context.MkEq(left, right)))
+			if solver.Check() != z3.Unsatisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkGroundIntegerArrayCongruenceCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
