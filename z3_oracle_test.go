@@ -1561,15 +1561,27 @@ func TestIntegerDivisionModuloAgreeWithPinnedZ3(t *testing.T) {
 	for example := 0; example < 128; example++ {
 		dividend := int64((example*37)%129 - 64)
 		divisor := int64(example%9 + 1)
+		if example%2 != 0 {
+			divisor = -divisor
+		}
 		quotient, remainder := dividend/divisor, dividend%divisor
 		if remainder < 0 {
-			quotient--
-			remainder += divisor
+			if divisor > 0 {
+				quotient--
+				remainder += divisor
+			} else {
+				quotient++
+				remainder -= divisor
+			}
 		}
 		expectedRemainder := remainder
 		if example%4 == 0 {
-			expectedRemainder = (remainder + 1) % divisor
-			if divisor == 1 {
+			magnitude := divisor
+			if magnitude < 0 {
+				magnitude = -magnitude
+			}
+			expectedRemainder = (remainder + 1) % magnitude
+			if magnitude == 1 {
 				expectedRemainder = 1
 			}
 		}

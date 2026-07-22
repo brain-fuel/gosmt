@@ -5,7 +5,7 @@
 3. Congruence closure and Nelson–Oppen theory combination.
 4. Exact rationals plus simplex/cuts for LRA/LIA and difference logic. LRA,
    difference logic, branch-and-bound QF_LIA, and bounded Boolean-QF_LIA
-   foundations plus positive constant-divisor Euclidean div/mod are
+   foundations plus nonzero constant-divisor Euclidean div/mod are
    implemented; cutting planes and full shared-theory exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.

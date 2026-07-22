@@ -55,7 +55,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | QF_LIA exact single-equation model construction + evaluation | ~763–772 ns, 3,264 B, 6 allocs | ~1.30–1.40 ms, 224 B, 15 allocs | green | green (target ≤7 allocs) |
 | QF_LIA general two-row model construction + two evaluations | ~5.68–5.74 us, 3,680 B, 13 allocs | ~1.45–1.53 ms, 424 B, 28 allocs | green | green (target ≤14 allocs) |
 | Boolean QF_LIA disjunction+disequality model construction + evaluation | ~7.19–7.24 us, 3,552 B, 7 allocs | ~1.28–1.41 ms, 304 B, 20 allocs | green | green (target ≤10 allocs) |
-| QF_LIA signed Euclidean div/mod model construction + two evaluations | ~1.46–1.49 us, 4,144 B, 9 allocs | ~1.28–1.40 ms, 352 B, 23 allocs | green | green (target ≤11 allocs) |
+| QF_LIA signed Euclidean div/mod model construction + two evaluations | ~1.65–1.69 us, 4,392 B, 8 allocs | ~1.27–1.40 ms, 352 B, 23 allocs | green | green (target ≤11 allocs) |
 | ground QF_UF cold construct + check | ~1.330–1.341 us, 4,680 B, 8 allocs | ~0.78–1.00 ms, 304 B, 21 allocs | green | green (target ≤10 allocs) |
 | binary ground QF_UF cold construct + check | ~1.691–1.712 us, 4,824 B, 9 allocs | ~0.83–0.97 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
 | QF_BOOL 5-into-4 pigeonhole construct + check | ~11.13–11.22 us, 30,320 B, 27 allocs | ~1.12–1.21 ms, 6,536 B, 360 allocs | green | green (target ≤180 allocs) |
@@ -118,12 +118,12 @@ implementation from 48 allocations to 7. The slowest GoSMT endpoint remains
 over 175x faster than Z3's fastest endpoint while using 35% of its allocation
 count.
 
-The div/mod workload fixes `x = -7`, proves `div(x,3) = -3` and
-`mod(x,3) = 2`, and evaluates both model terms. Sharing a typed compact
+The div/mod workload fixes `x = -7`, proves `div(x,-3) = 3` and
+`mod(x,-3) = 2`, and evaluates both model terms. Sharing a typed compact
 quotient/remainder system reduced the first general-elimination result from 39
-allocations and roughly 34 us to 9 allocations and roughly 1.5 us. The general
+allocations and roughly 34 us to 8 allocations and roughly 1.7 us. The general
 elimination remains available for unassigned symbols; the compact official
-path is over 850x faster than Z3 and uses under 40% of its allocations.
+path is over 750x faster than Z3 and uses under 35% of its allocations.
 
 The mixed EUF+QF_LRA row partitions normalized conjuncts into inline,
 polarity-aware theory arenas and merges independent arithmetic models. It fell

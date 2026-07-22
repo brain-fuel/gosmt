@@ -151,6 +151,27 @@ func TestIntegerEuclideanDivisionAndModulo(t *testing.T) {
 	}
 }
 
+func TestIntegerEuclideanDivisionNegativeConstantDivisor(t *testing.T) {
+	context := NewContext(110)
+	x := IntConst(context, "x", 1)
+	quotient, remainder := DivInt64(x, -3), ModInt64(x, -3)
+	formula := And(
+		EqInt(x, IntVal(context, -7)),
+		EqInt(quotient, IntVal(context, 3)),
+		EqInt(remainder, IntVal(context, 2)),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", result)
+	}
+	if value, found := EvalInt(result.Value, quotient); !found || value != 3 {
+		t.Fatalf("quotient=(%d,%v)", value, found)
+	}
+	if value, found := EvalInt(result.Value, remainder); !found || value != 2 {
+		t.Fatalf("remainder=(%d,%v)", value, found)
+	}
+}
+
 func TestArbitraryPrecisionIntegerDifferenceLogic(t *testing.T) {
 	context := NewContext(5)
 	lower, err := ParseInteger("1267650600228229401496703205376")
