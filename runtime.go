@@ -28,6 +28,8 @@ const (
 	booleanFastIntegerLinearEquality
 	booleanFastIntegerLinearDisequality
 	booleanFastIntegerLinearChoice
+	booleanFastIntegerDivModRelation
+	booleanFastIntegerDivModSystem
 )
 
 type booleanFast struct {
@@ -53,6 +55,8 @@ type booleanFast struct {
 	bitVectorArrayEquality       smt.BitVectorArrayEqualityRelation
 	integerLinearEquality        smt.IntegerLinearEquality
 	integerLinearChoice          smt.IntegerLinearChoice
+	integerDivModRelation        smt.IntegerDivModRelation
+	integerDivModSystem          smt.IntegerDivModSystem
 	negated                      bool
 }
 
@@ -1170,6 +1174,31 @@ func fastOr(values []BoolExpr) BoolExpr {
 
 func fastAnd(values []BoolExpr) BoolExpr {
 	context := booleanContext(values)
+	equalityCount, divModCount, allDivMod := 0, 0, len(values) > 0
+	for _, value := range values {
+		switch value.fast.kind {
+		case booleanFastIntegerLinearEquality:
+			equalityCount++
+		case booleanFastIntegerDivModRelation:
+			divModCount++
+		default:
+			allDivMod = false
+		}
+	}
+	if allDivMod && divModCount > 0 && equalityCount <= 4 && divModCount <= 4 {
+		system := smt.IntegerDivModSystem{EqualityCount: equalityCount, RelationCount: divModCount}
+		equalityIndex, relationIndex := 0, 0
+		for _, value := range values {
+			if value.fast.kind == booleanFastIntegerLinearEquality {
+				system.Equalities[equalityIndex] = value.fast.integerLinearEquality
+				equalityIndex++
+			} else {
+				system.Relations[relationIndex] = value.fast.integerDivModRelation
+				relationIndex++
+			}
+		}
+		return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastIntegerDivModSystem, integerDivModSystem: system}}
+	}
 	if len(values) == 3 {
 		var differences [2]smt.IntegerDifferenceConstraint
 		differenceCount := 0
@@ -1532,6 +1561,10 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return smt.IntegerLinearDisequality{Equality: fast.integerLinearEquality}
 	case booleanFastIntegerLinearChoice:
 		return fast.integerLinearChoice
+	case booleanFastIntegerDivModRelation:
+		return fast.integerDivModRelation
+	case booleanFastIntegerDivModSystem:
+		return fast.integerDivModSystem
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}
@@ -1562,6 +1595,12 @@ func fastEqInteger(left, right IntExpr) BoolExpr {
 	}
 	if relation, ok := smt.CompactIntegerArrayStoreReadValueEquality(left.term, right.term); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastArrayStoreReadValue, arrayStoreReadValue: relation}}
+	}
+	if relation, ok := smt.CompactIntegerDivModEquality(left.term, right.term); ok {
+		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerDivModRelation, integerDivModRelation: relation}}
+	}
+	if relation, ok := smt.CompactIntegerDivModEquality(right.term, left.term); ok {
+		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerDivModRelation, integerDivModRelation: relation}}
 	}
 	if relation, ok := smt.CompactIntegerLinearEquality(left.term, right.term); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerLinearEquality, integerLinearEquality: relation}}

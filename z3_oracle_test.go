@@ -1551,6 +1551,66 @@ func TestRandomBooleanLinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestIntegerDivisionModuloAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	context := NewContext(109)
+	x := IntConst(context, "x", 1)
+	for example := 0; example < 128; example++ {
+		dividend := int64((example*37)%129 - 64)
+		divisor := int64(example%9 + 1)
+		quotient, remainder := dividend/divisor, dividend%divisor
+		if remainder < 0 {
+			quotient--
+			remainder += divisor
+		}
+		expectedRemainder := remainder
+		if example%4 == 0 {
+			expectedRemainder = (remainder + 1) % divisor
+			if divisor == 1 {
+				expectedRemainder = 1
+			}
+		}
+		formula := And(
+			EqInt(x, IntVal(context, dividend)),
+			EqInt(DivInt64(x, divisor), IntVal(context, quotient)),
+			EqInt(ModInt64(x, divisor), IntVal(context, expectedRemainder)),
+		)
+		result := Check(Assert(example+1, NewSolver(context), formula))
+		ours := "sat"
+		if _, ok := result.(Unsat); ok {
+			ours = "unsat"
+		} else if _, ok := result.(Unknown); ok {
+			ours = "unknown"
+		}
+		script := fmt.Sprintf(`(set-logic QF_LIA)
+(declare-const x Int)
+(assert (= x %d))
+(assert (= (div x %d) %d))
+(assert (= (mod x %d) %d))
+(check-sat)
+`, dividend, divisor, quotient, divisor, expectedRemainder)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s", example, err, output)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s (%#v) z3=%s\n%s", example, ours, result, want, script)
+		}
+		if sat, ok := result.(Sat); ok {
+			q, qOK := EvalInt(sat.Value, DivInt64(x, divisor))
+			r, rOK := EvalInt(sat.Value, ModInt64(x, divisor))
+			if !qOK || !rOK || q != quotient || r != remainder {
+				t.Fatalf("example %d: invalid model q=%d/%v r=%d/%v", example, q, qOK, r, rOK)
+			}
+		}
+	}
+}
+
 func TestFormattedSMTLibIsAcceptedByPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

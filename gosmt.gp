@@ -537,6 +537,22 @@ func ScaleInt64(0 c nat, coefficient int64, value IntExpr[c]) IntExpr[c] {
 	return ScaleInt(smt.NewIntegerValue(coefficient), value)
 }
 
+func DivInt(0 c nat, value IntExpr[c], divisor smt.IntegerValue) IntExpr[c] {
+	match value { case intExprValue(contextID, term): return intExprValue(contextID, smt.DivInteger(term, divisor)) }
+}
+
+func ModInt(0 c nat, value IntExpr[c], divisor smt.IntegerValue) IntExpr[c] {
+	match value { case intExprValue(contextID, term): return intExprValue(contextID, smt.ModInteger(term, divisor)) }
+}
+
+func DivInt64(0 c nat, value IntExpr[c], divisor int64) IntExpr[c] {
+	return DivInt(value, smt.NewIntegerValue(divisor))
+}
+
+func ModInt64(0 c nat, value IntExpr[c], divisor int64) IntExpr[c] {
+	return ModInt(value, smt.NewIntegerValue(divisor))
+}
+
 func Le(0 c nat, left IntExpr[c], right IntExpr[c]) BoolExpr[c] {
 	return compareInteger(left, right, false)
 }

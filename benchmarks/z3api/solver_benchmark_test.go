@@ -1371,6 +1371,59 @@ func BenchmarkBooleanLinearIntegerModelCold(b *testing.B) {
 	})
 }
 
+func BenchmarkIntegerDivModModelCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(27)
+			x := gosmt.IntConst(context, "x", 1)
+			quotient, remainder := gosmt.DivInt64(x, 3), gosmt.ModInt64(x, 3)
+			formula := gosmt.And(
+				gosmt.EqInt(x, gosmt.IntVal(context, -7)),
+				gosmt.EqInt(quotient, gosmt.IntVal(context, -3)),
+				gosmt.EqInt(remainder, gosmt.IntVal(context, 2)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalInt(result.Value, quotient); !found || value != -3 {
+				b.Fatal("invalid quotient")
+			}
+			if value, found := gosmt.EvalInt(result.Value, remainder); !found || value != 2 {
+				b.Fatal("invalid remainder")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			three := context.MkInt(3, intSort)
+			quotient, remainder := context.MkDiv(x, three), context.MkMod(x, three)
+			formula := context.MkAnd(
+				context.MkEq(x, context.MkInt(-7, intSort)),
+				context.MkEq(quotient, context.MkInt(-3, intSort)),
+				context.MkEq(remainder, context.MkInt(2, intSort)),
+			)
+			solver := context.NewSolverForLogic("QF_LIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, ok := model.Eval(quotient, true); !ok {
+				b.Fatal("invalid quotient")
+			}
+			if _, ok := model.Eval(remainder, true); !ok {
+				b.Fatal("invalid remainder")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanPigeonholeCold(b *testing.B) {
 	const pigeons, holes = 5, 4
 	b.Run("gosmt", func(b *testing.B) {
