@@ -59,6 +59,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | ground QF_UF cold construct + check | ~1.330–1.341 us, 4,680 B, 8 allocs | ~0.78–1.00 ms, 304 B, 21 allocs | green | green (target ≤10 allocs) |
 | binary ground QF_UF cold construct + check | ~1.691–1.712 us, 4,824 B, 9 allocs | ~0.83–0.97 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
 | finite QF_DT enum construct + model evaluation | ~1.92–1.94 us, 6,512 B, 10 allocs | ~1.08–1.17 ms, 512 B, 31 allocs | green | green (target ≤15 allocs) |
+| unary recursive QF_DT construct + selector + model evaluation | ~2.791–2.818 us, 10,288 B, 19 allocs | ~0.954–1.080 ms, 544 B, 38 allocs | green (>338x) | green (exact target ≤19 allocs) |
 | QF_BOOL 5-into-4 pigeonhole construct + check | ~11.13–11.22 us, 30,320 B, 27 allocs | ~1.12–1.21 ms, 6,536 B, 360 allocs | green | green (target ≤180 allocs) |
 | QF_BOOL 7-into-6 pigeonhole construct + check | ~1.19–1.21 ms, 277,217 B, 44 allocs | ~2.89–2.91 ms, 24,728 B, 1,078 allocs | green | green (target ≤539 allocs) |
 | QF_LRA cold construct + exact check | ~5.08–5.22 us, 3,200 B, 5 allocs | ~1.77–2.81 ms, 304 B, 19 allocs | green | green (target ≤9 allocs) |
@@ -337,6 +338,12 @@ with constructor disequality and a recognizer, then evaluates its exact model.
 Inline union-find and disequality arenas reduced the first implementation from
 17 to 10 allocations versus Z3's 31, while remaining over 550x faster on the
 same official-API cold workload.
+
+The unary recursive QF_DT workload constructs `succ(succ(zero))`, constrains
+and evaluates its selector and recognizer, and validates the nested model. A
+small retained-child arena reduces the public workload to 19 allocations
+versus Z3's 38, exactly meeting the 50% ceiling; conservative same-process
+endpoints remain more than 338x apart.
 
 The first-UIP CDCL implementation learns 17 clauses on the direct 5-into-4
 pigeonhole workload. Reusing conflict-analysis state reduced that core

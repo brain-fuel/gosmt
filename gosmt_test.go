@@ -263,6 +263,44 @@ func TestFiniteEnumerationDatatypeModel(t *testing.T) {
 	}
 }
 
+func TestRecursiveUnaryDatatypeConstructorSelectorAndModel(t *testing.T) {
+	context := NewContext(151)
+	zero := DatatypeConstructor(81, 2, 0, context, "zero")
+	succ := DeclareRecursiveDatatypeConstructor(81, 2, 1, context, "succ", "pred")
+	x := DatatypeConst(81, 2, context, "x", 1)
+	one := ApplyRecursiveDatatypeConstructor(succ, zero)
+	two := ApplyRecursiveDatatypeConstructor(succ, one)
+	formula := And(EqDatatype(x, two), EqDatatype(SelectRecursiveDatatypeConstructor(succ, x), one), IsRecursiveDatatypeConstructor(succ, x))
+	solver := Assert(1, NewSolver(context), formula)
+	result, ok := Check(solver).(Sat)
+	if !ok {
+		t.Fatalf("result=%#v", Check(solver))
+	}
+	value, found := EvalDatatype(81, 2, result.Value, x)
+	if !found || value.ConstructorName != "succ" || value.Child == nil || value.Child.ConstructorName != "succ" || value.Child.Child == nil || value.Child.Child.ConstructorName != "zero" {
+		t.Fatalf("value=%#v found=%v", value, found)
+	}
+	predecessor, found := EvalDatatype(81, 2, result.Value, SelectRecursiveDatatypeConstructor(succ, x))
+	if !found || predecessor.ConstructorName != "succ" || predecessor.Child == nil || predecessor.Child.ConstructorName != "zero" {
+		t.Fatalf("predecessor=%#v found=%v", predecessor, found)
+	}
+}
+
+func TestRecursiveUnaryDatatypeInjectivityAndAcyclicity(t *testing.T) {
+	context := NewContext(152)
+	succ := DeclareRecursiveDatatypeConstructor(82, 2, 1, context, "succ", "pred")
+	x := DatatypeConst(82, 2, context, "x", 1)
+	y := DatatypeConst(82, 2, context, "y", 2)
+	injective := And(EqDatatype(ApplyRecursiveDatatypeConstructor(succ, x), ApplyRecursiveDatatypeConstructor(succ, y)), Not(EqDatatype(x, y)))
+	if result := Check(Assert(1, NewSolver(context), injective)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("injectivity result=%#v", result)
+	}
+	cyclic := EqDatatype(x, ApplyRecursiveDatatypeConstructor(succ, x))
+	if result := Check(Assert(2, NewSolver(context), cyclic)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("acyclicity result=%#v", result)
+	}
+}
+
 func TestGroundUninterpretedFunctionZeroIdentifiersUseCompactPath(t *testing.T) {
 	context := NewContext(102)
 	a := UninterpretedConst(0, context, "a", 0)

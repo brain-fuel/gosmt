@@ -37,4 +37,9 @@ func Accepted() {
 	_ = gosmt.ApplyBitVecFunction(bitFunction, byteValue)
 	bitBinary := gosmt.DeclareBitVecBinary(8, 4, 16, context, "combine-bits", 12)
 	_ = gosmt.ApplyBitVecBinary(bitBinary, byteValue, upperNibble)
+	zero := gosmt.DatatypeConstructor(1, 2, 0, context, "zero")
+	succ := gosmt.DeclareRecursiveDatatypeConstructor(1, 2, 1, context, "succ", "pred")
+	one := gosmt.ApplyRecursiveDatatypeConstructor(succ, zero)
+	_ = gosmt.SelectRecursiveDatatypeConstructor(succ, one)
+	_ = gosmt.IsRecursiveDatatypeConstructor(succ, one)
 }

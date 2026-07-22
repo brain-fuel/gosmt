@@ -371,6 +371,53 @@ func BenchmarkFiniteEnumerationDatatypeCold(b *testing.B) {
 	})
 }
 
+func BenchmarkRecursiveUnaryDatatypeCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(40)
+			zero := gosmt.DatatypeConstructor(2, 2, 0, context, "zero")
+			succ := gosmt.DeclareRecursiveDatatypeConstructor(2, 2, 1, context, "succ", "pred")
+			x := gosmt.DatatypeConst(2, 2, context, "x", 1)
+			one := gosmt.ApplyRecursiveDatatypeConstructor(succ, zero)
+			two := gosmt.ApplyRecursiveDatatypeConstructor(succ, one)
+			formula := gosmt.And(gosmt.EqDatatype(x, two), gosmt.EqDatatype(gosmt.SelectRecursiveDatatypeConstructor(succ, x), one), gosmt.IsRecursiveDatatypeConstructor(succ, x))
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalDatatype(2, 2, result.Value, x); !found || value.Child == nil || value.Child.Child == nil {
+				b.Fatal("invalid datatype model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			zeroDeclaration := context.MkConstructor("zero", "is-zero", nil, nil, nil)
+			succDeclaration := context.MkConstructor("succ", "is-succ", []string{"pred"}, []*z3.Sort{nil}, []uint{0})
+			natSort := context.MkDatatypeSort("Nat", []*z3.Constructor{zeroDeclaration, succDeclaration})
+			zero := context.MkApp(context.GetDatatypeSortConstructor(natSort, 0))
+			succ := context.GetDatatypeSortConstructor(natSort, 1)
+			pred := context.GetDatatypeSortConstructorAccessor(natSort, 1, 0)
+			isSucc := context.GetDatatypeSortRecognizer(natSort, 1)
+			x := context.MkConst(context.MkStringSymbol("x"), natSort)
+			one := context.MkApp(succ, zero)
+			two := context.MkApp(succ, one)
+			formula := context.MkAnd(context.MkEq(x, two), context.MkEq(context.MkApp(pred, x), one), context.MkApp(isSucc, x))
+			solver := context.NewSolverForLogic("QF_DT")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, ok := solver.Model().Eval(x, true); !ok {
+				b.Fatal("invalid datatype model")
+			}
+		}
+	})
+}
+
 func BenchmarkDisjointEUFLinearRealCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

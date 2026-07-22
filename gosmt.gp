@@ -34,6 +34,9 @@ type BitVecArrayExpr[c nat, iw nat, ew nat] enum { bitVecArrayExprValue(ContextI
 type DatatypeExpr[c nat, d nat, n nat] enum { datatypeExprValue(ContextID int, Term smt.Term[smt.DatatypeSort[d, n]]) DatatypeExpr[c, d, n] }
 //goplus:derive off
 //goplus:repr transparent
+type DatatypeRecursiveConstructor[c nat, d nat, n nat, k nat] enum { datatypeRecursiveConstructorValue(ContextID int, Core smt.RecursiveDatatypeConstructor[d, n, k]) DatatypeRecursiveConstructor[c, d, n, k] }
+//goplus:derive off
+//goplus:repr transparent
 type UninterpretedExpr[c nat, s nat] enum { uninterpretedExprValue(ContextID int, Term smt.Term[smt.UninterpretedSort[s]], Fast uninterpretedFast) UninterpretedExpr[c, s] }
 //goplus:derive off
 //goplus:repr transparent
@@ -99,6 +102,31 @@ func DatatypeConst(datatype nat, constructors nat, 0 c nat, context Context[c], 
 
 func DatatypeConstructor(datatype nat, constructors nat, constructor nat, 0 c nat, context Context[c], name string) DatatypeExpr[c, datatype, constructors] {
 	match context { case contextValue(contextID): return datatypeExprValue(contextID, smt.DatatypeConstructor(datatype, constructors, constructor, name)) }
+}
+
+func DeclareRecursiveDatatypeConstructor(datatype nat, constructors nat, constructor nat, 0 c nat, context Context[c], name string, selectorName string) DatatypeRecursiveConstructor[c, datatype, constructors, constructor] {
+	match context { case contextValue(contextID): return datatypeRecursiveConstructorValue(contextID, smt.DeclareRecursiveDatatypeConstructor(datatype, constructors, constructor, name, selectorName)) }
+}
+
+func ApplyRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, declaration DatatypeRecursiveConstructor[c, datatype, constructors, constructor], value DatatypeExpr[c, datatype, constructors]) DatatypeExpr[c, datatype, constructors] {
+	match declaration { case datatypeRecursiveConstructorValue(contextID, core): match value { case datatypeExprValue(valueContext, term):
+		if contextID != valueContext { panic("gosmt: erased recursive datatype constructor context mismatch") }
+		return datatypeExprValue(contextID, smt.ApplyRecursiveDatatypeConstructor(core, term))
+	} }
+}
+
+func SelectRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, declaration DatatypeRecursiveConstructor[c, datatype, constructors, constructor], value DatatypeExpr[c, datatype, constructors]) DatatypeExpr[c, datatype, constructors] {
+	match declaration { case datatypeRecursiveConstructorValue(contextID, core): match value { case datatypeExprValue(valueContext, term):
+		if contextID != valueContext { panic("gosmt: erased recursive datatype selector context mismatch") }
+		return datatypeExprValue(contextID, smt.SelectRecursiveDatatypeConstructor(core, term))
+	} }
+}
+
+func IsRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, declaration DatatypeRecursiveConstructor[c, datatype, constructors, constructor], value DatatypeExpr[c, datatype, constructors]) BoolExpr[c] {
+	match declaration { case datatypeRecursiveConstructorValue(contextID, core): match value { case datatypeExprValue(valueContext, term):
+		if contextID != valueContext { panic("gosmt: erased recursive datatype recognizer context mismatch") }
+		return fastBooleanAtom(contextID, smt.IsRecursiveDatatypeConstructor(core, term))
+	} }
 }
 
 func EqDatatype(0 c nat, 0 datatype nat, 0 constructors nat, left DatatypeExpr[c, datatype, constructors], right DatatypeExpr[c, datatype, constructors]) BoolExpr[c] {

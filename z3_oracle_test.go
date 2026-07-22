@@ -1680,6 +1680,81 @@ func TestFiniteEnumerationDatatypesAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRecursiveUnaryDatatypesAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		forcedDepth := 1 + example%8
+		comparedDepth := (example*5 + 3) % 8
+		equality := example%2 == 0
+		context := NewContext(153)
+		zero := DatatypeConstructor(78, 2, 0, context, "zero")
+		succ := DeclareRecursiveDatatypeConstructor(78, 2, 1, context, "succ", "pred")
+		chain := func(depth int) DatatypeExpr {
+			value := zero
+			for step := 0; step < depth; step++ {
+				value = ApplyRecursiveDatatypeConstructor(succ, value)
+			}
+			return value
+		}
+		x := DatatypeConst(78, 2, context, "x", 1)
+		comparison := EqDatatype(SelectRecursiveDatatypeConstructor(succ, x), chain(comparedDepth))
+		if !equality {
+			comparison = Not(comparison)
+		}
+		formula := And(EqDatatype(x, chain(forcedDepth)), IsRecursiveDatatypeConstructor(succ, x), comparison)
+		result := Check(Assert(example+1, NewSolver(context), formula))
+		ours := "sat"
+		if _, ok := result.(Unsat); ok {
+			ours = "unsat"
+		} else if _, ok := result.(Unknown); ok {
+			ours = "unknown"
+		}
+
+		z3Chain := func(depth int) string {
+			value := "zero"
+			for step := 0; step < depth; step++ {
+				value = "(succ " + value + ")"
+			}
+			return value
+		}
+		comparisonOperator := "="
+		if !equality {
+			comparisonOperator = "distinct"
+		}
+		script := fmt.Sprintf(`(set-logic QF_DT)
+(declare-datatype Nat ((zero) (succ (pred Nat))))
+(declare-const x Nat)
+(assert (= x %s))
+(assert (is-succ x))
+(assert (%s (pred x) %s))
+(check-sat)
+`, z3Chain(forcedDepth), comparisonOperator, z3Chain(comparedDepth))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s", example, err, output)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s (%#v) z3=%s\n%s", example, ours, result, want, script)
+		}
+		if sat, ok := result.(Sat); ok {
+			value, found := EvalDatatype(78, 2, sat.Value, x)
+			depth := 0
+			for found && value.ConstructorID == 1 && value.Child != nil {
+				depth++
+				value = *value.Child
+			}
+			if !found || depth != forcedDepth || value.ConstructorID != 0 {
+				t.Fatalf("example %d: invalid recursive datatype model depth=%d value=%#v/%v", example, depth, value, found)
+			}
+		}
+	}
+}
+
 func TestFormattedSMTLibIsAcceptedByPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {
