@@ -10,7 +10,8 @@ sorted terms, exhaustive results, context-indexed models and proofs, checked
 incremental scopes, temporary assumptions, minimized unsat cores, and native
 Boolean, integer-difference, general exact-linear-integer, exact-linear-real,
 and typed unary/binary EUF
-solving, including Euclidean integer division/modulo by nonzero constants,
+solving, including finite enumeration datatypes and Euclidean integer
+division/modulo by nonzero constants,
 plus sound conjunctive combination while those signatures remain
 disjoint and fixed-point shared equality exchange for unary Real→Real EUF.
 Function arguments and results retain Go+ sort indices. The

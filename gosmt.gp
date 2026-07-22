@@ -31,6 +31,9 @@ type ArrayExpr[c nat, I any, E any] enum { arrayExprValue(ContextID int, Term sm
 type BitVecArrayExpr[c nat, iw nat, ew nat] enum { bitVecArrayExprValue(ContextID int, Term smt.Term[smt.ArraySort[smt.BitVecSort[iw], smt.BitVecSort[ew]]], Fast bitVecArrayFast) BitVecArrayExpr[c, iw, ew] }
 //goplus:derive off
 //goplus:repr transparent
+type DatatypeExpr[c nat, d nat, n nat] enum { datatypeExprValue(ContextID int, Term smt.Term[smt.DatatypeSort[d, n]]) DatatypeExpr[c, d, n] }
+//goplus:derive off
+//goplus:repr transparent
 type UninterpretedExpr[c nat, s nat] enum { uninterpretedExprValue(ContextID int, Term smt.Term[smt.UninterpretedSort[s]], Fast uninterpretedFast) UninterpretedExpr[c, s] }
 //goplus:derive off
 //goplus:repr transparent
@@ -88,6 +91,25 @@ func BoolConst(0 c nat, context Context[c], name string, id int) BoolExpr[c] {
 
 func BoolValue(0 c nat, context Context[c], value bool) BoolExpr[c] {
 	match context { case contextValue(contextID): return boolExprValue(contextID, smt.Bool(value), booleanFast{}) }
+}
+
+func DatatypeConst(datatype nat, constructors nat, 0 c nat, context Context[c], name string, id int) DatatypeExpr[c, datatype, constructors] {
+	match context { case contextValue(contextID): return datatypeExprValue(contextID, smt.DatatypeConst(datatype, constructors, id, name)) }
+}
+
+func DatatypeConstructor(datatype nat, constructors nat, constructor nat, 0 c nat, context Context[c], name string) DatatypeExpr[c, datatype, constructors] {
+	match context { case contextValue(contextID): return datatypeExprValue(contextID, smt.DatatypeConstructor(datatype, constructors, constructor, name)) }
+}
+
+func EqDatatype(0 c nat, 0 datatype nat, 0 constructors nat, left DatatypeExpr[c, datatype, constructors], right DatatypeExpr[c, datatype, constructors]) BoolExpr[c] {
+	match left { case datatypeExprValue(contextID, leftTerm): match right { case datatypeExprValue(rightContext, rightTerm):
+		if contextID != rightContext { panic("gosmt: erased datatype equality context mismatch") }
+		return fastBooleanAtom(contextID, smt.Equal(leftTerm, rightTerm))
+	} }
+}
+
+func IsDatatypeConstructor(datatype nat, constructors nat, constructor nat, 0 c nat, value DatatypeExpr[c, datatype, constructors]) BoolExpr[c] {
+	match value { case datatypeExprValue(contextID, term): return fastBooleanAtom(contextID, smt.IsDatatypeConstructor(datatype, constructors, constructor, term)) }
 }
 
 func IntConst(0 c nat, context Context[c], name string, id int) IntExpr[c] {
@@ -632,6 +654,17 @@ func EvalIntExact(0 c nat, 0 a nat, model Model[c, a], expression IntExpr[c]) (s
 		case intExprValue(expressionContext, term):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
 			return smt.IntegerModelValue(core, term)
+		}
+	}
+}
+
+func EvalDatatype(datatype nat, constructors nat, 0 c nat, 0 a nat, model Model[c, a], expression DatatypeExpr[c, datatype, constructors]) (smt.DatatypeValue, bool) {
+	match model {
+	case modelValue(context, core):
+		match expression {
+		case datatypeExprValue(expressionContext, term):
+			if context != expressionContext { panic("gosmt: erased model/datatype context mismatch") }
+			return smt.DatatypeModelValue(datatype, constructors, core, term)
 		}
 	}
 }

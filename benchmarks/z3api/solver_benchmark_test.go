@@ -334,6 +334,43 @@ func BenchmarkGroundBinaryEUFCold(b *testing.B) {
 	})
 }
 
+func BenchmarkFiniteEnumerationDatatypeCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(28)
+			red := gosmt.DatatypeConstructor(1, 3, 0, context, "red")
+			x := gosmt.DatatypeConst(1, 3, context, "x", 1)
+			formula := gosmt.And(gosmt.Not(gosmt.EqDatatype(x, red)), gosmt.IsDatatypeConstructor(1, 3, 1, x))
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalDatatype(1, 3, result.Value, x); !found || value.ConstructorID != 1 {
+				b.Fatal("invalid datatype model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort, constructors, testers := context.MkEnumSort("Color", []string{"red", "green", "blue"})
+			x := context.MkConst(context.MkStringSymbol("x"), sort)
+			red := context.MkApp(constructors[0])
+			isGreen := context.MkApp(testers[1], x)
+			solver := context.NewSolverForLogic("QF_DT")
+			solver.Assert(context.MkAnd(context.MkNot(context.MkEq(x, red)), isGreen))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, ok := solver.Model().Eval(x, true); !ok {
+				b.Fatal("invalid datatype model")
+			}
+		}
+	})
+}
+
 func BenchmarkDisjointEUFLinearRealCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

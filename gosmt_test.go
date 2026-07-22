@@ -244,6 +244,25 @@ func TestGroundUninterpretedFunctionCongruence(t *testing.T) {
 	}
 }
 
+func TestFiniteEnumerationDatatypeModel(t *testing.T) {
+	context := NewContext(111)
+	red := DatatypeConstructor(1, 3, 0, context, "red")
+	green := DatatypeConstructor(1, 3, 1, context, "green")
+	x := DatatypeConst(1, 3, context, "x", 1)
+	formula := And(Not(EqDatatype(x, red)), IsDatatypeConstructor(1, 3, 1, x))
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	value, found := EvalDatatype(1, 3, result.Value, x)
+	if !found || value.ConstructorID != 1 {
+		t.Fatalf("x=(%#v,%v)", value, found)
+	}
+	if direct, found := EvalDatatype(1, 3, result.Value, green); !found || direct.ConstructorID != 1 || direct.ConstructorName != "green" {
+		t.Fatalf("green=(%#v,%v)", direct, found)
+	}
+}
+
 func TestGroundUninterpretedFunctionZeroIdentifiersUseCompactPath(t *testing.T) {
 	context := NewContext(102)
 	a := UninterpretedConst(0, context, "a", 0)

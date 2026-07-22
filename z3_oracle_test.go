@@ -1623,6 +1623,63 @@ func TestIntegerDivisionModuloAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestFiniteEnumerationDatatypesAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		constructorCount := 2 + example%4
+		forced := (example * 3) % constructorCount
+		compared := (example*5 + 1) % constructorCount
+		equality := example%2 == 0
+		context := NewContext(112)
+		x := DatatypeConst(77, constructorCount, context, "x", 1)
+		constructor := DatatypeConstructor(77, constructorCount, compared, context, fmt.Sprintf("c%d", compared))
+		comparison := EqDatatype(x, constructor)
+		if !equality {
+			comparison = Not(comparison)
+		}
+		formula := And(IsDatatypeConstructor(77, constructorCount, forced, x), comparison)
+		result := Check(Assert(example+1, NewSolver(context), formula))
+		ours := "sat"
+		if _, ok := result.(Unsat); ok {
+			ours = "unsat"
+		} else if _, ok := result.(Unknown); ok {
+			ours = "unknown"
+		}
+
+		var script strings.Builder
+		script.WriteString("(set-logic QF_DT)\n(declare-datatype D (")
+		for constructorID := 0; constructorID < constructorCount; constructorID++ {
+			fmt.Fprintf(&script, " (c%d)", constructorID)
+		}
+		script.WriteString("))\n(declare-const x D)\n")
+		fmt.Fprintf(&script, "(assert (is-c%d x))\n", forced)
+		if equality {
+			fmt.Fprintf(&script, "(assert (= x c%d))\n", compared)
+		} else {
+			fmt.Fprintf(&script, "(assert (distinct x c%d))\n", compared)
+		}
+		script.WriteString("(check-sat)\n")
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script.String())
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s", example, err, output)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s (%#v) z3=%s\n%s", example, ours, result, want, script.String())
+		}
+		if sat, ok := result.(Sat); ok {
+			value, found := EvalDatatype(77, constructorCount, sat.Value, x)
+			if !found || value.ConstructorID != forced {
+				t.Fatalf("example %d: invalid datatype model %#v/%v", example, value, found)
+			}
+		}
+	}
+}
+
 func TestFormattedSMTLibIsAcceptedByPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {
