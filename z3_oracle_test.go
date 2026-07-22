@@ -1480,6 +1480,77 @@ func TestRandomLinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomBooleanLinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	type relation struct {
+		x, y  int
+		bound int
+	}
+	satisfied := func(relation relation, x, y int64) bool {
+		return int64(relation.x)*x+int64(relation.y)*y <= int64(relation.bound)
+	}
+	random := rand.New(rand.NewSource(43))
+	context := NewContext(107)
+	x, y := IntConst(context, "x", 1), IntConst(context, "y", 2)
+	for example := 0; example < 64; example++ {
+		relations := [4]relation{}
+		atoms := [4]BoolExpr{}
+		encoded := [4]string{}
+		for index := range relations {
+			relation := relation{x: random.Intn(7) - 3, y: random.Intn(7) - 3, bound: random.Intn(15) - 7}
+			if relation.x == 0 && relation.y == 0 {
+				relation.x = 1
+			}
+			relations[index] = relation
+			atoms[index] = Le(Add(ScaleInt64(int64(relation.x), x), ScaleInt64(int64(relation.y), y)), IntVal(context, int64(relation.bound)))
+			encoded[index] = fmt.Sprintf("(<= (+ (* %d x) (* %d y)) %d)", relation.x, relation.y, relation.bound)
+		}
+		prohibited := random.Intn(9) - 4
+		formula := And(
+			Le(IntVal(context, -4), x), Le(x, IntVal(context, 4)),
+			Le(IntVal(context, -4), y), Le(y, IntVal(context, 4)),
+			Or(And(atoms[0], atoms[1]), And(atoms[2], atoms[3])),
+			NeInt(x, IntVal(context, int64(prohibited))),
+		)
+		result := Check(Assert(example+1, NewSolver(context), formula))
+		ours := "sat"
+		if _, ok := result.(Unsat); ok {
+			ours = "unsat"
+		} else if _, ok := result.(Unknown); ok {
+			ours = "unknown"
+		}
+		script := fmt.Sprintf(`(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (and (<= -4 x) (<= x 4) (<= -4 y) (<= y 4)))
+(assert (or (and %s %s) (and %s %s)))
+(assert (distinct x %d))
+(check-sat)
+`, encoded[0], encoded[1], encoded[2], encoded[3], prohibited)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s", example, err, output)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s (%#v) z3=%s\n%s", example, ours, result, want, script)
+		}
+		if sat, ok := result.(Sat); ok {
+			xValue, xOK := EvalInt(sat.Value, x)
+			yValue, yOK := EvalInt(sat.Value, y)
+			leftBranch := satisfied(relations[0], xValue, yValue) && satisfied(relations[1], xValue, yValue)
+			rightBranch := satisfied(relations[2], xValue, yValue) && satisfied(relations[3], xValue, yValue)
+			if !xOK || !yOK || xValue < -4 || xValue > 4 || yValue < -4 || yValue > 4 || xValue == int64(prohibited) || !leftBranch && !rightBranch {
+				t.Fatalf("example %d: invalid model x=%d/%v y=%d/%v", example, xValue, xOK, yValue, yOK)
+			}
+		}
+	}
+}
+
 func TestFormattedSMTLibIsAcceptedByPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

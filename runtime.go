@@ -26,6 +26,8 @@ const (
 	booleanFastBitVectorArrayStoreReadValue
 	booleanFastBitVectorArrayEquality
 	booleanFastIntegerLinearEquality
+	booleanFastIntegerLinearDisequality
+	booleanFastIntegerLinearChoice
 )
 
 type booleanFast struct {
@@ -50,6 +52,7 @@ type booleanFast struct {
 	bitVectorArrayStoreReadValue smt.BitVectorArrayStoreReadValueRelation
 	bitVectorArrayEquality       smt.BitVectorArrayEqualityRelation
 	integerLinearEquality        smt.IntegerLinearEquality
+	integerLinearChoice          smt.IntegerLinearChoice
 	negated                      bool
 }
 
@@ -1129,11 +1132,24 @@ func fastNot(value BoolExpr) BoolExpr {
 		value.fast.bitVectorArrayEquality.Negated = !value.fast.bitVectorArrayEquality.Negated
 		return value
 	}
+	if value.fast.kind == booleanFastIntegerLinearEquality {
+		value.fast.kind = booleanFastIntegerLinearDisequality
+		return value
+	}
+	if value.fast.kind == booleanFastIntegerLinearDisequality {
+		value.fast.kind = booleanFastIntegerLinearEquality
+		return value
+	}
 	return boolExprValue{contextID: value.contextID, term: smt.Not{Value: materializeBoolean(value.term, value.fast)}}
 }
 
 func fastOr(values []BoolExpr) BoolExpr {
 	context := booleanContext(values)
+	if len(values) == 2 && values[0].fast.kind == booleanFastIntegerLinearEquality && values[1].fast.kind == booleanFastIntegerLinearEquality {
+		return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastIntegerLinearChoice, integerLinearChoice: smt.IntegerLinearChoice{
+			First: values[0].fast.integerLinearEquality, Second: values[1].fast.integerLinearEquality,
+		}}}
+	}
 	fast := booleanFast{kind: booleanFastClause, count: uint8(len(values))}
 	if len(values) > len(fast.inline) {
 		fast.overflow = make([]int, len(values))
@@ -1512,6 +1528,10 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.bitVectorArrayEquality
 	case booleanFastIntegerLinearEquality:
 		return fast.integerLinearEquality
+	case booleanFastIntegerLinearDisequality:
+		return smt.IntegerLinearDisequality{Equality: fast.integerLinearEquality}
+	case booleanFastIntegerLinearChoice:
+		return fast.integerLinearChoice
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}

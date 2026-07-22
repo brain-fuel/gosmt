@@ -54,6 +54,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | QF_IDL cold construct + check | ~827 ns–1.02 us, 2,704 B, 8 allocs | ~1.07–1.23 ms, 320 B, 20 allocs | green | green (target ≤10 allocs) |
 | QF_LIA exact single-equation model construction + evaluation | ~763–772 ns, 3,264 B, 6 allocs | ~1.30–1.40 ms, 224 B, 15 allocs | green | green (target ≤7 allocs) |
 | QF_LIA general two-row model construction + two evaluations | ~5.68–5.74 us, 3,680 B, 13 allocs | ~1.45–1.53 ms, 424 B, 28 allocs | green | green (target ≤14 allocs) |
+| Boolean QF_LIA disjunction+disequality model construction + evaluation | ~7.19–7.24 us, 3,552 B, 7 allocs | ~1.28–1.41 ms, 304 B, 20 allocs | green | green (target ≤10 allocs) |
 | ground QF_UF cold construct + check | ~398–399 ns, 1,504 B, 14 allocs | ~0.86–1.01 ms, 304 B, 21 allocs | green | red (target ≤10 allocs) |
 | binary ground QF_UF cold construct + check | ~667–789 ns, 2,008 B, 15 allocs | ~0.85–1.01 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
 | QF_BOOL 5-into-4 pigeonhole construct + check | ~11.13–11.22 us, 30,320 B, 27 allocs | ~1.12–1.21 ms, 6,536 B, 360 allocs | green | green (target ≤180 allocs) |
@@ -108,6 +109,13 @@ multi-row branch-and-bound is gated separately: inline coefficient/problem and
 simplex arenas, small exact conversions, and direct LIA routing reduced it from
 104 allocations to 13, below half of Z3's 28, while remaining over 250x faster
 on conservative endpoints. Both workloads validate the returned model.
+
+The Boolean QF_LIA workload selects between `x = 1` and `x = 2`, excludes the
+first value, and evaluates the resulting model. Typed compact equality,
+choice, and disequality terms plus a concrete branch arena reduced the initial
+implementation from 48 allocations to 7. The slowest GoSMT endpoint remains
+over 175x faster than Z3's fastest endpoint while using 35% of its allocation
+count.
 
 The mixed EUF+QF_LRA row partitions normalized conjuncts into inline,
 polarity-aware theory arenas and merges independent arithmetic models. It fell

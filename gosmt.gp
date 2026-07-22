@@ -512,6 +512,14 @@ func Or(0 c nat, values ...BoolExpr[c]) BoolExpr[c] {
 	return fastOr(values)
 }
 
+func ImpliesBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c] {
+	return Or(Not(left), right)
+}
+
+func IffBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c] {
+	return And(ImpliesBool(left, right), ImpliesBool(right, left))
+}
+
 func Add(0 c nat, values ...IntExpr[c]) IntExpr[c] {
 	context, terms := integerTerms(values)
 	return intExprValue(context, smt.Add(terms))
@@ -539,6 +547,10 @@ func Lt(0 c nat, left IntExpr[c], right IntExpr[c]) BoolExpr[c] {
 
 func EqInt(0 c nat, left IntExpr[c], right IntExpr[c]) BoolExpr[c] {
 	return fastEqInteger(left, right)
+}
+
+func NeInt(0 c nat, left IntExpr[c], right IntExpr[c]) BoolExpr[c] {
+	return Not(EqInt(left, right))
 }
 
 func AddReal(0 c nat, values ...RealExpr[c]) RealExpr[c] {

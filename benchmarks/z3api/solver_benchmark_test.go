@@ -1334,6 +1334,43 @@ func BenchmarkLinearIntegerMultiRowModelCold(b *testing.B) {
 	})
 }
 
+func BenchmarkBooleanLinearIntegerModelCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(26)
+			x := gosmt.IntConst(context, "x", 1)
+			one, two := gosmt.IntVal(context, 1), gosmt.IntVal(context, 2)
+			formula := gosmt.And(gosmt.Or(gosmt.EqInt(x, one), gosmt.EqInt(x, two)), gosmt.NeInt(x, one))
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalInt(result.Value, x); !found || value != 2 {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			one, two := context.MkInt(1, intSort), context.MkInt(2, intSort)
+			formula := context.MkAnd(context.MkOr(context.MkEq(x, one), context.MkEq(x, two)), context.MkNot(context.MkEq(x, one)))
+			solver := context.NewSolverForLogic("QF_LIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, ok := solver.Model().Eval(x, true); !ok {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanPigeonholeCold(b *testing.B) {
 	const pigeons, holes = 5, 4
 	b.Run("gosmt", func(b *testing.B) {

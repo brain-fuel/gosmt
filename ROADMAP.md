@@ -4,8 +4,9 @@
 2. CDCL SAT with watched literals, VSIDS, restarts, clause learning, cores.
 3. Congruence closure and Nelson–Oppen theory combination.
 4. Exact rationals plus simplex/cuts for LRA/LIA and difference logic. LRA,
-   difference logic, and branch-and-bound QF_LIA foundations are implemented;
-   cutting planes and full shared-theory exchange remain.
+   difference logic, branch-and-bound QF_LIA, and bounded Boolean-QF_LIA
+   foundations are implemented; cutting planes and full shared-theory exchange
+   remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.

@@ -93,6 +93,26 @@ func TestLinearIntegerArithmeticModelAndIntegrality(t *testing.T) {
 	}
 }
 
+func TestBooleanLinearIntegerArithmetic(t *testing.T) {
+	context := NewContext(106)
+	x := IntConst(context, "x", 1)
+	one, two := IntVal(context, 1), IntVal(context, 2)
+	formula := And(
+		Or(EqInt(x, one), EqInt(x, two)),
+		NeInt(x, one),
+		ImpliesBool(EqInt(x, two), Lt(IntVal(context, 0), x)),
+		IffBool(EqInt(x, two), Le(two, x)),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", result)
+	}
+	value, found := EvalInt(result.Value, x)
+	if !found || value != 2 {
+		t.Fatalf("x=(%d,%v)", value, found)
+	}
+}
+
 func TestArbitraryPrecisionIntegerDifferenceLogic(t *testing.T) {
 	context := NewContext(5)
 	lower, err := ParseInteger("1267650600228229401496703205376")

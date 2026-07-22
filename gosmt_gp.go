@@ -1201,6 +1201,16 @@ func Or(values ...BoolExpr) BoolExpr {
 	return fastOr(values)
 }
 
+//goplus:dep ImpliesBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c]
+func ImpliesBool(left BoolExpr, right BoolExpr) BoolExpr {
+	return Or(Not(left), right)
+}
+
+//goplus:dep IffBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c]
+func IffBool(left BoolExpr, right BoolExpr) BoolExpr {
+	return And(ImpliesBool(left, right), ImpliesBool(right, left))
+}
+
 //goplus:dep Add(0 c nat, values ...IntExpr[c]) IntExpr[c]
 func Add(values ...IntExpr) IntExpr {
 	context, terms := integerTerms(values)
@@ -1242,6 +1252,11 @@ func Lt(left IntExpr, right IntExpr) BoolExpr {
 //goplus:dep EqInt(0 c nat, left IntExpr[c], right IntExpr[c]) BoolExpr[c]
 func EqInt(left IntExpr, right IntExpr) BoolExpr {
 	return fastEqInteger(left, right)
+}
+
+//goplus:dep NeInt(0 c nat, left IntExpr[c], right IntExpr[c]) BoolExpr[c]
+func NeInt(left IntExpr, right IntExpr) BoolExpr {
+	return Not(EqInt(left, right))
 }
 
 //goplus:dep AddReal(0 c nat, values ...RealExpr[c]) RealExpr[c]
