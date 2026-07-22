@@ -1283,6 +1283,57 @@ func BenchmarkLinearIntegerModelCold(b *testing.B) {
 	})
 }
 
+func BenchmarkLinearIntegerMultiRowModelCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(25)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			formula := gosmt.And(
+				gosmt.Le(gosmt.Add(x, y), gosmt.IntVal(context, 10)),
+				gosmt.Le(gosmt.IntVal(context, 11), gosmt.Add(gosmt.ScaleInt64(2, x), y)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			xValue, xFound := gosmt.EvalInt(result.Value, x)
+			if !xFound {
+				b.Fatal("invalid model")
+			}
+			yValue, yFound := gosmt.EvalInt(result.Value, y)
+			if !yFound || xValue+yValue > 10 || 2*xValue+yValue < 11 {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			x, y := context.MkIntConst("x"), context.MkIntConst("y")
+			formula := context.MkAnd(
+				context.MkLe(context.MkAdd(x, y), context.MkInt(10, intSort)),
+				context.MkLe(context.MkInt(11, intSort), context.MkAdd(context.MkMul(context.MkInt(2, intSort), x), y)),
+			)
+			solver := context.NewSolverForLogic("QF_LIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, ok := model.Eval(x, true); !ok {
+				b.Fatal("invalid x model")
+			}
+			if _, ok := model.Eval(y, true); !ok {
+				b.Fatal("invalid y model")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanPigeonholeCold(b *testing.B) {
 	const pigeons, holes = 5, 4
 	b.Run("gosmt", func(b *testing.B) {
