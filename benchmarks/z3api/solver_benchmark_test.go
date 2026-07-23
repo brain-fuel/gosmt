@@ -5792,6 +5792,54 @@ func BenchmarkPurifiedBinaryIntegerEUFArithmeticCold(b *testing.B) {
 	})
 }
 
+func BenchmarkPurifiedTernaryIntegerEUFArithmeticCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(119)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			z := gosmt.IntConst(context, "z", 3)
+			zero := gosmt.IntVal(context, 0)
+			function := gosmt.DeclareIntTernary(context, "combine3", 4)
+			left := gosmt.ApplyIntTernary(function, x, y, z)
+			right := gosmt.ApplyIntTernary(function, y, x, z)
+			formula := gosmt.And(
+				gosmt.EqInt(x, y),
+				gosmt.Le(left, zero),
+				gosmt.Lt(zero, right),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Unsat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			y := context.MkIntConst("y")
+			z := context.MkIntConst("z")
+			zero := context.MkInt(0, sort)
+			function := context.MkFuncDecl(context.MkStringSymbol("combine3"), []*z3.Sort{sort, sort, sort}, sort)
+			left := context.MkApp(function, x, y, z)
+			right := context.MkApp(function, y, x, z)
+			formula := context.MkAnd(
+				context.MkEq(x, y),
+				context.MkLe(left, zero),
+				context.MkLt(zero, right),
+			)
+			solver := context.NewSolverForLogic("QF_UFLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Unsatisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkPurifiedRealEUFArithmeticCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

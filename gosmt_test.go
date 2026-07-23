@@ -3074,6 +3074,18 @@ func TestIntegerFunctionCongruence(t *testing.T) {
 	if _, ok := Check(Assert(2, NewSolver(context), binaryFormula)).(Unsat); !ok {
 		t.Fatal("binary integer function congruence should be unsatisfiable")
 	}
+	z := IntConst(context, "z", 5)
+	ternary := DeclareIntTernary(context, "combine3", 6)
+	ternaryFormula := And(
+		EqInt(x, y),
+		Not(EqInt(
+			ApplyIntTernary(ternary, x, y, z),
+			ApplyIntTernary(ternary, y, x, z),
+		)),
+	)
+	if _, ok := Check(Assert(3, NewSolver(context), ternaryFormula)).(Unsat); !ok {
+		t.Fatal("ternary integer function congruence should be unsatisfiable")
+	}
 }
 
 func TestIntegerFunctionSharedArithmetic(t *testing.T) {
@@ -3108,6 +3120,18 @@ func TestIntegerFunctionSharedArithmetic(t *testing.T) {
 	)
 	if _, ok := Check(Assert(3, NewSolver(context), binaryFormula)).(Unsat); !ok {
 		t.Fatal("binary integer applications with affine arguments should be purified")
+	}
+	z := IntConst(context, "z", 5)
+	ternary := DeclareIntTernary(context, "combine3", 6)
+	ternaryLeft := ApplyIntTernary(ternary, Add(x, IntVal(context, 1)), y, z)
+	ternaryRight := ApplyIntTernary(ternary, Add(y, IntVal(context, 1)), x, z)
+	ternaryFormula := And(
+		EqInt(x, y),
+		Le(ternaryLeft, zero),
+		Lt(zero, ternaryRight),
+	)
+	if _, ok := Check(Assert(4, NewSolver(context), ternaryFormula)).(Unsat); !ok {
+		t.Fatal("ternary integer applications with affine arguments should be purified")
 	}
 }
 

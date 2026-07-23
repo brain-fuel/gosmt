@@ -76,6 +76,7 @@ type integerFast struct {
 	functionID       int
 	argumentID       int
 	secondArgumentID int
+	thirdArgumentID  int
 }
 
 type integerFunctionFast struct {
@@ -85,6 +86,12 @@ type integerFunctionFast struct {
 }
 
 type integerBinaryFunctionFast struct {
+	valid bool
+	id    int
+	name  string
+}
+
+type integerTernaryFunctionFast struct {
 	valid bool
 	id    int
 	name  string
@@ -108,6 +115,7 @@ const (
 	booleanFastRealBinaryComparison
 	booleanFastIntegerUnaryComparison
 	booleanFastIntegerBinaryComparison
+	booleanFastIntegerTernaryComparison
 	booleanFastBitVectorRelation
 	booleanFastBitVectorEUFRelation
 	booleanFastIntegerDifference
@@ -148,6 +156,7 @@ type booleanFast struct {
 	binaryComparison             smt.RealBinaryComparison
 	integerUnaryComparison       smt.IntegerUnaryComparison
 	integerBinaryComparison      smt.IntegerBinaryComparison
+	integerTernaryComparison     smt.IntegerTernaryComparison
 	bitVectorRelation            smt.BitVectorRelation
 	bitVectorEUFRelation         smt.BitVectorEUFRelation
 	integerDifference            smt.IntegerDifferenceConstraint
@@ -1743,6 +1752,20 @@ func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 	}
 	if application.fast.eufValid {
 		if bound, ok := fastIntegerConstant(constant); ok {
+			if application.fast.eufArity == 3 {
+				return boolExprValue{contextID: left.contextID, fast: booleanFast{
+					kind: booleanFastIntegerTernaryComparison,
+					integerTernaryComparison: smt.IntegerTernaryComparison{
+						FunctionID:        application.fast.functionID,
+						FirstArgumentID:   application.fast.argumentID,
+						SecondArgumentID:  application.fast.secondArgumentID,
+						ThirdArgumentID:   application.fast.thirdArgumentID,
+						Bound:             bound,
+						ApplicationOnLeft: applicationOnLeft,
+						Strict:            strict,
+					},
+				}}
+			}
 			if application.fast.eufArity == 2 {
 				return boolExprValue{contextID: left.contextID, fast: booleanFast{
 					kind: booleanFastIntegerBinaryComparison,
@@ -2871,7 +2894,7 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		return boolExprValue{contextID: context, term: conjunction}
 	}
 	allCompactIntegerTheory := len(values) > 0
-	integerEqualityCount, integerUnaryCount, integerBinaryCount := 0, 0, 0
+	integerEqualityCount, integerUnaryCount, integerBinaryCount, integerTernaryCount := 0, 0, 0, 0
 	for _, value := range values {
 		switch value.fast.kind {
 		case booleanFastIntegerSymbolEquality:
@@ -2880,16 +2903,19 @@ func fastAnd(values []BoolExpr) BoolExpr {
 			integerUnaryCount++
 		case booleanFastIntegerBinaryComparison:
 			integerBinaryCount++
+		case booleanFastIntegerTernaryComparison:
+			integerTernaryCount++
 		default:
 			allCompactIntegerTheory = false
 		}
 	}
 	if allCompactIntegerTheory && integerEqualityCount != 0 &&
-		integerUnaryCount+integerBinaryCount != 0 {
+		integerUnaryCount+integerBinaryCount+integerTernaryCount != 0 {
 		system := smt.CompactIntegerEUFSystem{
-			EqualityCount:         integerEqualityCount,
-			UnaryComparisonCount:  integerUnaryCount,
-			BinaryComparisonCount: integerBinaryCount,
+			EqualityCount:          integerEqualityCount,
+			UnaryComparisonCount:   integerUnaryCount,
+			BinaryComparisonCount:  integerBinaryCount,
+			TernaryComparisonCount: integerTernaryCount,
 		}
 		if integerEqualityCount > len(system.EqualityLeft) {
 			system.OverflowEqualityLeft = make([]int, integerEqualityCount)
@@ -2901,7 +2927,10 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		if integerBinaryCount > len(system.BinaryComparisons) {
 			system.OverflowBinaryComparisons = make([]smt.IntegerBinaryComparison, integerBinaryCount)
 		}
-		equality, unary, binary := 0, 0, 0
+		if integerTernaryCount > len(system.TernaryComparisons) {
+			system.OverflowTernaryComparisons = make([]smt.IntegerTernaryComparison, integerTernaryCount)
+		}
+		equality, unary, binary, ternary := 0, 0, 0, 0
 		for _, value := range values {
 			switch value.fast.kind {
 			case booleanFastIntegerSymbolEquality:
@@ -2931,6 +2960,13 @@ func fastAnd(values []BoolExpr) BoolExpr {
 					system.BinaryComparisons[binary] = value.fast.integerBinaryComparison
 				}
 				binary++
+			case booleanFastIntegerTernaryComparison:
+				if system.OverflowTernaryComparisons != nil {
+					system.OverflowTernaryComparisons[ternary] = value.fast.integerTernaryComparison
+				} else {
+					system.TernaryComparisons[ternary] = value.fast.integerTernaryComparison
+				}
+				ternary++
 			}
 		}
 		if allCompactIntegerTheory {
@@ -3161,6 +3197,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.integerUnaryComparison
 	case booleanFastIntegerBinaryComparison:
 		return fast.integerBinaryComparison
+	case booleanFastIntegerTernaryComparison:
+		return fast.integerTernaryComparison
 	case booleanFastBitVectorRelation:
 		return fast.bitVectorRelation
 	case booleanFastBitVectorEUFRelation:
@@ -3352,6 +3390,15 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 		return term
 	}
 	if fast.eufValid {
+		if fast.eufArity == 3 {
+			function := smt.DeclareIntTernaryFunction(fast.functionID, "")
+			return smt.ApplySortedTernary(
+				function,
+				smt.IntegerVariable(fast.argumentID),
+				smt.IntegerVariable(fast.secondArgumentID),
+				smt.IntegerVariable(fast.thirdArgumentID),
+			)
+		}
 		if fast.eufArity == 2 {
 			function := smt.DeclareIntBinaryFunction(fast.functionID, "")
 			return smt.ApplySortedBinary(
@@ -3449,8 +3496,50 @@ func applyIntegerBinaryFunction(function IntBinaryFunc, first, second IntExpr) I
 	}
 }
 
+func fastIntegerTernaryFunction(context, id int, name string) IntTernaryFunc {
+	return intTernaryFuncValue{
+		contextID: context,
+		fast:      integerTernaryFunctionFast{valid: true, id: id, name: name},
+	}
+}
+
+func applyIntegerTernaryFunction(
+	function IntTernaryFunc, first, second, third IntExpr,
+) IntExpr {
+	if function.contextID != first.contextID ||
+		function.contextID != second.contextID ||
+		function.contextID != third.contextID {
+		panic("gosmt: erased ternary integer function context mismatch")
+	}
+	firstID, _, firstOK := directIntegerExprSymbol(first)
+	secondID, _, secondOK := directIntegerExprSymbol(second)
+	thirdID, _, thirdOK := directIntegerExprSymbol(third)
+	if function.fast.valid && firstOK && secondOK && thirdOK {
+		return intExprValue{contextID: function.contextID, fast: integerFast{
+			eufValid: true, eufArity: 3, functionID: function.fast.id,
+			argumentID: firstID, secondArgumentID: secondID, thirdArgumentID: thirdID,
+		}}
+	}
+	core := function.function
+	if core == nil {
+		core = smt.DeclareIntTernaryFunction(function.fast.id, function.fast.name)
+	}
+	return intExprValue{
+		contextID: function.contextID,
+		term: smt.ApplySortedTernary(
+			core,
+			materializeInteger(first.term, first.fast),
+			materializeInteger(second.term, second.fast),
+			materializeInteger(third.term, third.fast),
+		),
+	}
+}
+
 func compactIntegerEUFTerm(value IntExpr) (smt.UninterpretedEUFTerm, bool) {
 	if value.fast.eufValid {
+		if value.fast.eufArity == 3 {
+			return smt.UninterpretedEUFTerm{}, false
+		}
 		if value.fast.eufArity == 2 {
 			return smt.UninterpretedEUFTerm{
 				Kind: 3, SortID: -2, FunctionID: value.fast.functionID,

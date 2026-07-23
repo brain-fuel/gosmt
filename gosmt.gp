@@ -83,6 +83,9 @@ type IntFunc[c nat] enum { intFuncValue(ContextID int, Function smt.SortedUnaryF
 type IntBinaryFunc[c nat] enum { intBinaryFuncValue(ContextID int, Function smt.SortedBinaryFunction[smt.IntSort, smt.IntSort, smt.IntSort], Fast integerBinaryFunctionFast) IntBinaryFunc[c] }
 //goplus:derive off
 //goplus:repr transparent
+type IntTernaryFunc[c nat] enum { intTernaryFuncValue(ContextID int, Function smt.SortedTernaryFunction[smt.IntSort, smt.IntSort, smt.IntSort, smt.IntSort], Fast integerTernaryFunctionFast) IntTernaryFunc[c] }
+//goplus:derive off
+//goplus:repr transparent
 type BitVecFunc[c nat, d nat, r nat] enum { bitVecFuncValue(ContextID int, Function smt.SortedUnaryFunction[smt.BitVecSort[d], smt.BitVecSort[r]]) BitVecFunc[c, d, r] }
 //goplus:derive off
 //goplus:repr transparent
@@ -945,6 +948,14 @@ func DeclareIntBinary(0 c nat, context Context[c], name string, id int) IntBinar
 
 func ApplyIntBinary(0 c nat, function IntBinaryFunc[c], first IntExpr[c], second IntExpr[c]) IntExpr[c] {
 	return applyIntegerBinaryFunction(function, first, second)
+}
+
+func DeclareIntTernary(0 c nat, context Context[c], name string, id int) IntTernaryFunc[c] {
+	match context { case contextValue(contextID): return fastIntegerTernaryFunction(contextID, id, name) }
+}
+
+func ApplyIntTernary(0 c nat, function IntTernaryFunc[c], first IntExpr[c], second IntExpr[c], third IntExpr[c]) IntExpr[c] {
+	return applyIntegerTernaryFunction(function, first, second, third)
 }
 
 func DeclareBitVecFunction(domainWidth nat, rangeWidth nat, 0 c nat, context Context[c], name string, id int) BitVecFunc[c, domainWidth, rangeWidth] {

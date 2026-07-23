@@ -4085,10 +4085,15 @@ func TestRandomPurifiedIntegerApplicationsAgreeWithPinnedZ3(t *testing.T) {
 		declaration := "(declare-fun f (Int) Int)"
 		left := fmt.Sprintf("(f (+ x %d))", offset)
 		right := fmt.Sprintf("(f (+ y %d))", offset)
-		if example&2 != 0 {
+		switch example % 3 {
+		case 1:
 			declaration = "(declare-fun f (Int Int) Int)"
 			left = fmt.Sprintf("(f (+ x %d) y)", offset)
 			right = fmt.Sprintf("(f (+ y %d) x)", offset)
+		case 2:
+			declaration = "(declare-fun f (Int Int Int) Int)"
+			left = fmt.Sprintf("(f (+ x %d) y x)", offset)
+			right = fmt.Sprintf("(f (+ y %d) x y)", offset)
 		}
 		script := fmt.Sprintf(`(set-logic QF_UFLIA)
 (declare-const x Int)

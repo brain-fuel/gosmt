@@ -20,8 +20,9 @@ plus bounded complete Boolean QF_DT branching and sound conjunctive
 combination while those signatures remain
 disjoint and fixed-point shared equality exchange for unary/binary Real and
 integer EUF.
-Built-in integer EUF includes context-indexed unary `Int -> Int` and binary
-`Int × Int -> Int` declarations. The typed API and SMT-LIB `QF_UFLIA` purify
+Built-in integer EUF includes context-indexed unary `Int -> Int`, binary
+`Int × Int -> Int`, and ternary `Int × Int × Int -> Int` declarations. The
+typed API and SMT-LIB `QF_UFLIA` purify
 applications inside affine arithmetic and exchange implied equality between
 LIA and EUF to a fixed point, including affine arguments. Compact direct-symbol
 paths avoid materializing application trees.
