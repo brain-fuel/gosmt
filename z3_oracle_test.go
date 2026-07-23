@@ -1270,6 +1270,92 @@ func TestRelationalLengthIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestAffineLengthIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(860 + example)
+		x := IntSequenceConst(context, "x", 1)
+		length := LengthIntSequence(x)
+		formula := EqInt(
+			Add(ScaleInt64(2, length), IntVal(context, 1)),
+			IntVal(context, 7),
+		)
+		assertion := "(= (+ (* 2 (seq.len x)) 1) 7)"
+		switch example % 8 {
+		case 1:
+			formula = EqInt(ScaleInt64(2, length), IntVal(context, 3))
+			assertion = "(= (* 2 (seq.len x)) 3)"
+		case 2:
+			formula = Le(
+				Add(ScaleInt64(2, length), IntVal(context, 1)),
+				IntVal(context, 9),
+			)
+			assertion = "(<= (+ (* 2 (seq.len x)) 1) 9)"
+		case 3:
+			formula = Lt(
+				Add(ScaleInt64(-2, length), IntVal(context, 1)),
+				IntVal(context, -4),
+			)
+			assertion = "(< (+ (* (- 2) (seq.len x)) 1) (- 4))"
+		case 4:
+			formula = And(
+				Le(
+					Add(ScaleInt64(2, length), IntVal(context, 1)),
+					IntVal(context, 9),
+				),
+				Lt(
+					Add(ScaleInt64(-2, length), IntVal(context, 1)),
+					IntVal(context, -4),
+				),
+			)
+			assertion = `(and
+  (<= (+ (* 2 (seq.len x)) 1) 9)
+  (< (+ (* (- 2) (seq.len x)) 1) (- 4)))`
+		case 5:
+			formula = Le(
+				Sub(IntVal(context, 10), length),
+				IntVal(context, 7),
+			)
+			assertion = "(<= (- 10 (seq.len x)) 7)"
+		case 6:
+			formula = EqInt(
+				Sub(length, length),
+				IntVal(context, 0),
+			)
+			assertion = "(= (- (seq.len x) (seq.len x)) 0)"
+		case 7:
+			formula = EqInt(
+				Sub(length, length),
+				IntVal(context, 1),
+			)
+			assertion = "(= (- (seq.len x) (seq.len x)) 1)"
+		}
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+(declare-const x (Seq Int))
+(assert ` + assertion + `)
+(check-sat)`
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)

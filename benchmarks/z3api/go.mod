@@ -7,6 +7,6 @@ require (
 	goforge.dev/gosmt v0.0.0
 )
 
-require goforge.dev/goplus/std v0.82.0
+require goforge.dev/goplus/std v0.84.0
 
 replace goforge.dev/gosmt => ../..

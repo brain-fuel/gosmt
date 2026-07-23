@@ -1045,6 +1045,45 @@ func TestContextIndexedRelationalLengthIntegerSequence(t *testing.T) {
 	}
 }
 
+func TestContextIndexedAffineLengthIntegerSequence(t *testing.T) {
+	context := NewContext(40)
+	x := IntSequenceConst(context, "x", 1)
+	length := LengthIntSequence(x)
+	twicePlusOne := Add(ScaleInt64(2, length), IntVal(context, 1))
+	exact := EqInt(twicePlusOne, IntVal(context, 7))
+	result, ok := Check(Assert(1, NewSolver(context), exact)).(Sat)
+	if !ok {
+		t.Fatal("affine equality must be satisfiable")
+	}
+	if value, found := EvalIntSequence(result.Value, x); !found || value.Len() != 3 {
+		t.Fatalf("exact len=(%d,%v)", value.Len(), found)
+	}
+
+	nondivisible := EqInt(ScaleInt64(2, length), IntVal(context, 3))
+	if checked := Check(Assert(2, NewSolver(context), nondivisible)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("nondivisible result=%T", checked)
+	}
+
+	bounded := And(
+		Le(twicePlusOne, IntVal(context, 9)),
+		Lt(
+			Add(ScaleInt64(-2, length), IntVal(context, 1)),
+			IntVal(context, -4),
+		),
+	)
+	boundedResult, ok := Check(Assert(3, NewSolver(context), bounded)).(Sat)
+	if !ok {
+		t.Fatal("affine bounds must be satisfiable")
+	}
+	if value, found := EvalIntSequence(boundedResult.Value, x); !found ||
+		value.Len() < 3 || value.Len() > 4 {
+		t.Fatalf("bounded len=(%d,%v)", value.Len(), found)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)
