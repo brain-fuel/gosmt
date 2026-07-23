@@ -100,6 +100,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | negated ground `Seq Int` predicates + placement backtracking | ~10.017–10.024 us, 25,864 B, 19 allocs | ~22.600–23.112 ms, 688 B, 41 allocs | green (>2,254x) | green (target ≤20 allocs) |
 | pairwise symbolic `Seq Int` disequality + coupled length backtracking | ~10.445–10.490 us, 27,152 B, 21 allocs | ~2.603–2.701 ms, 720 B, 44 allocs | green (>248x) | green (target ≤22 allocs) |
 | negated symbolic-pattern `Seq Int` prefix + coupled length backtracking | ~11.677–12.116 us, 30,608 B, 21 allocs | ~2.633–2.727 ms, 720 B, 44 allocs | green (>217x) | green (target ≤22 allocs) |
+| cyclic negated symbolic-pattern `Seq Int` prefixes + coupled length backtracking | ~11.919–12.008 us, 25,221 B, 21 allocs | ~21.909–22.457 ms, 744 B, 44 allocs | green (>1,824x) | green (target ≤22 allocs) |
 | two shared-symbol word equations + global backtracking | ~3.716–3.732 us, 8,224 B, 8 allocs | ~1.710–1.763 ms, 480 B, 32 allocs | green (>458x) | green (target ≤16 allocs) |
 | word equation + regular-language candidate selection | ~4.177–4.193 us, 8,552 B, 9 allocs | ~1.270–1.360 ms, 432 B, 29 allocs | green (>302x) | green (target ≤14 allocs) |
 | word equation + general Boolean-regex split selection | ~5.504–5.516 us, 9,144 B, 13 allocs | ~1.423–1.496 ms, 480 B, 32 allocs | green (>257x) | green (target ≤16 allocs) |
@@ -577,6 +578,15 @@ and advances both roots to length eight before discriminating the dependent
 value. It uses 21 allocations and 11.677–12.116 us versus pinned Z3's 44
 visible Go allocations and 2.633–2.727 ms. This is 52.3% fewer allocations
 and over 217x conservative-endpoint throughput.
+
+The cyclic symbolic-pattern workload gives both roots the same seven-element
+prefix and equal lengths, then requires neither complete root to prefix the
+other. Dependency ordering necessarily cycles, so the stable fallback builds
+one root and applies both value-side and pattern-side constraints while
+building the second; length seven fails and length eight produces distinct
+models. It uses 21 allocations and 11.919–12.008 us versus pinned Z3's 44
+visible Go allocations and 21.909–22.457 ms. This is 52.3% fewer allocations
+and over 1,824x conservative-endpoint throughput.
 
 The exact-length sequence workload adds length eight to simultaneous two-value
 prefix, containment, and suffix requirements, then extracts and validates the

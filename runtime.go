@@ -1994,6 +1994,11 @@ func fastNot(value BoolExpr) BoolExpr {
 			return value
 		}
 	}
+	if value.fast.kind == booleanFastNone && value.term != nil {
+		value.fast.kind = booleanFastAtom
+		value.fast.negated = true
+		return value
+	}
 	return boolExprValue{contextID: value.contextID, term: smt.Not{Value: materializeBoolean(value.term, value.fast)}}
 }
 

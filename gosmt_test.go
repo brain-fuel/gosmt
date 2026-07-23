@@ -1616,6 +1616,30 @@ func TestContextIndexedNegatedSymbolicIntegerSequencePattern(t *testing.T) {
 	}() == false {
 		t.Fatalf("alias result=%T", checked)
 	}
+
+	cyclic := And(
+		EqInt(LengthIntSequence(x), LengthIntSequence(y)),
+		HasPrefixIntSequence(x, unit(1)),
+		HasPrefixIntSequence(y, unit(1)),
+		Not(HasPrefixIntSequence(x, y)),
+		Not(HasPrefixIntSequence(y, x)),
+	)
+	cyclicChecked := Check(Assert(3, NewSolver(context), cyclic))
+	cyclicResult, ok := cyclicChecked.(Sat)
+	if !ok {
+		t.Fatalf("cyclic result=%T", cyclicChecked)
+	}
+	xValue, xFound = EvalIntSequence(cyclicResult.Value, x)
+	yValue, yFound = EvalIntSequence(cyclicResult.Value, y)
+	if !xFound || !yFound || xValue.Len() != 2 || yValue.Len() != 2 {
+		t.Fatalf(
+			"cyclic models=(%d,%v)/(%d,%v)",
+			xValue.Len(), xFound, yValue.Len(), yFound,
+		)
+	}
+	if valid, found := EvalBool(cyclicResult.Value, cyclic); !found || !valid {
+		t.Fatalf("cyclic formula=(%v,%v)", valid, found)
+	}
 }
 
 func TestContextIndexedNegatedGroundSymbolicIntegerSequencePredicates(t *testing.T) {
