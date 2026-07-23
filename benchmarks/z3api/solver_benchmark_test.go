@@ -733,6 +733,67 @@ func BenchmarkStringWordEquationIndexOfQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringWordEquationDerivedSubstringQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(33)
+			x := gosmt.StringConst(context, "x", 1)
+			y := gosmt.StringConst(context, "y", 2)
+			substring := gosmt.Substring(x, gosmt.IntVal(context, 1), gosmt.IntVal(context, 2))
+			formula := gosmt.And(
+				gosmt.EqString(
+					gosmt.ConcatString(x, y),
+					gosmt.StringVal(context, "abcd"),
+				),
+				gosmt.EqString(substring, gosmt.StringVal(context, "bc")),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "abc" {
+				b.Fatal("invalid substring left model")
+			}
+			if value, found := gosmt.EvalString(result.Value, y); !found || value != "d" {
+				b.Fatal("invalid substring right model")
+			}
+			if value, found := gosmt.EvalString(result.Value, substring); !found || value != "bc" {
+				b.Fatal("invalid substring model")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid substring formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			intSort := context.MkIntSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			y := context.MkConst(context.MkStringSymbol("y"), stringSort)
+			substring := context.MkSeqExtract(x, context.MkInt(1, intSort), context.MkInt(2, intSort))
+			formula := context.MkAnd(
+				context.MkEq(context.MkSeqConcat(x, y), context.MkString("abcd")),
+				context.MkEq(substring, context.MkString("bc")),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, y, substring, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid substring model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -35,7 +35,9 @@ Boolean-nested constraints during bounded backtracking. Affine combinations
 of lengths support exact addition, subtraction, and constant scaling, plus
 integer-valued `str.indexof`, `str.to_int`, and `str.to_code` predicates
 coupled to word-equation candidates with exact arbitrary-precision conversion,
-plus
+and derived-string equalities over `str.at`, `str.substr`, `str.replace`,
+`str.replace_all`, `str.from_int`, and `str.from_code`. Indexed extraction
+uses allocation-free Unicode/WTF-8 boundary scans on valid SMT strings, plus
 regex-coupled candidate
 selection including bounded Boolean predicates and string disequalities, the
 core SMT-LIB regex, and globally backtracked contains/prefix/suffix constraints

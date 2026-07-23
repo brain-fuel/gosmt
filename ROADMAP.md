@@ -69,6 +69,10 @@
    `str.to_int`, and `str.to_code`, including affine combinations, now
    participate in the same exact candidate validation. `str.indexof` scans
    Unicode/WTF-8 code-point boundaries without temporary rune slices.
+   Derived-string equalities over `str.at`, `str.substr`, `str.replace`,
+   `str.replace_all`, `str.from_int`, and `str.from_code` now validate the
+   same globally backtracked candidates. `str.at` and `str.substr` share the
+   allocation-free boundary scanner while preserving malformed-input fallback.
    Unbounded-target or unbounded Boolean-regex
    equation systems remain. Positive and negative
    regular-language memberships now prune bounded equation candidates and

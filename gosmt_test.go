@@ -647,6 +647,98 @@ func TestContextIndexedWordEquationIntegerStringOperationInteraction(t *testing.
 	}
 }
 
+func TestContextIndexedWordEquationDerivedStringOperationInteraction(t *testing.T) {
+	context := NewContext(33)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	cases := []struct {
+		name      string
+		target    string
+		predicate BoolExpr
+		want      string
+	}{
+		{
+			name:      "at",
+			target:    "a🙂c",
+			predicate: EqString(AtString(x, IntVal(context, 1)), StringVal(context, "🙂")),
+			want:      "a🙂",
+		},
+		{
+			name:   "substring",
+			target: "abcd",
+			predicate: EqString(
+				Substring(x, IntVal(context, 1), IntVal(context, 2)),
+				StringVal(context, "bc"),
+			),
+			want: "abc",
+		},
+		{
+			name:   "replace",
+			target: "abc",
+			predicate: EqString(
+				ReplaceString(x, StringVal(context, "a"), StringVal(context, "z")),
+				StringVal(context, "z"),
+			),
+			want: "a",
+		},
+		{
+			name:   "replace-all",
+			target: "aab",
+			predicate: EqString(
+				ReplaceAllString(x, StringVal(context, "a"), StringVal(context, "z")),
+				StringVal(context, "zz"),
+			),
+			want: "aa",
+		},
+		{
+			name:   "from-int",
+			target: "12x",
+			predicate: EqString(
+				AtString(x, IntVal(context, 0)),
+				AtString(FromIntString(IntVal(context, 12)), IntVal(context, 0)),
+			),
+			want: "1",
+		},
+		{
+			name:   "from-code",
+			target: "a🙂",
+			predicate: EqString(
+				AtString(x, IntVal(context, 0)),
+				FromCodeString(IntVal(context, 97)),
+			),
+			want: "a",
+		},
+	}
+	for index, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			formula := And(
+				EqString(ConcatString(x, y), StringVal(context, test.target)),
+				test.predicate,
+			)
+			checked := Check(Assert(index+1, NewSolver(context), formula))
+			result, ok := checked.(Sat)
+			if !ok {
+				t.Fatalf("result=%T", checked)
+			}
+			if actual, found := EvalString(result.Value, x); !found || actual != test.want {
+				t.Fatalf("x=(%q,%v), want %q", actual, found, test.want)
+			}
+			if valid, found := EvalBool(result.Value, formula); !found || !valid {
+				t.Fatalf("formula=(%v,%v)", valid, found)
+			}
+		})
+	}
+
+	impossible := And(
+		EqString(ConcatString(x, y), StringVal(context, "abc")),
+		EqString(AtString(x, IntVal(context, 4)), StringVal(context, "z")),
+	)
+	checked := Check(Assert(7, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

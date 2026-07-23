@@ -79,6 +79,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | ambiguous word equation + ground equality interaction | ~3.354–3.359 us, 9,296 B, 8 allocs | ~0.987–1.084 ms, 432 B, 27 allocs | green (>293x) | green (target ≤13 allocs) |
 | word equation + exact code-point length interaction | ~3.351–3.366 us, 9,328 B, 10 allocs | ~1.518–1.584 ms, 384 B, 26 allocs | green (>450x) | green (target ≤13 allocs) |
 | word equation + code-point length bounds | ~4.395–4.413 us, 10,608 B, 13 allocs | ~1.673–1.752 ms, 440 B, 29 allocs | green (>379x) | green (target ≤14 allocs) |
+| word equation + derived substring equality | ~5.879–5.897 us, 8,168 B, 12 allocs | ~1.813–1.866 ms, 424 B, 29 allocs | green (>307x) | green (target ≤14 allocs) |
 | two shared-symbol word equations + global backtracking | ~3.716–3.732 us, 8,224 B, 8 allocs | ~1.710–1.763 ms, 480 B, 32 allocs | green (>458x) | green (target ≤16 allocs) |
 | word equation + regular-language candidate selection | ~4.177–4.193 us, 8,552 B, 9 allocs | ~1.270–1.360 ms, 432 B, 29 allocs | green (>302x) | green (target ≤14 allocs) |
 | word equation + general Boolean-regex split selection | ~5.504–5.516 us, 9,144 B, 13 allocs | ~1.423–1.496 ms, 480 B, 32 allocs | green (>257x) | green (target ≤16 allocs) |
@@ -561,6 +562,17 @@ separately. Allocation-free Unicode/WTF-8 code-point boundary scanning reduced
 the cold workload from 21 allocations to 12. It uses 12 allocations and
 5.075–5.080 us versus pinned Z3's 27 visible Go allocations and
 2.725–2.811 ms. This is 55.6% fewer allocations and over 536x
+conservative-endpoint throughput.
+
+The derived-string workload solves `x ++ y = "abcd"` together with
+`str.substr(x, 1, 2) = "bc"`, selecting `x = "abc"` and `y = "d"` and
+validating both the derived value and complete formula. The same candidate
+path covers `str.at`, first/all replacement, `str.from_int`, and
+`str.from_code`; pinned Z3 returns `unknown` for the `str.replace_all`
+QF_SLIA case, so that operator remains independently covered by direct
+semantic laws. Allocation-free Unicode/WTF-8 boundary scanning keeps the cold
+workload at 12 allocations and 5.879–5.897 us versus pinned Z3's 29 visible Go
+allocations and 1.813–1.866 ms. This is 58.6% fewer allocations and over 307x
 conservative-endpoint throughput.
 
 The multiple-equation workload solves `x ++ y = "abc"` together with
