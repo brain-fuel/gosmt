@@ -82,6 +82,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | two shared-symbol word equations + global backtracking | ~3.716–3.732 us, 8,224 B, 8 allocs | ~1.710–1.763 ms, 480 B, 32 allocs | green (>458x) | green (target ≤16 allocs) |
 | word equation + regular-language candidate selection | ~4.177–4.193 us, 8,552 B, 9 allocs | ~1.270–1.360 ms, 432 B, 29 allocs | green (>302x) | green (target ≤14 allocs) |
 | word equation + general Boolean-regex split selection | ~5.504–5.516 us, 9,144 B, 13 allocs | ~1.423–1.496 ms, 480 B, 32 allocs | green (>257x) | green (target ≤16 allocs) |
+| word equation + string disequality split selection | ~4.513–4.560 us, 10,576 B, 9 allocs | ~1.289–1.354 ms, 368 B, 25 allocs | green (>282x) | green (target ≤12 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -557,6 +558,13 @@ General Boolean evaluation occurs before accepting an equation model, so a
 false candidate resumes the bounded search. It uses 13 allocations and
 5.504–5.516 us versus pinned Z3's 32 visible Go allocations and
 1.423–1.496 ms. This is 59.4% fewer allocations and over 257x
+conservative-endpoint throughput.
+
+The string-disequality workload solves `x ++ y = "ab"` while requiring
+`x != ""`. Global predicate validation rejects the canonical empty split and
+continues to `x = "a"`, `y = "b"`. It uses 9 allocations and
+4.513–4.560 us versus pinned Z3's 25 visible Go allocations and
+1.289–1.354 ms. This is 64.0% fewer allocations and over 282x
 conservative-endpoint throughput.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only

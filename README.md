@@ -26,7 +26,8 @@ single-unknown, uniquely delimited, adjacent-symbol, repeated-symbol, and
 canonically split bounded word equations with exact ground-equality
 and code-point-length equality/inequality interaction, plus globally
 backtracked shared-symbol equation systems and regex-coupled candidate
-selection including bounded Boolean predicates, the core SMT-LIB regex
+selection including bounded Boolean predicates and string disequalities, the
+core SMT-LIB regex
 algebra, and context-indexed GoSMT construction. The standard library keeps
 regexes element-sort indexed and small Boolean-regex formulas in an inline
 postfix representation.

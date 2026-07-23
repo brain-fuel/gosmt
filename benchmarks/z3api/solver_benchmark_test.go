@@ -757,6 +757,63 @@ func BenchmarkStringWordEquationBooleanRegexQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringWordEquationDisequalityQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(25)
+			x := gosmt.StringConst(context, "x", 1)
+			y := gosmt.StringConst(context, "y", 2)
+			formula := gosmt.And(
+				gosmt.EqString(
+					gosmt.ConcatString(x, y),
+					gosmt.StringVal(context, "ab"),
+				),
+				gosmt.Not(gosmt.EqString(x, gosmt.StringVal(context, ""))),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "a" {
+				b.Fatal("invalid disequality-constrained word-equation model")
+			}
+			if value, found := gosmt.EvalString(result.Value, y); !found || value != "b" {
+				b.Fatal("invalid word-equation remainder")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid disequality-constrained word-equation formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			x := context.MkConst(context.MkStringSymbol("x"), context.MkStringSort())
+			y := context.MkConst(context.MkStringSymbol("y"), context.MkStringSort())
+			formula := context.MkAnd(
+				context.MkEq(
+					context.MkSeqConcat(x, y),
+					context.MkString("ab"),
+				),
+				context.MkNot(context.MkEq(x, context.MkString(""))),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, y, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid disequality-constrained word-equation model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringDelimitedWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -61,7 +61,8 @@
    regular-language memberships now prune bounded equation candidates and
    participate in final global-model validation; bounded `or`, nested `not`,
    implication, equivalence, Boolean equality, and ITE predicates backtrack
-   over alternative equation splits.
+   over alternative equation splits. String equality/disequality predicates
+   and Boolean choices over them participate in the same global validation.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.
