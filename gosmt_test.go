@@ -509,6 +509,54 @@ func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	}
 }
 
+func TestContextIndexedWordEquationRegexInteraction(t *testing.T) {
+	context := NewContext(22)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	equation := EqString(ConcatString(x, y), StringVal(context, "abc"))
+	language := UnionRegexExpr(
+		ToRegexString(StringVal(context, "a")),
+		ToRegexString(StringVal(context, "ab")),
+	)
+	formula := And(equation, InRegexString(x, language))
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "a" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "bc" {
+		t.Fatalf("y=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	negativeLiteral := And(
+		equation,
+		Not(InRegexString(x, ToRegexString(StringVal(context, "")))),
+	)
+	checked = Check(Assert(2, NewSolver(context), negativeLiteral))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("negative result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "a" {
+		t.Fatalf("negative x=(%q,%v)", actual, found)
+	}
+
+	impossible := And(
+		equation,
+		InRegexString(x, ToRegexString(StringVal(context, "z"))),
+	)
+	checked = Check(Assert(3, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
