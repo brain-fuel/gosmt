@@ -241,6 +241,14 @@ func EqString(0 c nat, left StringExpr[c], right StringExpr[c]) BoolExpr[c] {
 	return fastStringRelation(smt.CompactStringEqual, left, right)
 }
 
+func LtString(0 c nat, left StringExpr[c], right StringExpr[c]) BoolExpr[c] {
+	return fastStringRelation(smt.CompactStringLess, left, right)
+}
+
+func LeString(0 c nat, left StringExpr[c], right StringExpr[c]) BoolExpr[c] {
+	return fastStringRelation(smt.CompactStringLessEqual, left, right)
+}
+
 func AtString(0 c nat, value StringExpr[c], index IntExpr[c]) StringExpr[c] {
 	return fastAtString(value, index)
 }

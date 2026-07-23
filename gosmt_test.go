@@ -1073,6 +1073,55 @@ func TestContextIndexedGroundStringRegexReplacement(t *testing.T) {
 	}
 }
 
+func TestContextIndexedStringLexicographicOrdering(t *testing.T) {
+	context := NewContext(47)
+	x := StringConst(context, "x", 70)
+	y := StringConst(context, "y", 71)
+	formula := And(
+		LtString(x, y),
+		LeString(y, StringVal(context, "z")),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatal("expected satisfiable")
+	}
+	xValue, xOK := EvalString(result.Value, x)
+	yValue, yOK := EvalString(result.Value, y)
+	if !xOK || !yOK || smt.CompareStringValues(xValue, yValue) >= 0 ||
+		smt.CompareStringValues(yValue, "z") > 0 {
+		t.Fatalf("x=%q/%v y=%q/%v", xValue, xOK, yValue, yOK)
+	}
+
+	z := StringConst(context, "z", 72)
+	unsatisfiable := []BoolExpr{
+		And(LtString(x, y), LeString(y, x)),
+		And(LtString(x, y), LeString(y, z), LeString(z, x)),
+		Not(LeString(x, x)),
+		And(
+			LtString(StringVal(context, "a"), x),
+			LeString(x, StringVal(context, "a")),
+		),
+	}
+	for index, formula := range unsatisfiable {
+		if _, ok := Check(Assert(index+2, NewSolver(context), formula)).(Unsat); !ok {
+			t.Fatalf("unsatisfiable case %d", index)
+		}
+	}
+	between := And(
+		LtString(x, StringVal(context, "b")),
+		LtString(StringVal(context, "a"), x),
+	)
+	betweenResult, ok := Check(Assert(5, NewSolver(context), between)).(Sat)
+	if !ok {
+		t.Fatal("expected bounded lexicographic witness")
+	}
+	betweenValue, found := EvalString(betweenResult.Value, x)
+	if !found || smt.CompareStringValues("a", betweenValue) >= 0 ||
+		smt.CompareStringValues(betweenValue, "b") >= 0 {
+		t.Fatalf("between=%q/%v", betweenValue, found)
+	}
+}
+
 func TestContextIndexedStringReplaceIndexedInteraction(t *testing.T) {
 	context := NewContext(36)
 	x := StringConst(context, "x", 1)

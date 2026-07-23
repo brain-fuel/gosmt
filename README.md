@@ -69,7 +69,11 @@ disequalities, the core SMT-LIB regex, globally backtracked
 contains/prefix/suffix constraints, and context-indexed GoSMT construction.
 The standard library keeps
 regexes element-sort indexed and small Boolean-regex formulas in an inline
-postfix representation.
+postfix representation. Core SMT-LIB lexicographic `str.<` and reflexive
+`str.<=` compare Unicode code points without decoded-slice allocations.
+Compact direct-symbol systems construct ordered models, merge literal
+lower/upper bounds, and prove reflexive, boundary, strict-cycle, and mixed
+strict/non-strict cycle contradictions.
 Ground integer sequences now have exact `empty`, `unit`, `concat`, equality,
 disequality, length arithmetic, indexed `at`/extract, contains/prefix/suffix,
 index-of, first replacement, Boolean composition, and inline model evaluation.

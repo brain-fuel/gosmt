@@ -650,6 +650,10 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 				result = strings.HasPrefix(leftCompact.Value, rightCompact.Value)
 			case smt.CompactStringSuffix:
 				result = strings.HasSuffix(leftCompact.Value, rightCompact.Value)
+			case smt.CompactStringLess:
+				result = smt.CompareStringValues(leftCompact.Value, rightCompact.Value) < 0
+			case smt.CompactStringLessEqual:
+				result = smt.CompareStringValues(leftCompact.Value, rightCompact.Value) <= 0
 			}
 			return boolExprValue{contextID: left.contextID, term: smt.Bool{Value: result}}
 		}
@@ -667,6 +671,10 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 		term = smt.StringHasPrefix(leftTerm, rightTerm)
 	case smt.CompactStringSuffix:
 		term = smt.StringHasSuffix(leftTerm, rightTerm)
+	case smt.CompactStringLess:
+		term = smt.StringLess(leftTerm, rightTerm)
+	case smt.CompactStringLessEqual:
+		term = smt.StringLessEqual(leftTerm, rightTerm)
 	}
 	return fastBooleanAtom(left.contextID, term)
 }

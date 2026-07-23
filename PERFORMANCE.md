@@ -72,6 +72,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | ground QF_AUFBV extensional model + two evaluations | ~1.31–1.32 us, 8,208 B, 8 allocs | ~1.12–1.18 ms, 272 B, 18 allocs | green | green (target ≤9 allocs) |
 | ground QF_AUFBV two-store extensionality | ~769–770 ns, 2,088 B, 4 allocs | ~1.01–1.12 ms, 344 B, 22 allocs | green | green (target ≤11 allocs) |
 | Boolean QF_S model selection + evaluation | ~3.902–3.910 us, 7,120 B, 6 allocs | ~1.018–1.072 ms, 464 B, 30 allocs | green (>260x) | green (target ≤15 allocs) |
+| symbolic QF_SLIA lexicographic order + two model evaluations | ~5.101–5.139 us, 24,256 B, 9 allocs | ~25.89–26.51 ms, 328 B, 20 allocs | green (>5,038x) | green (target ≤10 allocs) |
 | single-unknown QF_SLIA word equation + evaluation | ~1.575–1.586 us, 8,192 B, 6 allocs | ~0.979–1.059 ms, 256 B, 17 allocs | green (>617x) | green (target ≤8 allocs) |
 | two-symbol uniquely delimited QF_SLIA word equation + evaluation | ~1.728–1.755 us, 7,888 B, 6 allocs | ~1.951–2.042 ms, 368 B, 23 allocs | green (>1,111x) | green (target ≤11 allocs) |
 | two-adjacent-symbol canonical QF_SLIA word equation + evaluation | ~1.698–1.714 us, 7,888 B, 6 allocs | ~1.195–1.264 ms, 288 B, 20 allocs | green (>697x) | green (target ≤10 allocs) |

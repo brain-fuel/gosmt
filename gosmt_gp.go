@@ -843,6 +843,16 @@ func EqString(left StringExpr, right StringExpr) BoolExpr {
 	return fastStringRelation(smt.CompactStringEqual, left, right)
 }
 
+//goplus:dep LtString(0 c nat, left StringExpr[c], right StringExpr[c]) BoolExpr[c]
+func LtString(left StringExpr, right StringExpr) BoolExpr {
+	return fastStringRelation(smt.CompactStringLess, left, right)
+}
+
+//goplus:dep LeString(0 c nat, left StringExpr[c], right StringExpr[c]) BoolExpr[c]
+func LeString(left StringExpr, right StringExpr) BoolExpr {
+	return fastStringRelation(smt.CompactStringLessEqual, left, right)
+}
+
 //goplus:dep AtString(0 c nat, value StringExpr[c], index IntExpr[c]) StringExpr[c]
 func AtString(value StringExpr, index IntExpr) StringExpr {
 	return fastAtString(value, index)

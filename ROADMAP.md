@@ -129,6 +129,11 @@
    impossibility proofs. Forced ground values validate directly, and bounded
    breadth-first cyclic-path enumeration lets length and general predicates
    select longer deletion preimages.
+   Core code-point lexicographic `str.<` and `str.<=` now have typed std and
+   context-indexed GoSMT terms, chainable SMT-LIB execution, allocation-free
+   Unicode/WTF-8 comparison, compact symbolic witnesses, literal interval
+   contradiction proofs, and strict-cycle detection across mixed strict and
+   non-strict relations.
    Single-symbol affine length expressions now normalize exact addition,
    subtraction, and arbitrary-precision constant scaling with divisibility,
    sign reversal, integer rounding, and cancellation.

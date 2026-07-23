@@ -876,6 +876,72 @@ func TestGroundRegexReplacementExtendsPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestStringLexicographicOrderingCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	literals := []string{
+		`""`, `"a"`, `"aa"`, `"z"`,
+		`"\u{80}"`, `"\u{d800}"`, `"\u{1f642}"`, `"\u{20000}"`,
+	}
+	for example := 0; example < 64; example++ {
+		operator := "str.<"
+		if example%2 != 0 {
+			operator = "str.<="
+		}
+		left := literals[example%len(literals)]
+		right := literals[(example*5+3)%len(literals)]
+		script := fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+(declare-const y String)
+(assert (= x %s))
+(assert (= y %s))
+(assert (%s x y))
+(check-sat)`, left, right, operator)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("ground example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("ground example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+	assertions := []string{
+		`(assert (str.< "a" "aa"))`,
+		`(assert (str.< "\u{20000}" "\u{d800}"))`,
+		`(assert (str.< x y))`,
+		`(assert (str.< x x))`,
+		`(assert (str.<= x x))`,
+		`(assert (not (str.<= x x)))`,
+		`(assert (and (str.< x y) (str.< y "z")))`,
+		`(assert (and (str.< x y) (str.< y x)))`,
+		`(assert (and (str.< x y) (str.<= y x)))`,
+		`(assert (and (str.< "a" x) (str.<= x "a")))`,
+		`(assert (and (str.< x "b") (str.< "a" x)))`,
+	}
+	for example, assertion := range assertions {
+		script := fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+(declare-const y String)
+%s
+(check-sat)`, assertion)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestStandaloneStringReplaceEqualityCorpusAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

@@ -1454,6 +1454,57 @@ func BenchmarkGroundRegexReplacementQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringLexicographicOrderingQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for iteration := 0; iteration < b.N; iteration++ {
+			context := gosmt.NewContext(47)
+			x := gosmt.StringConst(context, "x", 70)
+			y := gosmt.StringConst(context, "y", 71)
+			formula := gosmt.And(
+				gosmt.LtString(x, y),
+				gosmt.LeString(y, gosmt.StringVal(context, "z")),
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(iteration+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			xValue, xOK := gosmt.EvalString(result.Value, x)
+			yValue, yOK := gosmt.EvalString(result.Value, y)
+			if !xOK || !yOK || smt.CompareStringValues(xValue, yValue) >= 0 ||
+				smt.CompareStringValues(yValue, "z") > 0 {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for iteration := 0; iteration < b.N; iteration++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			y := context.MkConst(context.MkStringSymbol("y"), stringSort)
+			formula := context.MkAnd(
+				z3StringLess(context, x, y),
+				z3StringLessEqual(context, y, context.MkString("z")),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			xValue, xOK := model.Eval(x, true)
+			yValue, yOK := model.Eval(y, true)
+			if !xOK || !yOK || xValue == nil || yValue == nil {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+}
+
 func BenchmarkStringReplaceIndexedInteractionQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
