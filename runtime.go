@@ -73,8 +73,10 @@ type integerFast struct {
 }
 
 type integerSequenceFast struct {
-	compact smt.CompactIntegerSequence
-	valid   bool
+	compact  smt.CompactIntegerSequence
+	symbolID int
+	valid    bool
+	symbol   bool
 }
 
 const (
@@ -305,6 +307,23 @@ func materializeIntegerSequence(
 		return fast.compact
 	}
 	return term
+}
+
+func symbolIntegerSequenceFast(id int) integerSequenceFast {
+	return integerSequenceFast{symbolID: id, symbol: true}
+}
+
+func fastEvaluateIntegerSequence(
+	model smt.Model,
+	term smt.Term[smt.SequenceSort[smt.IntSort]],
+	fast integerSequenceFast,
+) (smt.IntegerSequenceValue, bool) {
+	if fast.symbol {
+		return smt.IntegerSequenceSymbolModelValue(model, fast.symbolID)
+	}
+	return smt.IntegerSequenceModelValue(
+		model, materializeIntegerSequence(term, fast),
+	)
 }
 
 func materializeCompactString(value smt.CompactStringTerm) smt.Term[smt.StringSort] {

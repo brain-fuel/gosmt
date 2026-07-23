@@ -76,8 +76,8 @@ pattern root. Patterns are nonempty, affine candidates prefer dependency
 order, and the later root receives both value-side and pattern-side exact
 constraints against every earlier model. This also closes cyclic dependency
 graphs without approximating them; assigned targets and final model validation
-use the same bidirectional representation. Affine systems spanning nine or
-more canonical sequence symbols and symbolic-element sequence search remain
+use the same bidirectional representation. Affine systems spanning seventeen
+or more canonical sequence symbols and symbolic-element sequence search remain
 explicit future work.
 Ground strict
 and non-strict length bounds now normalize into exact lower/upper requirements,
@@ -102,11 +102,13 @@ Strict and non-strict affine inequalities across two or three canonical
 sequence lengths use sign-correct integer bounds, constructive feasibility
 pruning, and exact models. Equality relations are solved first regardless of
 assertion order.
-Multiple affine equalities and inequalities over as many as eight canonical
+Multiple affine equalities and inequalities over as many as sixteen canonical
 sequence roots now share one bounded global search. Partial interval proofs
 prune infeasible branches, final exact values and inequality bounds intersect,
-and all local witnesses commit atomically. The eight-root capacity matches the
-existing inline alias and sequence-value capacities.
+and all local witnesses commit atomically. Normalization, aliases,
+requirements, candidate search, and exact models share the sixteen-root
+capacity; equality interval pruning proves impossible totals before bounded
+enumeration.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,

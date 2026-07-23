@@ -94,6 +94,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | interacting affine `Seq Int` relation system + atomic models | ~8.737–8.753 us, 17,472 B, 32 allocs | ~1.680–1.735 ms, 1,192 B, 72 allocs | green (>191x) | green (target ≤36 allocs) |
 | four-symbol affine `Seq Int` relation system + atomic models | ~11.175–11.233 us, 19,688 B, 38 allocs | ~1.793–1.886 ms, 1,496 B, 90 allocs | green (>159x) | green (target ≤45 allocs) |
 | five-symbol affine `Seq Int` relation system + atomic models | ~13.553–13.704 us, 23,008 B, 45 allocs | ~2.006–2.078 ms, 1,912 B, 109 allocs | green (>146x) | green (target ≤54 allocs) |
+| nine-symbol affine `Seq Int` relation + four-element exact models | ~36.201–36.594 us, 104,736 B, 56 allocs | ~3.221–3.305 ms, 2,888 B, 173 allocs | green (>88x) | green (target ≤86 allocs) |
 | disjunctive symbolic `Seq Int` branch backtracking + exact model | ~6.129–6.166 us, 20,272 B, 20 allocs | ~2.547–2.598 ms, 712 B, 44 allocs | green (>413x) | green (target ≤22 allocs) |
 | negated affine symbolic `Seq Int` bounds + exact model | ~9.663–9.673 us, 20,592 B, 24 allocs | ~30.461–31.105 ms, 784 B, 49 allocs | green (>3,149x) | green (target ≤24 allocs) |
 | symbolic `Seq Int` ground disequality + exact model | ~7.037–7.057 us, 23,176 B, 19 allocs | ~2.848–2.973 ms, 760 B, 44 allocs | green (>403x) | green (target ≤22 allocs) |
@@ -684,6 +685,16 @@ alias/value capacities, retaining global interval pruning and atomic witness
 construction without changing the four-root allocation count. It uses 45
 allocations and 13.553–13.704 us versus pinned Z3's 109 visible Go allocations
 and 2.006–2.078 ms. This is 58.7% fewer allocations and over 146x
+conservative-endpoint throughput.
+
+The nine-symbol affine-relation workload gives every root a distinct
+four-element prefix, fixes the total length to 36, and extracts all nine exact
+models. Std raises normalization, alias, requirement, search, and model
+capacity together from eight to sixteen roots; equality interval pruning
+rejects impossible totals before enumeration, and GoSMT evaluates direct
+symbol models without rebuilding expression nodes. It uses 56 allocations and
+36.201–36.594 us versus pinned Z3's 173 visible Go allocations and
+3.221–3.305 ms. This is 67.6% fewer allocations and over 88x
 conservative-endpoint throughput.
 
 The uniquely delimited word-equation workload solves

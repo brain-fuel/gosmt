@@ -560,7 +560,7 @@ func IntSequenceConst(context Context, name string, id int) IntSequenceExpr {
 	case contextValue:
 		contextID := __gp_m6.iD
 
-		return intSequenceExprValue{contextID: contextID, term: smt.SequenceConst[smt.IntSort](id, name), fast: integerSequenceFast{}}
+		return intSequenceExprValue{contextID: contextID, term: smt.SequenceConst[smt.IntSort](id, name), fast: symbolIntegerSequenceFast(id)}
 	default:
 		panic("goplus: impossible enum value in match")
 	}
@@ -3118,7 +3118,7 @@ func EvalIntSequence(model Model, expression IntSequenceExpr) (smt.IntegerSequen
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
 			}
-			return smt.IntegerSequenceModelValue(core, materializeIntegerSequence(term, fast))
+			return fastEvaluateIntegerSequence(core, term, fast)
 		default:
 			panic("goplus: impossible enum value in match")
 		}

@@ -1432,6 +1432,43 @@ func TestContextIndexedFiveSymbolAffineIntegerSequenceLengthSystems(t *testing.T
 	}
 }
 
+func TestContextIndexedNineSymbolAffineIntegerSequenceLengthSystem(t *testing.T) {
+	context := NewContext(55)
+	expressions := make([]IntSequenceExpr, 9)
+	lengths := make([]IntExpr, len(expressions))
+	constraints := make([]BoolExpr, 0, len(expressions)+1)
+	for index := range expressions {
+		expressions[index] = IntSequenceConst(context, "root", index+1)
+		lengths[index] = LengthIntSequence(expressions[index])
+		constraints = append(
+			constraints,
+			HasPrefixIntSequence(
+				expressions[index],
+				UnitIntSequence(IntVal(context, int64(index+1))),
+			),
+		)
+	}
+	constraints = append(
+		constraints,
+		EqInt(Add(lengths...), IntVal(context, int64(len(expressions)))),
+	)
+	formula := And(constraints...)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	for index, expression := range expressions {
+		value, found := EvalIntSequence(result.Value, expression)
+		if !found || value.Len() != 1 {
+			t.Fatalf("model %d=(%d,%v)", index, value.Len(), found)
+		}
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+}
+
 func TestContextIndexedDisjunctiveSymbolicIntegerSequences(t *testing.T) {
 	context := NewContext(47)
 	unit := func(value int64) IntSequenceExpr {

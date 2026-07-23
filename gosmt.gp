@@ -149,7 +149,7 @@ func EmptyIntSequence(0 c nat, context Context[c]) IntSequenceExpr[c] {
 
 func IntSequenceConst(0 c nat, context Context[c], name string, id int) IntSequenceExpr[c] {
 	match context { case contextValue(contextID):
-		return intSequenceExprValue(contextID, smt.SequenceConst[smt.IntSort](id, name), integerSequenceFast{})
+		return intSequenceExprValue(contextID, smt.SequenceConst[smt.IntSort](id, name), symbolIntegerSequenceFast(id))
 	}
 }
 
@@ -1170,7 +1170,7 @@ func EvalIntSequence(0 c nat, 0 a nat, model Model[c, a], expression IntSequence
 		match expression {
 		case intSequenceExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
-			return smt.IntegerSequenceModelValue(core, materializeIntegerSequence(term, fast))
+			return fastEvaluateIntegerSequence(core, term, fast)
 		}
 	}
 }
