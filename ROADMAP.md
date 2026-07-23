@@ -25,7 +25,9 @@
    selector's owning constructor, preserve every other constructor, work from
    symbolic recognizer evidence, and retain exact models. Multi-parameter
    families support identity-distinct instantiations, regular recursion, and
-   nested substituted fields. Mutually parametric groups remain.
+   nested substituted fields. Mutually parametric groups monomorphize jointly
+   across cross-family cycles, including families with different arities, and
+   validate group productivity before installation.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

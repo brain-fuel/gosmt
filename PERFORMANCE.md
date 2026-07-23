@@ -388,6 +388,13 @@ and 3.172–3.642 us for GoSMT versus 37 allocations and 0.872–1.053 ms for
 pinned Z3. This is 62.2% fewer allocations and about 300x faster at the
 median.
 
+The mutually parametric datatype cold workload constructs concrete
+`Tree Int`/`Forest Int` identities jointly, crosses both family boundaries,
+solves a scalar-bearing nested value, and extracts its exact model. Three
+500-iteration Apple M5 Max samples use 21 allocations and 4.955–5.559 us for
+GoSMT versus 57 allocations and 0.862–1.064 ms for pinned Z3. This is 63.2%
+fewer allocations and about 200x faster at the median.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids
