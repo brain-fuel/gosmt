@@ -25,7 +25,8 @@ equality-forced and singleton-intersection contradiction proofs, constructive
 single-unknown, uniquely delimited, adjacent-symbol, repeated-symbol, and
 canonically split bounded word equations with exact ground-equality
 and code-point-length equality/inequality interaction, plus globally
-backtracked shared-symbol systems of as many as eight equations and
+backtracked shared-symbol systems with inline storage through eight equations
+and exact overflow under a shared resource limit, plus
 regex-coupled candidate
 selection including bounded Boolean predicates and string disequalities, the
 core SMT-LIB regex, and globally backtracked contains/prefix/suffix constraints

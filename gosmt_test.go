@@ -548,6 +548,52 @@ func TestContextIndexedEightWordEquationInteraction(t *testing.T) {
 	}
 }
 
+func TestContextIndexedOverflowWordEquationInteraction(t *testing.T) {
+	context := NewContext(28)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	z := StringConst(context, "z", 3)
+	w := StringConst(context, "w", 4)
+	stringValue := func(value string) StringExpr {
+		return StringVal(context, value)
+	}
+	formula := And(
+		EqString(ConcatString(x, y), stringValue("abc")),
+		EqString(ConcatString(x, stringValue("-"), z), stringValue("a-tail")),
+		EqString(ConcatString(y, w), stringValue("bc!")),
+		EqString(ConcatString(z, w), stringValue("tail!")),
+		EqString(ConcatString(stringValue("<"), x, y), stringValue("<abc")),
+		EqString(ConcatString(x, y, stringValue(">")), stringValue("abc>")),
+		EqString(ConcatString(stringValue("["), z, w), stringValue("[tail!")),
+		EqString(ConcatString(z, w, stringValue("]")), stringValue("tail!]")),
+		EqString(ConcatString(stringValue("<"), x, stringValue("-"), z), stringValue("<a-tail")),
+		EqString(ConcatString(x, stringValue("-"), z, stringValue(">")), stringValue("a-tail>")),
+		EqString(ConcatString(stringValue("("), y, w), stringValue("(bc!")),
+		EqString(ConcatString(z, w, stringValue(")")), stringValue("tail!)")),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	for _, item := range []struct {
+		expression StringExpr
+		expected   string
+	}{
+		{x, "a"},
+		{y, "bc"},
+		{z, "tail"},
+		{w, "!"},
+	} {
+		if actual, found := EvalString(result.Value, item.expression); !found || actual != item.expected {
+			t.Fatalf("value=(%q,%v), want=%q", actual, found, item.expected)
+		}
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+}
+
 func TestContextIndexedWordEquationRegexInteraction(t *testing.T) {
 	context := NewContext(22)
 	x := StringConst(context, "x", 1)

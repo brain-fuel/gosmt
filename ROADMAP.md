@@ -54,10 +54,12 @@
    lengths contradictory. Unbounded/general Boolean regex constraints and
    lower/upper string-length inequalities now merge independently of assertion
    order and prune the same Unicode-boundary search. Unbounded/general Boolean
-   regex constraints remain. As many as eight bounded ground-target equations
-   now share one globally backtracked model and resource limit, including
-   alternative splits forced by later equations. Larger/unbounded or
-   larger unbounded Boolean-regex equation systems remain. Positive and negative
+   regex constraints remain. Arbitrary-count bounded ground-target equation
+   systems now share one globally backtracked model and resource limit,
+   retaining fixed inline storage through eight equations and sixteen
+   conjuncts before exact overflow. Alternative splits forced by later
+   equations are revisited. Unbounded-target or unbounded Boolean-regex
+   equation systems remain. Positive and negative
    regular-language memberships now prune bounded equation candidates and
    participate in final global-model validation; bounded `or`, nested `not`,
    implication, equivalence, Boolean equality, and ITE predicates backtrack

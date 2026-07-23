@@ -554,6 +554,15 @@ equation slots avoid heap-backed search metadata while preserving the shared
 Z3's 62 visible Go allocations and 2.992–3.069 ms. This is 75.8% fewer
 allocations and over 244x conservative-endpoint throughput.
 
+The overflow-equation workload extends the same four-symbol model to twelve
+coupled ground-target equations. Equation storage grows only after the eight
+inline slots are exhausted, while conjunct storage similarly remains inline
+through sixteen entries. The previously gated two- and eight-equation paths
+remain at 8 and 15 allocations respectively. The twelve-equation workload uses
+20 allocations and 15.280–15.290 us versus pinned Z3's 84 visible Go
+allocations and 3.035–3.130 ms. This is 76.2% fewer allocations and over 198x
+conservative-endpoint throughput.
+
 The regex-coupled workload solves `x ++ y = "abc"` while requiring
 `x` to belong to the union of the singleton languages `"a"` and `"ab"`.
 Membership is checked while assigning candidate splits, so the initial empty
