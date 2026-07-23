@@ -404,16 +404,16 @@ fewer allocations and about 200x faster at the median. Inline branch and atom
 arenas replace the initial heap-slice implementation, which used 56
 allocations.
 
-The initial QF_SLIA cold workload constructs a symbolic string, concatenation,
-length, contains, prefix, and suffix constraints, solves them, and validates
-the string, length, and complete formula model. Three Apple M5 Max samples use
-28 allocations and 3.615–3.670 us for GoSMT versus 31 Go-wrapper allocations
-and 1.029–1.093 ms for pinned Z3. Throughput is about 280x faster. The
-allocation gate is deliberately still red: 28 is not 50% fewer than 31, and
-Z3's Go allocation count does not include its native C heap. The standard
-library core alone solves the same authored constraints in 6 allocations and
-0.684–0.708 us; reducing public façade construction and model-view allocations
-is the next required optimization.
+The QF_SLIA cold workload constructs a symbolic string, concatenation, length,
+contains, prefix, and suffix constraints, solves them, and validates the
+string, length, and complete formula model. The initial public façade used 28
+allocations. Compact inline string terms and relation systems reduce three
+Apple M5 Max samples to 9 allocations and 2.894–2.927 us versus 31 visible Go
+allocations and 1.044–1.097 ms for pinned Z3. This is 71.0% fewer allocations
+and about 360x faster at the median. Z3's count does not include its native C
+heap. Constant concatenation canonicalization also lowers the standard-library
+core from 6 allocations and 0.684–0.708 us to 3 allocations and
+0.645–0.671 us.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph

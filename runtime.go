@@ -3,6 +3,7 @@ package gosmt
 import (
 	smt "goforge.dev/goplus/std/smt"
 	"goforge.dev/goplus/std/vec"
+	"strings"
 )
 
 var resultViewKey byte
@@ -58,6 +59,7 @@ func naryDatatypeFieldIndex(field vec.Fin) int {
 const (
 	integerFastNone = iota
 	integerFastBitVectorConversion
+	integerFastStringLength
 )
 
 type integerFast struct {
@@ -66,6 +68,7 @@ type integerFast struct {
 	symbolID int
 	name     string
 	signed   bool
+	string   smt.CompactStringTerm
 }
 
 const (
@@ -96,6 +99,7 @@ const (
 	booleanFastIntegerDivModRelation
 	booleanFastIntegerDivModSystem
 	booleanFastUninterpretedEUFRelation
+	booleanFastStringRelation
 )
 
 type booleanFast struct {
@@ -127,7 +131,114 @@ type booleanFast struct {
 	integerDivModRelation        smt.IntegerDivModRelation
 	integerDivModSystem          smt.IntegerDivModSystem
 	uninterpretedEUFRelation     smt.UninterpretedEUFRelation
+	stringRelation               smt.CompactStringRelation
 	negated                      bool
+}
+
+const (
+	stringFastNone = iota
+	stringFastLiteral
+	stringFastSymbol
+)
+
+type stringFast struct {
+	kind  uint8
+	id    int
+	name  string
+	value string
+}
+
+func compactString(value StringExpr) (smt.CompactStringTerm, bool) {
+	switch value.fast.kind {
+	case stringFastLiteral:
+		return smt.CompactStringLiteralTerm(value.fast.value), true
+	case stringFastSymbol:
+		return smt.CompactStringSymbolTerm(value.fast.id, value.fast.name), true
+	default:
+		return smt.CompactStringTerm{}, false
+	}
+}
+
+func materializeString(value StringExpr) smt.Term[smt.StringSort] {
+	if value.term != nil {
+		return value.term
+	}
+	switch value.fast.kind {
+	case stringFastLiteral:
+		return smt.StringVal(value.fast.value)
+	case stringFastSymbol:
+		return smt.StringConst(value.fast.id, value.fast.name)
+	default:
+		panic("gosmt: invalid erased string expression")
+	}
+}
+
+func materializeCompactString(value smt.CompactStringTerm) smt.Term[smt.StringSort] {
+	if value.Kind == 0 {
+		return smt.StringVal(value.Value)
+	}
+	return smt.StringConst(value.ID, value.Name)
+}
+
+func fastStringValue(context int, value string) StringExpr {
+	return stringExprValue{contextID: context, fast: stringFast{kind: stringFastLiteral, value: value}}
+}
+
+func fastStringConst(context int, name string, id int) StringExpr {
+	return stringExprValue{contextID: context, fast: stringFast{kind: stringFastSymbol, id: id, name: name}}
+}
+
+func fastConcatString(values []StringExpr) StringExpr {
+	if len(values) == 0 {
+		panic("gosmt: string concatenation requires at least one value")
+	}
+	context := values[0].contextID
+	total, allLiterals := 0, true
+	for _, value := range values {
+		if value.contextID != context {
+			panic("gosmt: erased string context mismatch")
+		}
+		allLiterals = allLiterals && value.fast.kind == stringFastLiteral
+		total += len(value.fast.value)
+	}
+	if allLiterals {
+		var result strings.Builder
+		result.Grow(total)
+		for _, value := range values {
+			result.WriteString(value.fast.value)
+		}
+		return fastStringValue(context, result.String())
+	}
+	terms := make([]smt.Term[smt.StringSort], len(values))
+	for index, value := range values {
+		terms[index] = materializeString(value)
+	}
+	return stringExprValue{contextID: context, term: smt.StringConcat(terms...)}
+}
+
+func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
+	if left.contextID != right.contextID {
+		panic("gosmt: erased string context mismatch")
+	}
+	leftCompact, leftOK := compactString(left)
+	rightCompact, rightOK := compactString(right)
+	if leftOK && rightOK {
+		relation := smt.CompactStringRelation{Kind: kind, Left: leftCompact, Right: rightCompact}
+		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastStringRelation, stringRelation: relation}}
+	}
+	leftTerm, rightTerm := materializeString(left), materializeString(right)
+	var term smt.Term[smt.BoolSort]
+	switch kind {
+	case smt.CompactStringEqual:
+		term = smt.Equal{Left: leftTerm, Right: rightTerm}
+	case smt.CompactStringContains:
+		term = smt.StringContains(leftTerm, rightTerm)
+	case smt.CompactStringPrefix:
+		term = smt.StringHasPrefix(leftTerm, rightTerm)
+	case smt.CompactStringSuffix:
+		term = smt.StringHasSuffix(leftTerm, rightTerm)
+	}
+	return fastBooleanAtom(left.contextID, term)
 }
 
 const (
@@ -1357,6 +1468,10 @@ func fastNot(value BoolExpr) BoolExpr {
 		value.fast.uninterpretedEUFRelation.Negated = !value.fast.uninterpretedEUFRelation.Negated
 		return value
 	}
+	if value.fast.kind == booleanFastStringRelation {
+		value.fast.stringRelation.Negated = !value.fast.stringRelation.Negated
+		return value
+	}
 	return boolExprValue{contextID: value.contextID, term: smt.Not{Value: materializeBoolean(value.term, value.fast)}}
 }
 
@@ -1389,6 +1504,17 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	context := booleanContext(values)
 	if cnf, ok := compactBooleanCNF(values); ok {
 		return boolExprValue{contextID: context, term: cnf}
+	}
+	allStrings := len(values) > 0
+	for _, value := range values {
+		allStrings = allStrings && value.fast.kind == booleanFastStringRelation
+	}
+	if allStrings {
+		var system smt.CompactStringSystem
+		for _, value := range values {
+			system = smt.AppendCompactStringRelation(system, value.fast.stringRelation)
+		}
+		return boolExprValue{contextID: context, term: smt.CompactStringAssertions(system)}
 	}
 	allUninterpretedEUF := len(values) > 0
 	for _, value := range values {
@@ -1862,6 +1988,10 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.integerDivModSystem
 	case booleanFastUninterpretedEUFRelation:
 		return fast.uninterpretedEUFRelation
+	case booleanFastStringRelation:
+		var system smt.CompactStringSystem
+		system = smt.AppendCompactStringRelation(system, fast.stringRelation)
+		return smt.CompactStringAssertions(system)
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}
@@ -1875,6 +2005,18 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 func fastEqInteger(left, right IntExpr) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
+	}
+	length, constant := left, right
+	if length.fast.kind != integerFastStringLength {
+		length, constant = right, left
+	}
+	if length.fast.kind == integerFastStringLength && constant.fast.kind == integerFastNone {
+		if value, ok := smt.ExactIntegerConstant(constant.term); ok {
+			if integer, fits := value.Int64(); fits {
+				relation := smt.CompactStringRelation{Kind: smt.CompactStringLengthEqual, Left: length.fast.string, Integer: integer}
+				return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastStringRelation, stringRelation: relation}}
+			}
+		}
 	}
 	if relation, ok := compactFastBitVectorIntegerEquality(left, right); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastBitVectorIntegerRelation, bitVectorIntegerRelation: relation}}
@@ -1935,6 +2077,9 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 			return smt.BitVecToInt(value)
 		}
 		return smt.BitVecToNat(value)
+	}
+	if fast.kind == integerFastStringLength {
+		return smt.StringLength(materializeCompactString(fast.string))
 	}
 	panic("gosmt: invalid erased integer expression")
 }

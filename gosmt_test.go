@@ -57,6 +57,21 @@ func TestContextIndexedStringSolve(t *testing.T) {
 	}
 }
 
+func TestContextIndexedStringDisequality(t *testing.T) {
+	context := NewContext(9)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	result, ok := Check(Assert(1, NewSolver(context), Not(EqString(x, y)))).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), Not(EqString(x, y)))))
+	}
+	left, leftOK := EvalString(result.Value, x)
+	right, rightOK := EvalString(result.Value, y)
+	if !leftOK || !rightOK || left == right {
+		t.Fatalf("x=(%q,%v), y=(%q,%v)", left, leftOK, right, rightOK)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
