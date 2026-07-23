@@ -47,7 +47,9 @@ first-replacement equalities with ground source, replacement, and target also
 solve standalone. Std enumerates the complete finite preimage, including
 unchanged, empty-source, empty-replacement, ambiguous, Unicode, and
 multi-constraint intersection cases; the façade retains a compact replacement
-equality. Regex-coupled
+equality. The same exhaustive candidates compose exactly with direct-symbol
+ground-index `str.at` and `str.substr` constraints, selecting a compatible
+preimage or proving that every preimage fails. Regex-coupled
 candidate selection includes bounded Boolean predicates and string
 disequalities, the core SMT-LIB regex, globally backtracked
 contains/prefix/suffix constraints, and context-indexed GoSMT construction.

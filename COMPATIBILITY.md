@@ -36,9 +36,11 @@ the indices and result are ground. Overlapping constraints share positional
 code-point requirements and length bounds; they no longer require a bounding
 word equation. It also includes exact finite inversion of
 `str.replace(x,source,replacement) = target` when all operands except direct
-symbol `x` are ground, including intersection of multiple constraints.
+symbol `x` are ground, including intersection of multiple constraints and
+exact candidate filtering by ground-index `str.at`/`str.substr` equalities on
+the same symbol.
 Symbolic indices/replace operands, derived roots, negative equalities,
-standalone `str.replace_all` inversion, and cross-operator standalone
+standalone `str.replace_all` inversion, and other cross-operator standalone
 conjunctions remain outside these completed fragments.
 
 “Foundation” means implemented and tested, not Z3-complete. A theory advances

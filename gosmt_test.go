@@ -812,6 +812,29 @@ func TestContextIndexedStandaloneStringReplaceEqualities(t *testing.T) {
 	}
 }
 
+func TestContextIndexedStringReplaceIndexedInteraction(t *testing.T) {
+	context := NewContext(36)
+	x := StringConst(context, "x", 1)
+	formula := And(
+		EqString(
+			ReplaceString(x, StringVal(context, "a"), StringVal(context, "z")),
+			StringVal(context, "z"),
+		),
+		EqString(AtString(x, IntVal(context, 0)), StringVal(context, "a")),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "a" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+}
+
 func TestContextIndexedGroundIntegerSequenceEvaluation(t *testing.T) {
 	context := NewContext(34)
 	empty := EmptyIntSequence(context)
