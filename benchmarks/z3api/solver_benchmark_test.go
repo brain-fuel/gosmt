@@ -1975,6 +1975,127 @@ func BenchmarkFourSymbolAffineIntegerSequenceLengthRelationsQFSeq(b *testing.B) 
 	})
 }
 
+func BenchmarkFiveSymbolAffineIntegerSequenceLengthRelationsQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(47)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			block := func(offset int64) gosmt.IntSequenceExpr {
+				return gosmt.ConcatIntSequence(
+					unit(offset), unit(offset+1), unit(offset+2), unit(offset+3),
+				)
+			}
+			expressions := []gosmt.IntSequenceExpr{
+				gosmt.IntSequenceConst(context, "x", 1),
+				gosmt.IntSequenceConst(context, "y", 2),
+				gosmt.IntSequenceConst(context, "z", 3),
+				gosmt.IntSequenceConst(context, "w", 4),
+				gosmt.IntSequenceConst(context, "v", 5),
+			}
+			lengths := make([]gosmt.IntExpr, len(expressions))
+			for expressionIndex, expression := range expressions {
+				lengths[expressionIndex] = gosmt.LengthIntSequence(expression)
+			}
+			sum := gosmt.Add(lengths...)
+			weighted := gosmt.Add(
+				gosmt.ScaleInt64(2, lengths[0]),
+				lengths[1],
+				lengths[2],
+				lengths[3],
+				lengths[4],
+			)
+			formula := gosmt.And(
+				gosmt.Le(gosmt.IntVal(context, 20), sum),
+				gosmt.Le(weighted, gosmt.IntVal(context, 24)),
+				gosmt.HasPrefixIntSequence(expressions[0], block(1)),
+				gosmt.HasPrefixIntSequence(expressions[1], block(5)),
+				gosmt.HasPrefixIntSequence(expressions[2], block(9)),
+				gosmt.HasPrefixIntSequence(expressions[3], block(13)),
+				gosmt.HasSuffixIntSequence(expressions[4], block(17)),
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			total, weightedTotal := 0, 0
+			for modelIndex, expression := range expressions {
+				value, found := gosmt.EvalIntSequence(result.Value, expression)
+				if !found {
+					b.Fatal("missing five-symbol model")
+				}
+				total += value.Len()
+				weightedTotal += value.Len()
+				if modelIndex == 0 {
+					weightedTotal += value.Len()
+				}
+			}
+			if total < 20 || weightedTotal > 24 {
+				b.Fatal("invalid five-symbol models")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			expressions := []*z3.Expr{
+				context.MkConst(context.MkStringSymbol("x"), sequenceSort),
+				context.MkConst(context.MkStringSymbol("y"), sequenceSort),
+				context.MkConst(context.MkStringSymbol("z"), sequenceSort),
+				context.MkConst(context.MkStringSymbol("w"), sequenceSort),
+				context.MkConst(context.MkStringSymbol("v"), sequenceSort),
+			}
+			lengths := make([]*z3.Expr, len(expressions))
+			for expressionIndex, expression := range expressions {
+				lengths[expressionIndex] = context.MkSeqLength(expression)
+			}
+			sum := context.MkAdd(lengths...)
+			weighted := context.MkAdd(
+				context.MkMul(context.MkInt(2, intSort), lengths[0]),
+				lengths[1],
+				lengths[2],
+				lengths[3],
+				lengths[4],
+			)
+			block := func(offset int) *z3.Expr {
+				return context.MkSeqConcat(
+					context.MkSeqUnit(context.MkInt(offset, intSort)),
+					context.MkSeqUnit(context.MkInt(offset+1, intSort)),
+					context.MkSeqUnit(context.MkInt(offset+2, intSort)),
+					context.MkSeqUnit(context.MkInt(offset+3, intSort)),
+				)
+			}
+			formula := context.MkAnd(
+				context.MkLe(context.MkInt(20, intSort), sum),
+				context.MkLe(weighted, context.MkInt(24, intSort)),
+				context.MkSeqPrefix(block(1), expressions[0]),
+				context.MkSeqPrefix(block(5), expressions[1]),
+				context.MkSeqPrefix(block(9), expressions[2]),
+				context.MkSeqPrefix(block(13), expressions[3]),
+				context.MkSeqSuffix(block(17), expressions[4]),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range append(expressions, lengths...) {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid five-symbol models")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

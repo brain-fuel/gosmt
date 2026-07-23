@@ -55,7 +55,7 @@ witnesses, merge compatible prefix/suffix requirements, and reject conflicts.
 Exact ground length constraints add bounded placement/backtracking, overlapping
 prefix/suffix models, zero-filled unconstrained positions, and exact
 negative/conflicting/too-short proofs. Non-conjunctive, affine systems spanning
-five or more canonical sequence symbols, and symbolic-element sequence search
+nine or more canonical sequence symbols, and symbolic-element sequence search
 remain explicit future work. Ground strict
 and non-strict length bounds now normalize into exact lower/upper requirements,
 search admissible lengths with the same placement engine, and prove
@@ -79,10 +79,11 @@ Strict and non-strict affine inequalities across two or three canonical
 sequence lengths use sign-correct integer bounds, constructive feasibility
 pruning, and exact models. Equality relations are solved first regardless of
 assertion order.
-Multiple affine equalities and inequalities over as many as four canonical
+Multiple affine equalities and inequalities over as many as eight canonical
 sequence roots now share one bounded global search. Partial interval proofs
 prune infeasible branches, final exact values and inequality bounds intersect,
-and all local witnesses commit atomically.
+and all local witnesses commit atomically. The eight-root capacity matches the
+existing inline alias and sequence-value capacities.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,

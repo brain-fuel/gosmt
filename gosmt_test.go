@@ -1377,6 +1377,56 @@ func TestContextIndexedFourSymbolAffineIntegerSequenceLengthSystems(t *testing.T
 	}
 }
 
+func TestContextIndexedFiveSymbolAffineIntegerSequenceLengthSystems(t *testing.T) {
+	context := NewContext(46)
+	expressions := []IntSequenceExpr{
+		IntSequenceConst(context, "x", 1),
+		IntSequenceConst(context, "y", 2),
+		IntSequenceConst(context, "z", 3),
+		IntSequenceConst(context, "w", 4),
+		IntSequenceConst(context, "v", 5),
+	}
+	lengths := make([]IntExpr, len(expressions))
+	for index, expression := range expressions {
+		lengths[index] = LengthIntSequence(expression)
+	}
+	sum := Add(lengths...)
+	weighted := Add(
+		ScaleInt64(2, lengths[0]),
+		lengths[1],
+		lengths[2],
+		lengths[3],
+		lengths[4],
+	)
+	checked := Check(Assert(
+		1,
+		NewSolver(context),
+		And(
+			Le(IntVal(context, 10), sum),
+			Le(weighted, IntVal(context, 12)),
+		),
+	))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	total, weightedTotal := 0, 0
+	for index, expression := range expressions {
+		value, found := EvalIntSequence(result.Value, expression)
+		if !found {
+			t.Fatalf("missing model index=%d", index)
+		}
+		total += value.Len()
+		weightedTotal += value.Len()
+		if index == 0 {
+			weightedTotal += value.Len()
+		}
+	}
+	if total < 10 || weightedTotal > 12 {
+		t.Fatalf("totals=(%d,%d)", total, weightedTotal)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

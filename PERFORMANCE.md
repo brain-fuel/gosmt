@@ -92,7 +92,8 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | three-symbol affine `Seq Int` lengths + atomic exact models | ~6.566–6.589 us, 12,480 B, 24 allocs | ~1.450–1.503 ms, 864 B, 56 allocs | green (>220x) | green (target ≤28 allocs) |
 | three-symbol affine `Seq Int` inequality + exact bounded models | ~6.818–6.903 us, 12,480 B, 24 allocs | ~1.432–1.490 ms, 864 B, 56 allocs | green (>207x) | green (target ≤28 allocs) |
 | interacting affine `Seq Int` relation system + atomic models | ~8.737–8.753 us, 17,472 B, 32 allocs | ~1.680–1.735 ms, 1,192 B, 72 allocs | green (>191x) | green (target ≤36 allocs) |
-| four-symbol affine `Seq Int` relation system + atomic models | ~10.786–10.884 us, 19,176 B, 38 allocs | ~1.836–1.896 ms, 1,496 B, 90 allocs | green (>168x) | green (target ≤45 allocs) |
+| four-symbol affine `Seq Int` relation system + atomic models | ~11.175–11.233 us, 19,688 B, 38 allocs | ~1.793–1.886 ms, 1,496 B, 90 allocs | green (>159x) | green (target ≤45 allocs) |
+| five-symbol affine `Seq Int` relation system + atomic models | ~13.553–13.704 us, 23,008 B, 45 allocs | ~2.006–2.078 ms, 1,912 B, 109 allocs | green (>146x) | green (target ≤54 allocs) |
 | two shared-symbol word equations + global backtracking | ~3.716–3.732 us, 8,224 B, 8 allocs | ~1.710–1.763 ms, 480 B, 32 allocs | green (>458x) | green (target ≤16 allocs) |
 | word equation + regular-language candidate selection | ~4.177–4.193 us, 8,552 B, 9 allocs | ~1.270–1.360 ms, 432 B, 29 allocs | green (>302x) | green (target ≤14 allocs) |
 | word equation + general Boolean-regex split selection | ~5.504–5.516 us, 9,144 B, 13 allocs | ~1.423–1.496 ms, 480 B, 32 allocs | green (>257x) | green (target ≤16 allocs) |
@@ -598,9 +599,19 @@ The four-symbol affine-relation workload constrains
 boundaries to all four symbols, and extracts every exact model. Std extends
 the fixed coefficient and global-search records to four canonical roots while
 retaining interval pruning, exact final-bound intersection, and atomic witness
-construction. It uses 38 allocations and 10.786–10.884 us versus pinned Z3's
-90 visible Go allocations and 1.836–1.896 ms. This is 57.8% fewer allocations
-and over 168x conservative-endpoint throughput.
+construction. It uses 38 allocations and 11.175–11.233 us versus pinned Z3's
+90 visible Go allocations and 1.793–1.886 ms. This is 57.8% fewer allocations
+and over 159x conservative-endpoint throughput.
+
+The five-symbol affine-relation workload constrains the five-length sum to at
+least 20 and its first-coefficient-doubled form to at most 24, contributes
+four-element inline boundaries to all five symbols, and extracts every exact
+model. Std aligns affine root storage with the existing eight-entry inline
+alias/value capacities, retaining global interval pruning and atomic witness
+construction without changing the four-root allocation count. It uses 45
+allocations and 13.553–13.704 us versus pinned Z3's 109 visible Go allocations
+and 2.006–2.078 ms. This is 58.7% fewer allocations and over 146x
+conservative-endpoint throughput.
 
 The uniquely delimited word-equation workload solves
 `"[" ++ x ++ "]" ++ y ++ "!" = "[go]forge!"`, extracts both exact values,
