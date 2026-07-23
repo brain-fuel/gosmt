@@ -1238,6 +1238,15 @@ func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
 	}
+	if left.fast.kind == integerFastStringLength && right.fast.kind == integerFastStringLength {
+		order := uint8(2)
+		if strict {
+			order = 1
+		}
+		return fastBooleanAtom(left.contextID, smt.CompactStringLengthRelation{
+			Left: left.fast.string, Right: right.fast.string, Order: order,
+		})
+	}
 	if relation, ok := compactStringLengthComparison(left, right, strict); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{
 			kind: booleanFastStringRelation, stringRelation: relation,
@@ -2486,6 +2495,11 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 func fastEqInteger(left, right IntExpr) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
+	}
+	if left.fast.kind == integerFastStringLength && right.fast.kind == integerFastStringLength {
+		return fastBooleanAtom(left.contextID, smt.CompactStringLengthRelation{
+			Left: left.fast.string, Right: right.fast.string,
+		})
 	}
 	if left.fast.kind == integerFastNone && right.fast.kind == integerFastNone {
 		leftValue, leftOK := smt.ExactIntegerConstant(left.term)

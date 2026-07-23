@@ -61,7 +61,9 @@
    equations are revisited. Length, regular-language, and general string
    predicate families also retain four inline entries before exact overflow.
    One-symbol prefix/suffix concatenations lower directly into shared word
-   equations in the GoSMT façade. Unbounded-target or unbounded Boolean-regex
+   equations in the GoSMT façade. Relational string lengths (`=`, `<`, `<=`)
+   now compare bound string expressions exactly, including within Boolean
+   choices, using compact std terms. Unbounded-target or unbounded Boolean-regex
    equation systems remain. Positive and negative
    regular-language memberships now prune bounded equation candidates and
    participate in final global-model validation; bounded `or`, nested `not`,

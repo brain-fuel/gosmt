@@ -639,6 +639,43 @@ func TestWordEquationLengthInequalityCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestWordEquationRelationalLengthCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		target := "abcd"
+		relation := `(= (str.len x) (str.len y))`
+		switch example % 4 {
+		case 1:
+			target = "abc"
+		case 2:
+			target = `\u{1f642}ab`
+			relation = `(< (str.len y) (str.len x))`
+		case 3:
+			target = `\u{1f642}a`
+			relation = `(or (= (str.len x) (str.len y)) (<= (str.len y) (str.len x)))`
+		}
+		script := fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+(declare-const y String)
+(assert (= (str.++ x y) "%s"))
+(assert %s)
+(check-sat)`, target, relation)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestMultipleWordEquationCorpusAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

@@ -536,6 +536,14 @@ integer ASTs, reducing the first public implementation from 18 allocations to
 GoSMT's 4.395–4.413 us. This is 55.2% fewer allocations and over 379x
 conservative-endpoint throughput.
 
+The relational-length workload solves `x ++ y = "abcd"` together with
+`str.len(x) = str.len(y)`, selecting `x = "ab"` and `y = "cd"` and validating
+the complete formula. Compact std relational-length terms preserve both string
+operands through the GoSMT façade and compare Unicode code-point counts during
+terminal backtracking. It uses 9 allocations and 5.142–5.167 us versus pinned
+Z3's 24 visible Go allocations and 2.325–2.436 ms. This is 62.5% fewer
+allocations and over 449x conservative-endpoint throughput.
+
 The multiple-equation workload solves `x ++ y = "abc"` together with
 `x ++ "-" ++ z = "a-tail"`. The second equation forces global backtracking
 from the first equation's initial empty split to `x = "a"`, after which the
