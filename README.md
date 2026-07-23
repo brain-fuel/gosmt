@@ -60,10 +60,14 @@ under a 4,096-branch limit, try alternatives left to right, validate exact
 models, and prove all-unsatisfiable alternatives. Polarity-aware normalization
 extends that bounded fragment through nested negation, implication,
 equivalence, and Boolean `if`; negated affine length equality and order become
-exact positive relations before constructive solving. Negated sequence
-equality/content predicates, affine systems spanning nine or more canonical
-sequence symbols, and symbolic-element sequence search remain explicit future
-work. Ground strict
+exact positive relations before constructive solving. Symbolic integer
+sequences also support finite ground-value disequality: exact exclusions share
+the placement search, discriminate free elements, backtrack fixed containment
+placements, and prove exhaustive conflicts under the same 4,096-resource
+contract. Disequality between two unassigned sequence symbols and negated
+content predicates, affine systems spanning nine or more canonical sequence
+symbols, and symbolic-element sequence search remain explicit future work.
+Ground strict
 and non-strict length bounds now normalize into exact lower/upper requirements,
 search admissible lengths with the same placement engine, and prove
 order-independent bound conflicts.

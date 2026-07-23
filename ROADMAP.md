@@ -100,9 +100,12 @@
    and prove all-unsatisfiable alternatives. Polarity-aware normalization now
    covers nested negation, implication, equivalence, and Boolean `if`; negated
    affine length equality and order lower to exact positive relations.
-   Negated sequence equality/content predicates, affine systems spanning nine
-   or more canonical sequence symbols, and non-integer symbolic sequence
-   solving remain. Ground strict/non-strict
+   Finite ground-value disequalities now participate in constructive witness
+   search, discriminate free elements, backtrack fully fixed containment
+   placements, and prove exhaustive conflicts under the same resource bound.
+   Disequality between two unassigned sequence symbols, negated content
+   predicates, affine systems spanning nine or more canonical sequence
+   symbols, and non-integer symbolic sequence solving remain. Ground strict/non-strict
    lower and upper length bounds now search admissible lengths with shared
    placement resources and prove contradictory bounds independently of
    assertion order.

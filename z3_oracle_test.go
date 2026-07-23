@@ -2348,6 +2348,98 @@ func TestNegatedBooleanSymbolicIntegerSequenceLengthCorpusAgreesWithPinnedZ3(t *
 	}
 }
 
+func TestSymbolicIntegerSequenceGroundDisequalityCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(1800 + example)
+		x := IntSequenceConst(context, "x", 1)
+		unit := func(value int64) IntSequenceExpr {
+			return UnitIntSequence(IntVal(context, value))
+		}
+		pair := func(left, right int64) IntSequenceExpr {
+			return ConcatIntSequence(unit(left), unit(right))
+		}
+		length := LengthIntSequence(x)
+		formula := Not(EqIntSequence(x, EmptyIntSequence(context)))
+		assertions := "(assert (not (= x (as seq.empty (Seq Int)))))"
+		switch example % 8 {
+		case 1:
+			formula = And(
+				EqInt(length, IntVal(context, 0)),
+				Not(EqIntSequence(x, EmptyIntSequence(context))),
+			)
+			assertions = "(assert (and (= (seq.len x) 0) (not (= x (as seq.empty (Seq Int))))))"
+		case 2:
+			formula = And(
+				EqInt(length, IntVal(context, 1)),
+				Not(EqIntSequence(x, unit(0))),
+			)
+			assertions = "(assert (and (= (seq.len x) 1) (not (= x (seq.unit 0)))))"
+		case 3:
+			formula = And(
+				EqIntSequence(x, unit(1)),
+				Not(EqIntSequence(x, unit(1))),
+			)
+			assertions = "(assert (and (= x (seq.unit 1)) (not (= x (seq.unit 1)))))"
+		case 4:
+			formula = And(
+				EqInt(length, IntVal(context, 2)),
+				HasPrefixIntSequence(x, unit(1)),
+				Not(EqIntSequence(x, pair(1, 0))),
+			)
+			assertions = "(assert (and (= (seq.len x) 2) (seq.prefixof (seq.unit 1) x) (not (= x (seq.++ (seq.unit 1) (seq.unit 0))))))"
+		case 5:
+			formula = And(
+				EqInt(length, IntVal(context, 2)),
+				ContainsIntSequence(x, unit(1)),
+				ContainsIntSequence(x, unit(2)),
+				Not(EqIntSequence(x, pair(1, 2))),
+			)
+			assertions = "(assert (and (= (seq.len x) 2) (seq.contains x (seq.unit 1)) (seq.contains x (seq.unit 2)) (not (= x (seq.++ (seq.unit 1) (seq.unit 2))))))"
+		case 6:
+			formula = And(
+				EqInt(length, IntVal(context, 2)),
+				ContainsIntSequence(x, unit(1)),
+				ContainsIntSequence(x, unit(2)),
+				Not(EqIntSequence(x, pair(1, 2))),
+				Not(EqIntSequence(x, pair(2, 1))),
+			)
+			assertions = "(assert (and (= (seq.len x) 2) (seq.contains x (seq.unit 1)) (seq.contains x (seq.unit 2)) (not (= x (seq.++ (seq.unit 1) (seq.unit 2)))) (not (= x (seq.++ (seq.unit 2) (seq.unit 1))))))"
+		case 7:
+			formula = And(
+				EqInt(length, IntVal(context, 1)),
+				Not(EqIntSequence(x, unit(0))),
+				Not(EqIntSequence(x, unit(1))),
+				Not(EqIntSequence(x, unit(2))),
+			)
+			assertions = "(assert (and (= (seq.len x) 1) (not (= x (seq.unit 0))) (not (= x (seq.unit 1))) (not (= x (seq.unit 2)))))"
+		}
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+(declare-const x (Seq Int))
+` + assertions + `
+(check-sat)`
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)

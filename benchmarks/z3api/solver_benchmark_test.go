@@ -2297,6 +2297,95 @@ func BenchmarkNegatedAffineSymbolicIntegerSequenceQFSeq(b *testing.B) {
 	})
 }
 
+func BenchmarkGroundDisequalitySymbolicIntegerSequenceQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(50)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			x := gosmt.IntSequenceConst(context, "x", 1)
+			values := [...]gosmt.IntSequenceExpr{
+				unit(1), unit(2), unit(3), unit(4),
+				unit(0), unit(5), unit(6), unit(7),
+			}
+			prefix := gosmt.ConcatIntSequence(values[0:4]...)
+			suffix := gosmt.ConcatIntSequence(values[5:8]...)
+			excluded := gosmt.ConcatIntSequence(values[:]...)
+			formula := gosmt.And(
+				gosmt.EqInt(
+					gosmt.LengthIntSequence(x),
+					gosmt.IntVal(context, 8),
+				),
+				gosmt.HasPrefixIntSequence(x, prefix),
+				gosmt.HasSuffixIntSequence(x, suffix),
+				gosmt.Not(gosmt.EqIntSequence(x, excluded)),
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			value, found := gosmt.EvalIntSequence(result.Value, x)
+			if !found || value.Len() != 8 {
+				b.Fatal("invalid disequal sequence model")
+			}
+			discriminator, _ := value.At(4)
+			discriminatorValue, _ := discriminator.Int64()
+			if discriminatorValue != 1 {
+				b.Fatal("invalid disequal sequence witness")
+			}
+			if valid, found := gosmt.EvalBool(
+				result.Value, formula,
+			); !found || !valid {
+				b.Fatal("invalid disequal sequence formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			x := context.MkConst(context.MkStringSymbol("x"), sequenceSort)
+			values := [...]*z3.Expr{
+				context.MkSeqUnit(context.MkInt(1, intSort)),
+				context.MkSeqUnit(context.MkInt(2, intSort)),
+				context.MkSeqUnit(context.MkInt(3, intSort)),
+				context.MkSeqUnit(context.MkInt(4, intSort)),
+				context.MkSeqUnit(context.MkInt(0, intSort)),
+				context.MkSeqUnit(context.MkInt(5, intSort)),
+				context.MkSeqUnit(context.MkInt(6, intSort)),
+				context.MkSeqUnit(context.MkInt(7, intSort)),
+			}
+			prefix := context.MkSeqConcat(values[0:4]...)
+			suffix := context.MkSeqConcat(values[5:8]...)
+			excluded := context.MkSeqConcat(values[:]...)
+			length := context.MkSeqLength(x)
+			formula := context.MkAnd(
+				context.MkEq(length, context.MkInt(8, intSort)),
+				context.MkSeqPrefix(prefix, x),
+				context.MkSeqSuffix(suffix, x),
+				context.MkNot(context.MkEq(x, excluded)),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, length, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid disequal sequence model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

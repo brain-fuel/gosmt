@@ -96,6 +96,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | five-symbol affine `Seq Int` relation system + atomic models | ~13.553–13.704 us, 23,008 B, 45 allocs | ~2.006–2.078 ms, 1,912 B, 109 allocs | green (>146x) | green (target ≤54 allocs) |
 | disjunctive symbolic `Seq Int` branch backtracking + exact model | ~6.129–6.166 us, 20,272 B, 20 allocs | ~2.547–2.598 ms, 712 B, 44 allocs | green (>413x) | green (target ≤22 allocs) |
 | negated affine symbolic `Seq Int` bounds + exact model | ~9.663–9.673 us, 20,592 B, 24 allocs | ~30.461–31.105 ms, 784 B, 49 allocs | green (>3,149x) | green (target ≤24 allocs) |
+| symbolic `Seq Int` ground disequality + exact model | ~7.037–7.057 us, 23,176 B, 19 allocs | ~2.848–2.973 ms, 760 B, 44 allocs | green (>403x) | green (target ≤22 allocs) |
 | two shared-symbol word equations + global backtracking | ~3.716–3.732 us, 8,224 B, 8 allocs | ~1.710–1.763 ms, 480 B, 32 allocs | green (>458x) | green (target ≤16 allocs) |
 | word equation + regular-language candidate selection | ~4.177–4.193 us, 8,552 B, 9 allocs | ~1.270–1.360 ms, 432 B, 29 allocs | green (>302x) | green (target ≤14 allocs) |
 | word equation + general Boolean-regex split selection | ~5.504–5.516 us, 9,144 B, 13 allocs | ~1.423–1.496 ms, 480 B, 32 allocs | green (>257x) | green (target ≤16 allocs) |
@@ -535,6 +536,16 @@ limit, and keeps a direct conjunctive path for negated bounds. It uses 24
 allocations and 9.663–9.673 us versus pinned Z3's 49 visible Go allocations
 and 30.461–31.105 ms. This is 51.0% fewer allocations and over 3,149x
 conservative-endpoint throughput.
+
+The ground-disequality sequence workload fixes an eight-element length and
+seven boundary elements, excludes the otherwise deterministic complete value,
+then extracts and validates the exact model with a fresh discriminator in its
+only free position. Std keeps four exclusions inline before exact overflow,
+shares the 4,096-state placement contract, and backtracks fully assigned
+containment placements when an excluded candidate survives ordinary positive
+constraints. It uses 19 allocations and 7.037–7.057 us versus pinned Z3's 44
+visible Go allocations and 2.848–2.973 ms. This is 56.8% fewer allocations
+and over 403x conservative-endpoint throughput.
 
 The exact-length sequence workload adds length eight to simultaneous two-value
 prefix, containment, and suffix requirements, then extracts and validates the

@@ -1493,6 +1493,46 @@ func TestContextIndexedNegatedBooleanSymbolicIntegerSequenceLengths(t *testing.T
 	}
 }
 
+func TestContextIndexedSymbolicIntegerSequenceGroundDisequality(t *testing.T) {
+	context := NewContext(50)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	formula := And(
+		EqInt(LengthIntSequence(x), IntVal(context, 1)),
+		Not(EqIntSequence(x, unit(0))),
+		Not(EqIntSequence(x, unit(1))),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	value, found := EvalIntSequence(result.Value, x)
+	if !found || value.Len() != 1 {
+		t.Fatalf("model=(%d,%v)", value.Len(), found)
+	}
+	element, _ := value.At(0)
+	if actual, fits := element.Int64(); !fits || actual != 2 {
+		t.Fatalf("element=(%d,%v)", actual, fits)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	fixed := And(
+		EqIntSequence(x, unit(3)),
+		Not(EqIntSequence(x, unit(3))),
+	)
+	if checked := Check(Assert(2, NewSolver(context), fixed)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("fixed result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)
