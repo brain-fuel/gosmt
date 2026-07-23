@@ -1122,6 +1122,79 @@ func BenchmarkGroundAssignedStringReplaceOperandsQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkGroundAssignedFirstStringReplaceOperandsQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(42)
+			x := gosmt.StringConst(context, "x", 1)
+			source := gosmt.StringConst(context, "source", 2)
+			replacement := gosmt.StringConst(context, "replacement", 3)
+			target := gosmt.StringConst(context, "target", 4)
+			replaced := gosmt.ReplaceString(x, source, replacement)
+			formula := gosmt.And(
+				gosmt.EqString(source, gosmt.StringVal(context, "a")),
+				gosmt.EqString(replacement, gosmt.StringVal(context, "z")),
+				gosmt.EqString(target, gosmt.StringVal(context, "za")),
+				gosmt.EqString(replaced, target),
+				gosmt.ContainsString(x, source),
+				gosmt.EqInt(gosmt.LengthString(x), gosmt.IntVal(context, 2)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "aa" {
+				b.Fatal("invalid input model")
+			}
+			if value, found := gosmt.EvalString(result.Value, source); !found || value != "a" {
+				b.Fatal("invalid source model")
+			}
+			if value, found := gosmt.EvalString(result.Value, replacement); !found || value != "z" {
+				b.Fatal("invalid replacement model")
+			}
+			if value, found := gosmt.EvalString(result.Value, target); !found || value != "za" {
+				b.Fatal("invalid target model")
+			}
+			if value, found := gosmt.EvalString(result.Value, replaced); !found || value != "za" {
+				b.Fatal("invalid replaced model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			intSort := context.MkIntSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			source := context.MkConst(context.MkStringSymbol("source"), stringSort)
+			replacement := context.MkConst(context.MkStringSymbol("replacement"), stringSort)
+			target := context.MkConst(context.MkStringSymbol("target"), stringSort)
+			replaced := context.MkSeqReplace(x, source, replacement)
+			formula := context.MkAnd(
+				context.MkEq(source, context.MkString("a")),
+				context.MkEq(replacement, context.MkString("z")),
+				context.MkEq(target, context.MkString("za")),
+				context.MkEq(replaced, target),
+				context.MkSeqContains(x, source),
+				context.MkEq(context.MkSeqLength(x), context.MkInt(2, intSort)),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, source, replacement, target, replaced} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringReplaceIndexedInteractionQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

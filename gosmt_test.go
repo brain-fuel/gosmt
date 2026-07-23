@@ -936,6 +936,32 @@ func TestContextIndexedGroundAssignedStringReplaceOperands(t *testing.T) {
 	if valid, found := EvalBool(result.Value, formula); !found || !valid {
 		t.Fatalf("formula=(%v,%v)", valid, found)
 	}
+
+	firstTarget := StringConst(context, "first_target", 5)
+	firstReplaced := ReplaceString(x, source, replacement)
+	firstFormula := And(
+		EqString(source, StringVal(context, "a")),
+		EqString(replacement, StringVal(context, "z")),
+		EqString(firstTarget, StringVal(context, "za")),
+		EqString(firstReplaced, firstTarget),
+		ContainsString(x, source),
+		EqInt(LengthString(x), IntVal(context, 2)),
+	)
+	checked = Check(Assert(2, NewSolver(context), firstFormula))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("first result=%T", checked)
+	}
+	for expression, want := range map[StringExpr]string{
+		x: "aa", source: "a", replacement: "z", firstTarget: "za", firstReplaced: "za",
+	} {
+		if actual, found := EvalString(result.Value, expression); !found || actual != want {
+			t.Fatalf("first value=(%q,%v), want %q", actual, found, want)
+		}
+	}
+	if valid, found := EvalBool(result.Value, firstFormula); !found || !valid {
+		t.Fatalf("first formula=(%v,%v)", valid, found)
+	}
 }
 
 func TestContextIndexedStringReplaceIndexedInteraction(t *testing.T) {
