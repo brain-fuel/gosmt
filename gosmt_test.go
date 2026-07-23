@@ -999,6 +999,52 @@ func TestContextIndexedExactLengthIntegerSequence(t *testing.T) {
 	}
 }
 
+func TestContextIndexedRelationalLengthIntegerSequence(t *testing.T) {
+	context := NewContext(39)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	formula := And(
+		HasPrefixIntSequence(x, unit(1)),
+		ContainsIntSequence(x, unit(2)),
+		HasSuffixIntSequence(x, unit(3)),
+		Le(IntVal(context, 3), LengthIntSequence(x)),
+		Le(LengthIntSequence(x), IntVal(context, 5)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if value, found := EvalIntSequence(result.Value, x); !found || value.Len() < 3 || value.Len() > 5 {
+		t.Fatalf("x len=(%d,%v)", value.Len(), found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	strict := Lt(IntVal(context, 5), LengthIntSequence(x))
+	strictResult, ok := Check(Assert(2, NewSolver(context), strict)).(Sat)
+	if !ok {
+		t.Fatal("strict lower bound must be satisfiable")
+	}
+	if value, found := EvalIntSequence(strictResult.Value, x); !found || value.Len() != 6 {
+		t.Fatalf("strict len=(%d,%v)", value.Len(), found)
+	}
+
+	conflicting := And(
+		Le(IntVal(context, 4), LengthIntSequence(x)),
+		Le(LengthIntSequence(x), IntVal(context, 3)),
+	)
+	if checked := Check(Assert(3, NewSolver(context), conflicting)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("conflicting result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

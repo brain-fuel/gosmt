@@ -94,8 +94,11 @@
    boundaries, and prove incompatible boundaries unsatisfiable.
    Exact ground lengths now use bounded complete containment placement,
    prefix/suffix overlap, deterministic zero filling, and exact
-   negative/conflicting/too-short proofs. Non-conjunctive, relational-length,
-   and non-integer symbolic sequence solving remain.
+   negative/conflicting/too-short proofs. Non-conjunctive, affine-length,
+   and non-integer symbolic sequence solving remain. Ground strict/non-strict
+   lower and upper length bounds now search admissible lengths with shared
+   placement resources and prove contradictory bounds independently of
+   assertion order.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

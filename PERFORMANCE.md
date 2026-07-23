@@ -85,6 +85,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | ground-assigned symbolic `Seq Int` + derived model evaluation | ~6.247–6.337 us, 16,760 B, 22 allocs | ~1.049–1.109 ms, 768 B, 48 allocs | green (>165x) | green (target ≤24 allocs) |
 | positive symbolic `Seq Int` prefix/contains/suffix witness | ~5.099–5.112 us, 14,936 B, 16 allocs | ~5.635–5.769 ms, 528 B, 34 allocs | green (>1,102x) | green (target ≤17 allocs) |
 | exact-length symbolic `Seq Int` witness + overlap placement | ~5.722–5.792 us, 14,984 B, 18 allocs | ~3.601–3.744 ms, 584 B, 37 allocs | green (>621x) | green (target ≤18 allocs) |
+| relational-length symbolic `Seq Int` witness + bounded placement | ~6.882–6.897 us, 14,992 B, 20 allocs | ~4.140–4.292 ms, 656 B, 41 allocs | green (>600x) | green (target ≤20 allocs) |
 | two shared-symbol word equations + global backtracking | ~3.716–3.732 us, 8,224 B, 8 allocs | ~1.710–1.763 ms, 480 B, 32 allocs | green (>458x) | green (target ≤16 allocs) |
 | word equation + regular-language candidate selection | ~4.177–4.193 us, 8,552 B, 9 allocs | ~1.270–1.360 ms, 432 B, 29 allocs | green (>302x) | green (target ≤14 allocs) |
 | word equation + general Boolean-regex split selection | ~5.504–5.516 us, 9,144 B, 13 allocs | ~1.423–1.496 ms, 480 B, 32 allocs | green (>257x) | green (target ≤16 allocs) |
@@ -513,6 +514,16 @@ within a 4,096-state limit, including overlapping prefix/suffix witnesses, and
 fills unconstrained positions deterministically with zero. It uses 18
 allocations and 5.722–5.792 us versus pinned Z3's 37 visible Go allocations and
 3.601–3.744 ms. This is 51.4% fewer allocations and over 621x
+conservative-endpoint throughput.
+
+The relational-length sequence workload constrains the same symbolic witness
+between lengths six and eight while retaining its prefix, containment, and
+suffix requirements. Std normalizes strict and non-strict comparisons into
+lower/upper requirements, searches admissible lengths under one shared
+placement budget, and proves contradictory bounds without order dependence.
+The façade reuses the length expression across both relations. It uses 20
+allocations and 6.882–6.897 us versus pinned Z3's 41 visible Go allocations and
+4.140–4.292 ms. This is 51.2% fewer allocations and over 600x
 conservative-endpoint throughput.
 
 The uniquely delimited word-equation workload solves
