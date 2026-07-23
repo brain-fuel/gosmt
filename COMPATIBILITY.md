@@ -60,12 +60,15 @@ completed fragments.
 “Foundation” means implemented and tested, not Z3-complete. A theory advances
 only with syntax, sort checking, model validation, differential outcomes, fuzz
 coverage, incremental behavior, and per-family performance/allocation gates.
-Shared exchange currently covers unary Real→Real and binary Real×Real→Real
-applications in EUF atoms and linear arithmetic, including non-symbol linear
-arguments through exact defining equalities. Int-sorted functions, arity above
-two, mixed built-in signatures, conditionals around applications, and
-nonlinear arithmetic remain outside this foundation and must not be inferred
-from it.
+Shared exchange covers unary Real→Real and binary Real×Real→Real applications
+in EUF atoms and linear arithmetic, including non-symbol linear arguments
+through exact defining equalities. Unary Int→Int and binary Int×Int→Int
+functions now support sort-checked Go+, SMT-LIB declarations, exact-constant
+arguments, ground congruence, and direct integer-symbol equality exchange.
+LIA-implied equality from inequalities, integer applications inside arithmetic,
+arity above two, mixed built-in signatures, conditionals around applications,
+and nonlinear arithmetic remain outside this foundation and must not be
+inferred from it.
 
 The recursive datatype foundation supports any nonempty number of fields of
 the enclosing sort. Constructor applications carry an arity-indexed `vec.Vec`,

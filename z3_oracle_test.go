@@ -4013,6 +4013,58 @@ func TestRealSortedFunctionBoundaryAgainstPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestIntegerSortedFunctionCongruenceAgainstPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for index := 0; index < 64; index++ {
+		operator := "f"
+		declaration := "(declare-fun f (Int) Int)"
+		left, right := "(f x)", "(f y)"
+		if index&1 != 0 {
+			operator = "combine"
+			declaration = "(declare-fun combine (Int Int) Int)"
+			left, right = "(combine x y)", "(combine y x)"
+		}
+		relation := "(= x y)"
+		want := "unsat"
+		if index&2 != 0 {
+			relation = "(not (= x y))"
+			want = "sat"
+		}
+		if index&4 != 0 {
+			left = fmt.Sprintf("(%s %d", operator, index)
+			right = left
+			if operator == "combine" {
+				left += " x)"
+				right += " x)"
+			} else {
+				left += ")"
+				right += ")"
+			}
+			want = "unsat"
+		}
+		script := fmt.Sprintf(`(set-logic QF_UFLIA)
+(declare-const x Int)
+(declare-const y Int)
+%s
+(assert %s)
+(assert (not (= %s %s)))
+(check-sat)`, declaration, relation, left, right)
+		got := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		if fmt.Sprint(got) != "["+want+"]" {
+			t.Fatalf("case %d statuses=%v script=%s", index, got, script)
+		}
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil || strings.TrimSpace(string(output)) != want {
+			t.Fatalf("case %d Z3: %v %s", index, err, output)
+		}
+	}
+}
+
 func TestRandomPurifiedRealApplicationsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

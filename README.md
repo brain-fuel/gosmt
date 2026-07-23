@@ -19,6 +19,10 @@ division/modulo by nonzero constants,
 plus bounded complete Boolean QF_DT branching and sound conjunctive
 combination while those signatures remain
 disjoint and fixed-point shared equality exchange for unary Real→Real EUF.
+Built-in integer EUF includes context-indexed unary `Int -> Int` and binary
+`Int × Int -> Int` declarations. Ground congruence works through both the typed
+API and SMT-LIB `QF_UFLIA`, including exact integer arguments, while the compact
+path avoids materializing application trees for direct integer symbols.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive

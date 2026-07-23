@@ -77,6 +77,12 @@ type RealFunc[c nat] enum { realFuncValue(ContextID int, Function smt.SortedUnar
 type RealBinaryFunc[c nat] enum { realBinaryFuncValue(ContextID int, Function smt.SortedBinaryFunction[smt.RealSort, smt.RealSort, smt.RealSort], Fast realBinaryFunctionFast) RealBinaryFunc[c] }
 //goplus:derive off
 //goplus:repr transparent
+type IntFunc[c nat] enum { intFuncValue(ContextID int, Function smt.SortedUnaryFunction[smt.IntSort, smt.IntSort], Fast integerFunctionFast) IntFunc[c] }
+//goplus:derive off
+//goplus:repr transparent
+type IntBinaryFunc[c nat] enum { intBinaryFuncValue(ContextID int, Function smt.SortedBinaryFunction[smt.IntSort, smt.IntSort, smt.IntSort], Fast integerBinaryFunctionFast) IntBinaryFunc[c] }
+//goplus:derive off
+//goplus:repr transparent
 type BitVecFunc[c nat, d nat, r nat] enum { bitVecFuncValue(ContextID int, Function smt.SortedUnaryFunction[smt.BitVecSort[d], smt.BitVecSort[r]]) BitVecFunc[c, d, r] }
 //goplus:derive off
 //goplus:repr transparent
@@ -923,6 +929,22 @@ func DeclareRealBinary(0 c nat, context Context[c], name string, id int) RealBin
 
 func ApplyRealBinary(0 c nat, function RealBinaryFunc[c], first RealExpr[c], second RealExpr[c]) RealExpr[c] {
 	return applyRealBinaryFunction(function, first, second)
+}
+
+func DeclareIntFunction(0 c nat, context Context[c], name string, id int) IntFunc[c] {
+	match context { case contextValue(contextID): return fastIntegerFunction(contextID, id, name) }
+}
+
+func ApplyIntFunction(0 c nat, function IntFunc[c], argument IntExpr[c]) IntExpr[c] {
+	return applyIntegerFunction(function, argument)
+}
+
+func DeclareIntBinary(0 c nat, context Context[c], name string, id int) IntBinaryFunc[c] {
+	match context { case contextValue(contextID): return fastIntegerBinaryFunction(contextID, id, name) }
+}
+
+func ApplyIntBinary(0 c nat, function IntBinaryFunc[c], first IntExpr[c], second IntExpr[c]) IntExpr[c] {
+	return applyIntegerBinaryFunction(function, first, second)
 }
 
 func DeclareBitVecFunction(domainWidth nat, rangeWidth nat, 0 c nat, context Context[c], name string, id int) BitVecFunc[c, domainWidth, rangeWidth] {

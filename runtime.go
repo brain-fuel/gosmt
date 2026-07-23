@@ -65,12 +65,29 @@ const (
 )
 
 type integerFast struct {
-	kind     uint8
-	width    int
-	symbolID int
-	name     string
-	signed   bool
-	string   smt.CompactStringTerm
+	kind             uint8
+	width            int
+	symbolID         int
+	name             string
+	signed           bool
+	string           smt.CompactStringTerm
+	eufValid         bool
+	eufArity         uint8
+	functionID       int
+	argumentID       int
+	secondArgumentID int
+}
+
+type integerFunctionFast struct {
+	valid bool
+	id    int
+	name  string
+}
+
+type integerBinaryFunctionFast struct {
+	valid bool
+	id    int
+	name  string
 }
 
 type integerSequenceFast struct {
@@ -3064,6 +3081,18 @@ func fastEqInteger(left, right IntExpr) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
 	}
+	if left.fast.eufValid || right.fast.eufValid {
+		if leftCompact, leftOK := compactIntegerEUFTerm(left); leftOK {
+			if rightCompact, rightOK := compactIntegerEUFTerm(right); rightOK {
+				return boolExprValue{contextID: left.contextID, fast: booleanFast{
+					kind: booleanFastUninterpretedEUFRelation,
+					uninterpretedEUFRelation: smt.UninterpretedEUFRelation{
+						Left: leftCompact, Right: rightCompact,
+					},
+				}}
+			}
+		}
+	}
 	if left.fast.kind == integerFastStringLength && right.fast.kind == integerFastStringLength {
 		return fastBooleanAtom(left.contextID, smt.CompactStringLengthRelation{
 			Left: left.fast.string, Right: right.fast.string,
@@ -3168,6 +3197,18 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 	if term != nil {
 		return term
 	}
+	if fast.eufValid {
+		if fast.eufArity == 2 {
+			function := smt.DeclareIntBinaryFunction(fast.functionID, "")
+			return smt.ApplySortedBinary(
+				function,
+				smt.IntegerVariable(fast.argumentID),
+				smt.IntegerVariable(fast.secondArgumentID),
+			)
+		}
+		function := smt.DeclareIntUnaryFunction(fast.functionID, "")
+		return smt.ApplySortedUnary(function, smt.IntegerVariable(fast.argumentID))
+	}
 	if fast.kind == integerFastBitVectorConversion {
 		value := smt.BitVecConst(fast.width, fast.symbolID, fast.name)
 		if fast.signed {
@@ -3190,6 +3231,88 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 		)
 	}
 	panic("gosmt: invalid erased integer expression")
+}
+
+func fastIntegerFunction(context, id int, name string) IntFunc {
+	return intFuncValue{
+		contextID: context,
+		fast:      integerFunctionFast{valid: true, id: id, name: name},
+	}
+}
+
+func applyIntegerFunction(function IntFunc, argument IntExpr) IntExpr {
+	if function.contextID != argument.contextID {
+		panic("gosmt: erased integer function context mismatch")
+	}
+	if function.fast.valid {
+		if argumentID, _, ok := directIntegerExprSymbol(argument); ok {
+			return intExprValue{contextID: function.contextID, fast: integerFast{
+				eufValid: true, eufArity: 1, functionID: function.fast.id,
+				argumentID: argumentID,
+			}}
+		}
+	}
+	core := function.function
+	if core == nil {
+		core = smt.DeclareIntUnaryFunction(function.fast.id, function.fast.name)
+	}
+	return intExprValue{
+		contextID: function.contextID,
+		term:      smt.ApplySortedUnary(core, materializeInteger(argument.term, argument.fast)),
+	}
+}
+
+func fastIntegerBinaryFunction(context, id int, name string) IntBinaryFunc {
+	return intBinaryFuncValue{
+		contextID: context,
+		fast:      integerBinaryFunctionFast{valid: true, id: id, name: name},
+	}
+}
+
+func applyIntegerBinaryFunction(function IntBinaryFunc, first, second IntExpr) IntExpr {
+	if function.contextID != first.contextID || function.contextID != second.contextID {
+		panic("gosmt: erased binary integer function context mismatch")
+	}
+	firstID, _, firstOK := directIntegerExprSymbol(first)
+	secondID, _, secondOK := directIntegerExprSymbol(second)
+	if function.fast.valid && firstOK && secondOK {
+		return intExprValue{contextID: function.contextID, fast: integerFast{
+			eufValid: true, eufArity: 2, functionID: function.fast.id,
+			argumentID: firstID, secondArgumentID: secondID,
+		}}
+	}
+	core := function.function
+	if core == nil {
+		core = smt.DeclareIntBinaryFunction(function.fast.id, function.fast.name)
+	}
+	return intExprValue{
+		contextID: function.contextID,
+		term: smt.ApplySortedBinary(
+			core,
+			materializeInteger(first.term, first.fast),
+			materializeInteger(second.term, second.fast),
+		),
+	}
+}
+
+func compactIntegerEUFTerm(value IntExpr) (smt.UninterpretedEUFTerm, bool) {
+	if value.fast.eufValid {
+		if value.fast.eufArity == 2 {
+			return smt.UninterpretedEUFTerm{
+				Kind: 3, SortID: -2, FunctionID: value.fast.functionID,
+				FirstSortID: -2, SecondSortID: -2,
+				FirstID: value.fast.argumentID, SecondID: value.fast.secondArgumentID,
+			}, true
+		}
+		return smt.UninterpretedEUFTerm{
+			Kind: 2, SortID: -2, FunctionID: value.fast.functionID,
+			FirstSortID: -2, FirstID: value.fast.argumentID,
+		}, true
+	}
+	if id, _, ok := smt.IntegerSymbol(value.term); ok {
+		return smt.UninterpretedEUFTerm{Kind: 1, SortID: -2, SymbolID: id}, true
+	}
+	return smt.UninterpretedEUFTerm{}, false
 }
 
 func compactFastBitVectorIntegerEquality(left, right IntExpr) (smt.BitVectorIntegerRelation, bool) {

@@ -39,6 +39,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | QF_LIA signed Euclidean div/mod model construction + two evaluations | ~1.65–1.69 us, 4,392 B, 8 allocs | ~1.27–1.40 ms, 352 B, 23 allocs | green | green (target ≤11 allocs) |
 | ground QF_UF cold construct + check | ~1.330–1.341 us, 4,680 B, 8 allocs | ~0.78–1.00 ms, 304 B, 21 allocs | green | green (target ≤10 allocs) |
 | binary ground QF_UF cold construct + check | ~1.691–1.712 us, 4,824 B, 9 allocs | ~0.83–0.97 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
+| binary Int×Int→Int QF_UFLIA congruence cold construct + check | ~4.42–4.48 us, 10,520 B, 10 allocs | ~0.95–1.05 ms, 344 B, 22 allocs | green (>212x) | green (target ≤11 allocs) |
 | finite QF_DT enum construct + model evaluation | ~1.98 us, 6,320 B, 11 allocs | ~1.17 ms, 512 B, 31 allocs | green | green (target ≤15 allocs) |
 | unary recursive QF_DT construct + selector + model evaluation | ~2.75 us, 7,152 B, 18 allocs | ~1.06 ms, 544 B, 38 allocs | green | green (target ≤19 allocs) |
 | binary recursive QF_DT construct + two selectors + model evaluation | ~3.154–3.271 us, 7,296 B, 20 allocs | ~0.989–1.081 ms, 656 B, 43 allocs | green (>302x) | green (target ≤21 allocs) |

@@ -3054,6 +3054,28 @@ func TestRealFunctionCongruenceAndSharedBoundary(t *testing.T) {
 	}
 }
 
+func TestIntegerFunctionCongruence(t *testing.T) {
+	context := NewContext(116)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	unary := DeclareIntFunction(context, "f", 3)
+	binary := DeclareIntBinary(context, "combine", 4)
+	unaryFormula := And(
+		EqInt(x, y),
+		Not(EqInt(ApplyIntFunction(unary, x), ApplyIntFunction(unary, y))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), unaryFormula)).(Unsat); !ok {
+		t.Fatal("unary integer function congruence should be unsatisfiable")
+	}
+	binaryFormula := And(
+		EqInt(x, y),
+		Not(EqInt(ApplyIntBinary(binary, x, y), ApplyIntBinary(binary, y, x))),
+	)
+	if _, ok := Check(Assert(2, NewSolver(context), binaryFormula)).(Unsat); !ok {
+		t.Fatal("binary integer function congruence should be unsatisfiable")
+	}
+}
+
 func TestRealFunctionApplicationsInsideArithmeticArePurified(t *testing.T) {
 	context := NewContext(17)
 	x := RealConst(context, "x", 1)

@@ -5656,6 +5656,50 @@ func BenchmarkSharedRealEUFCold(b *testing.B) {
 	})
 }
 
+func BenchmarkIntegerEUFCongruenceCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(116)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			function := gosmt.DeclareIntBinary(context, "combine", 3)
+			formula := gosmt.And(
+				gosmt.EqInt(x, y),
+				gosmt.Not(gosmt.EqInt(
+					gosmt.ApplyIntBinary(function, x, y),
+					gosmt.ApplyIntBinary(function, y, x),
+				)),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Unsat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			y := context.MkIntConst("y")
+			function := context.MkFuncDecl(context.MkStringSymbol("combine"), []*z3.Sort{sort, sort}, sort)
+			formula := context.MkAnd(
+				context.MkEq(x, y),
+				context.MkNot(context.MkEq(
+					context.MkApp(function, x, y),
+					context.MkApp(function, y, x),
+				)),
+			)
+			solver := context.NewSolverForLogic("QF_UFLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Unsatisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkPurifiedRealEUFArithmeticCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -137,6 +137,11 @@
    Indexed SMT-LIB singleton constants `(_ char #xH)` now validate the exact
    one-to-five-digit hexadecimal grammar and 0..0x2ffff domain, backed by
    checked solver-neutral std and context-indexed GoSMT constructors.
+   Unary Int→Int and binary Int×Int→Int uninterpreted functions now retain
+   built-in sorts in std and solver context in Go+, execute through SMT-LIB,
+   accept exact integer constants, and decide ground congruence with compact
+   equality exchange. Broader LIA-derived equality exchange and arithmetic
+   over applications remain.
    Single-symbol affine length expressions now normalize exact addition,
    subtraction, and arbitrary-precision constant scaling with divisibility,
    sign reversal, integer rounding, and cancellation.
