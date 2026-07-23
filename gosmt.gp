@@ -170,6 +170,55 @@ func EqIntSequence(0 c nat, left IntSequenceExpr[c], right IntSequenceExpr[c]) B
 	} }
 }
 
+func AtIntSequence(0 c nat, value IntSequenceExpr[c], index IntExpr[c]) IntSequenceExpr[c] {
+	match value { case intSequenceExprValue(contextID, term, fast): match index { case intExprValue(indexContext, indexTerm, indexFast):
+		if contextID != indexContext { panic("gosmt: erased integer sequence/index context mismatch") }
+		return intSequenceExprValue(contextID, smt.SequenceAt[smt.IntSort](materializeIntegerSequence(term, fast), materializeInteger(indexTerm, indexFast)), integerSequenceFast{})
+	} }
+}
+
+func ExtractIntSequence(0 c nat, value IntSequenceExpr[c], offset IntExpr[c], length IntExpr[c]) IntSequenceExpr[c] {
+	match value { case intSequenceExprValue(contextID, term, fast): match offset { case intExprValue(offsetContext, offsetTerm, offsetFast): match length { case intExprValue(lengthContext, lengthTerm, lengthFast):
+		if contextID != offsetContext || contextID != lengthContext { panic("gosmt: erased integer sequence/range context mismatch") }
+		return intSequenceExprValue(contextID, smt.SequenceExtract[smt.IntSort](materializeIntegerSequence(term, fast), materializeInteger(offsetTerm, offsetFast), materializeInteger(lengthTerm, lengthFast)), integerSequenceFast{})
+	} } }
+}
+
+func ContainsIntSequence(0 c nat, value IntSequenceExpr[c], subsequence IntSequenceExpr[c]) BoolExpr[c] {
+	match value { case intSequenceExprValue(contextID, term, fast): match subsequence { case intSequenceExprValue(partContext, partTerm, partFast):
+		if contextID != partContext { panic("gosmt: erased integer sequence context mismatch") }
+		return fastBooleanAtom(contextID, smt.SequenceContains[smt.IntSort](materializeIntegerSequence(term, fast), materializeIntegerSequence(partTerm, partFast)))
+	} }
+}
+
+func HasPrefixIntSequence(0 c nat, value IntSequenceExpr[c], prefix IntSequenceExpr[c]) BoolExpr[c] {
+	match value { case intSequenceExprValue(contextID, term, fast): match prefix { case intSequenceExprValue(prefixContext, prefixTerm, prefixFast):
+		if contextID != prefixContext { panic("gosmt: erased integer sequence context mismatch") }
+		return fastBooleanAtom(contextID, smt.SequenceHasPrefix[smt.IntSort](materializeIntegerSequence(term, fast), materializeIntegerSequence(prefixTerm, prefixFast)))
+	} }
+}
+
+func HasSuffixIntSequence(0 c nat, value IntSequenceExpr[c], suffix IntSequenceExpr[c]) BoolExpr[c] {
+	match value { case intSequenceExprValue(contextID, term, fast): match suffix { case intSequenceExprValue(suffixContext, suffixTerm, suffixFast):
+		if contextID != suffixContext { panic("gosmt: erased integer sequence context mismatch") }
+		return fastBooleanAtom(contextID, smt.SequenceHasSuffix[smt.IntSort](materializeIntegerSequence(term, fast), materializeIntegerSequence(suffixTerm, suffixFast)))
+	} }
+}
+
+func IndexOfIntSequence(0 c nat, value IntSequenceExpr[c], subsequence IntSequenceExpr[c], offset IntExpr[c]) IntExpr[c] {
+	match value { case intSequenceExprValue(contextID, term, fast): match subsequence { case intSequenceExprValue(partContext, partTerm, partFast): match offset { case intExprValue(offsetContext, offsetTerm, offsetFast):
+		if contextID != partContext || contextID != offsetContext { panic("gosmt: erased integer sequence/index context mismatch") }
+		return intExprValue(contextID, smt.SequenceIndexOf[smt.IntSort](materializeIntegerSequence(term, fast), materializeIntegerSequence(partTerm, partFast), materializeInteger(offsetTerm, offsetFast)), integerFast{})
+	} } }
+}
+
+func ReplaceIntSequence(0 c nat, value IntSequenceExpr[c], source IntSequenceExpr[c], replacement IntSequenceExpr[c]) IntSequenceExpr[c] {
+	match value { case intSequenceExprValue(contextID, term, fast): match source { case intSequenceExprValue(sourceContext, sourceTerm, sourceFast): match replacement { case intSequenceExprValue(replacementContext, replacementTerm, replacementFast):
+		if contextID != sourceContext || contextID != replacementContext { panic("gosmt: erased integer sequence replacement context mismatch") }
+		return intSequenceExprValue(contextID, smt.SequenceReplace[smt.IntSort](materializeIntegerSequence(term, fast), materializeIntegerSequence(sourceTerm, sourceFast), materializeIntegerSequence(replacementTerm, replacementFast)), integerSequenceFast{})
+	} } }
+}
+
 func ContainsString(0 c nat, value StringExpr[c], substring StringExpr[c]) BoolExpr[c] {
 	return fastStringRelation(smt.CompactStringContains, value, substring)
 }

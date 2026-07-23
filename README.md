@@ -45,10 +45,10 @@ algebra, and context-indexed GoSMT construction. The standard library keeps
 regexes element-sort indexed and small Boolean-regex formulas in an inline
 postfix representation.
 Ground integer sequences now have exact `empty`, `unit`, `concat`, equality,
-disequality, length arithmetic, Boolean composition, and inline model
-evaluation. Go+ retains both the sequence element sort in std and the context
-identity in the GoSMT façade; symbolic sequence constants remain explicit
-future work.
+disequality, length arithmetic, indexed `at`/extract, contains/prefix/suffix,
+index-of, first replacement, Boolean composition, and inline model evaluation.
+Go+ retains both the sequence element sort in std and the context identity in
+the GoSMT façade; symbolic sequence constants remain explicit future work.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,

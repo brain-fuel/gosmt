@@ -788,6 +788,58 @@ func TestContextIndexedGroundIntegerSequenceEvaluation(t *testing.T) {
 	}
 }
 
+func TestContextIndexedGroundIntegerSequenceOperations(t *testing.T) {
+	context := NewContext(35)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	sequence := ConcatIntSequence(unit(1), unit(2), unit(3), unit(2))
+	pair := ConcatIntSequence(unit(2), unit(3))
+	replaced := ConcatIntSequence(unit(1), unit(9), unit(2))
+	formula := And(
+		EqIntSequence(AtIntSequence(sequence, IntVal(context, 1)), unit(2)),
+		EqIntSequence(
+			ExtractIntSequence(sequence, IntVal(context, 1), IntVal(context, 2)),
+			pair,
+		),
+		ContainsIntSequence(sequence, pair),
+		HasPrefixIntSequence(sequence, ConcatIntSequence(unit(1), unit(2))),
+		HasSuffixIntSequence(sequence, ConcatIntSequence(unit(3), unit(2))),
+		EqInt(
+			IndexOfIntSequence(sequence, unit(2), IntVal(context, 2)),
+			IntVal(context, 3),
+		),
+		EqIntSequence(ReplaceIntSequence(sequence, pair, unit(9)), replaced),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+	extracted := ExtractIntSequence(sequence, IntVal(context, 1), IntVal(context, 2))
+	if value, found := EvalIntSequence(result.Value, extracted); !found || value.Len() != 2 {
+		t.Fatalf("extract len=(%d,%v)", value.Len(), found)
+	}
+	if index, found := EvalInt(
+		result.Value,
+		IndexOfIntSequence(sequence, unit(2), IntVal(context, 2)),
+	); !found || index != 3 {
+		t.Fatalf("index=(%d,%v)", index, found)
+	}
+
+	impossible := And(
+		ContainsIntSequence(sequence, pair),
+		Not(HasSuffixIntSequence(sequence, unit(2))),
+	)
+	checked = Check(Assert(2, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

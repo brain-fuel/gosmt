@@ -84,8 +84,10 @@
    Ground `Seq Int` now evaluates exact empty/unit/concatenated values,
    equality/disequality, length arithmetic, and Boolean combinations. The
    first eight values remain inline in std and in the context-indexed GoSMT
-   façade before exact overflow. Symbolic sequence constants and the remaining
-   general sequence operators remain.
+   façade before exact overflow. Indexed `at`/extract, contains, prefix,
+   suffix, index-of, and first replacement share that evaluator, including
+   empty-sequence and out-of-range semantics. Symbolic sequence constants and
+   non-integer sequence solving remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

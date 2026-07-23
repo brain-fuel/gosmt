@@ -863,6 +863,112 @@ func BenchmarkGroundIntegerSequenceQFSeq(b *testing.B) {
 	})
 }
 
+func BenchmarkGroundIntegerSequenceOperationsQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(35)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			sequence := gosmt.ConcatIntSequence(unit(1), unit(2), unit(3), unit(2))
+			pair := gosmt.ConcatIntSequence(unit(2), unit(3))
+			extracted := gosmt.ExtractIntSequence(
+				sequence,
+				gosmt.IntVal(context, 1),
+				gosmt.IntVal(context, 2),
+			)
+			position := gosmt.IndexOfIntSequence(
+				sequence,
+				unit(2),
+				gosmt.IntVal(context, 2),
+			)
+			replaced := gosmt.ReplaceIntSequence(sequence, pair, unit(9))
+			formula := gosmt.And(
+				gosmt.EqIntSequence(extracted, pair),
+				gosmt.ContainsIntSequence(sequence, pair),
+				gosmt.EqInt(position, gosmt.IntVal(context, 3)),
+				gosmt.EqIntSequence(
+					replaced,
+					gosmt.ConcatIntSequence(unit(1), unit(9), unit(2)),
+				),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalIntSequence(result.Value, extracted); !found || value.Len() != 2 {
+				b.Fatal("invalid extracted model")
+			}
+			if value, found := gosmt.EvalInt(result.Value, position); !found || value != 3 {
+				b.Fatal("invalid index model")
+			}
+			if value, found := gosmt.EvalIntSequence(result.Value, replaced); !found || value.Len() != 3 {
+				b.Fatal("invalid replacement model")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid sequence formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequence := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(1, intSort)),
+				context.MkSeqUnit(context.MkInt(2, intSort)),
+				context.MkSeqUnit(context.MkInt(3, intSort)),
+				context.MkSeqUnit(context.MkInt(2, intSort)),
+			)
+			pair := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(2, intSort)),
+				context.MkSeqUnit(context.MkInt(3, intSort)),
+			)
+			extracted := context.MkSeqExtract(
+				sequence,
+				context.MkInt(1, intSort),
+				context.MkInt(2, intSort),
+			)
+			position := context.MkSeqIndexOf(
+				sequence,
+				context.MkSeqUnit(context.MkInt(2, intSort)),
+				context.MkInt(2, intSort),
+			)
+			replaced := context.MkSeqReplace(
+				sequence,
+				pair,
+				context.MkSeqUnit(context.MkInt(9, intSort)),
+			)
+			formula := context.MkAnd(
+				context.MkEq(extracted, pair),
+				context.MkSeqContains(sequence, pair),
+				context.MkEq(position, context.MkInt(3, intSort)),
+				context.MkEq(
+					replaced,
+					context.MkSeqConcat(
+						context.MkSeqUnit(context.MkInt(1, intSort)),
+						context.MkSeqUnit(context.MkInt(9, intSort)),
+						context.MkSeqUnit(context.MkInt(2, intSort)),
+					),
+				),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{extracted, position, replaced, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid sequence model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

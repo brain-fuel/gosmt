@@ -877,6 +877,85 @@ func TestGroundIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestGroundIntegerSequenceOperationCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(440 + example)
+		unit := func(value int64) IntSequenceExpr {
+			return UnitIntSequence(IntVal(context, value))
+		}
+		sequence := ConcatIntSequence(unit(1), unit(2), unit(3), unit(2))
+		pair := ConcatIntSequence(unit(2), unit(3))
+		empty := EmptyIntSequence(context)
+		formula := EqIntSequence(AtIntSequence(sequence, IntVal(context, 1)), unit(2))
+		assertion := "(= (seq.at s 1) (seq.unit 2))"
+		switch example % 10 {
+		case 1:
+			formula = EqIntSequence(
+				ExtractIntSequence(sequence, IntVal(context, 1), IntVal(context, 2)),
+				pair,
+			)
+			assertion = "(= (seq.extract s 1 2) (seq.++ (seq.unit 2) (seq.unit 3)))"
+		case 2:
+			formula = ContainsIntSequence(sequence, pair)
+			assertion = "(seq.contains s (seq.++ (seq.unit 2) (seq.unit 3)))"
+		case 3:
+			formula = HasPrefixIntSequence(sequence, ConcatIntSequence(unit(1), unit(2)))
+			assertion = "(seq.prefixof (seq.++ (seq.unit 1) (seq.unit 2)) s)"
+		case 4:
+			formula = HasSuffixIntSequence(sequence, ConcatIntSequence(unit(3), unit(2)))
+			assertion = "(seq.suffixof (seq.++ (seq.unit 3) (seq.unit 2)) s)"
+		case 5:
+			formula = EqInt(
+				IndexOfIntSequence(sequence, unit(2), IntVal(context, 2)),
+				IntVal(context, 3),
+			)
+			assertion = "(= (seq.indexof s (seq.unit 2) 2) 3)"
+		case 6:
+			formula = EqIntSequence(
+				ReplaceIntSequence(sequence, pair, unit(9)),
+				ConcatIntSequence(unit(1), unit(9), unit(2)),
+			)
+			assertion = "(= (seq.replace s (seq.++ (seq.unit 2) (seq.unit 3)) (seq.unit 9)) (seq.++ (seq.unit 1) (seq.unit 9) (seq.unit 2)))"
+		case 7:
+			formula = ContainsIntSequence(sequence, unit(9))
+			assertion = "(seq.contains s (seq.unit 9))"
+		case 8:
+			formula = EqIntSequence(AtIntSequence(sequence, IntVal(context, 9)), empty)
+			assertion = "(= (seq.at s 9) (as seq.empty (Seq Int)))"
+		case 9:
+			formula = EqIntSequence(
+				ReplaceIntSequence(sequence, empty, unit(9)),
+				ConcatIntSequence(unit(9), sequence),
+			)
+			assertion = "(= (seq.replace s (as seq.empty (Seq Int)) (seq.unit 9)) (seq.++ (seq.unit 9) s))"
+		}
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+(define-fun s () (Seq Int) (seq.++ (seq.unit 1) (seq.unit 2) (seq.unit 3) (seq.unit 2)))
+(assert ` + assertion + `)
+(check-sat)`
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)
