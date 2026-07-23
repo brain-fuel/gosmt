@@ -1463,6 +1463,107 @@ func TestIntegerSequenceEqualityClassCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestTwoSymbolAffineIntegerSequenceLengthCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(1020 + example)
+		x := IntSequenceConst(context, "x", 1)
+		y := IntSequenceConst(context, "y", 2)
+		xLength := LengthIntSequence(x)
+		yLength := LengthIntSequence(y)
+		formula := EqInt(
+			Add(ScaleInt64(2, xLength), yLength),
+			IntVal(context, 7),
+		)
+		assertions := "(assert (= (+ (* 2 (seq.len x)) (seq.len y)) 7))"
+		switch example % 8 {
+		case 1:
+			formula = EqInt(
+				Add(ScaleInt64(2, xLength), ScaleInt64(2, yLength)),
+				IntVal(context, 3),
+			)
+			assertions = "(assert (= (+ (* 2 (seq.len x)) (* 2 (seq.len y))) 3))"
+		case 2:
+			formula = EqInt(
+				Add(ScaleInt64(-1, xLength), yLength),
+				IntVal(context, 2),
+			)
+			assertions = "(assert (= (+ (* (- 1) (seq.len x)) (seq.len y)) 2))"
+		case 3:
+			formula = EqInt(
+				Add(ScaleInt64(3, xLength), ScaleInt64(-1, yLength)),
+				IntVal(context, 1),
+			)
+			assertions = "(assert (= (+ (* 3 (seq.len x)) (* (- 1) (seq.len y))) 1))"
+		case 4:
+			relation := EqInt(
+				Add(ScaleInt64(2, xLength), yLength),
+				IntVal(context, 7),
+			)
+			formula = And(
+				relation,
+				EqInt(xLength, IntVal(context, 2)),
+				EqInt(yLength, IntVal(context, 3)),
+			)
+			assertions = `(assert (= (+ (* 2 (seq.len x)) (seq.len y)) 7))
+(assert (= (seq.len x) 2))
+(assert (= (seq.len y) 3))`
+		case 5:
+			relation := EqInt(
+				Add(ScaleInt64(2, xLength), yLength),
+				IntVal(context, 7),
+			)
+			formula = And(
+				relation,
+				EqInt(xLength, IntVal(context, 2)),
+				EqInt(yLength, IntVal(context, 2)),
+			)
+			assertions = `(assert (= (+ (* 2 (seq.len x)) (seq.len y)) 7))
+(assert (= (seq.len x) 2))
+(assert (= (seq.len y) 2))`
+		case 6:
+			formula = EqInt(
+				Sub(xLength, yLength),
+				IntVal(context, -3),
+			)
+			assertions = "(assert (= (- (seq.len x) (seq.len y)) (- 3)))"
+		case 7:
+			formula = EqInt(
+				Add(xLength, yLength),
+				IntVal(context, int64(example%6)),
+			)
+			assertions = fmt.Sprintf(
+				"(assert (= (+ (seq.len x) (seq.len y)) %d))",
+				example%6,
+			)
+		}
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+(declare-const x (Seq Int))
+(declare-const y (Seq Int))
+` + assertions + `
+(check-sat)`
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)

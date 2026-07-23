@@ -1142,6 +1142,46 @@ func TestContextIndexedIntegerSequenceEqualityClasses(t *testing.T) {
 	}
 }
 
+func TestContextIndexedTwoSymbolAffineIntegerSequenceLengths(t *testing.T) {
+	context := NewContext(42)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	y := IntSequenceConst(context, "y", 2)
+	relation := EqInt(
+		Add(ScaleInt64(2, LengthIntSequence(x)), LengthIntSequence(y)),
+		IntVal(context, 7),
+	)
+	formula := And(
+		relation,
+		HasPrefixIntSequence(x, unit(1)),
+		HasSuffixIntSequence(y, unit(3)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	xValue, xFound := EvalIntSequence(result.Value, x)
+	yValue, yFound := EvalIntSequence(result.Value, y)
+	if !xFound || !yFound || 2*xValue.Len()+yValue.Len() != 7 {
+		t.Fatalf("lengths=(%d,%v)/(%d,%v)", xValue.Len(), xFound, yValue.Len(), yFound)
+	}
+
+	conflicting := And(
+		relation,
+		EqInt(LengthIntSequence(x), IntVal(context, 2)),
+		EqInt(LengthIntSequence(y), IntVal(context, 2)),
+	)
+	if checked := Check(Assert(2, NewSolver(context), conflicting)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("conflicting result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

@@ -1,4 +1,4 @@
 github.com/Z3Prover/z3/src/api/go v0.0.0-20260218225751-ddb49568d352 h1:C2rr5nAD+9wiktEryZrpX7OxDyLu4l/gIv7DNHuJkRY=
 github.com/Z3Prover/z3/src/api/go v0.0.0-20260218225751-ddb49568d352/go.mod h1:4uqsFzLnAPPSuF7CqYgRd7/UeSBfz8tCtTSocv4uzkU=
-goforge.dev/goplus/std v0.85.0 h1:c6DMQLgWt4b9UZyCllLc0lRjK170jCFn1aT1Yx8YE4Y=
-goforge.dev/goplus/std v0.85.0/go.mod h1:kr7uOTXhg4p16dGLzGTBnVBsteQnUo3e/5XU055m1PM=
+goforge.dev/goplus/std v0.86.0 h1:44ieuBCCAixhlKMR4YBskPtgB6ESGJs1fY1W/lRSxJM=
+goforge.dev/goplus/std v0.86.0/go.mod h1:kr7uOTXhg4p16dGLzGTBnVBsteQnUo3e/5XU055m1PM=

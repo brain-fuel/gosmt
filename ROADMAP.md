@@ -94,8 +94,9 @@
    boundaries, and prove incompatible boundaries unsatisfiable.
    Exact ground lengths now use bounded complete containment placement,
    prefix/suffix overlap, deterministic zero filling, and exact
-   negative/conflicting/too-short proofs. Non-conjunctive, multi-symbol-length,
-   and non-integer symbolic sequence solving remain. Ground strict/non-strict
+   negative/conflicting/too-short proofs. Non-conjunctive,
+   three-or-more-symbol length systems, multi-symbol inequalities, and
+   non-integer symbolic sequence solving remain. Ground strict/non-strict
    lower and upper length bounds now search admissible lengths with shared
    placement resources and prove contradictory bounds independently of
    assertion order.
@@ -105,6 +106,9 @@
    Positive sequence-symbol equalities now canonicalize compact equality
    classes, merge constructive and length requirements, propagate exact models
    to every alias, and prove conflicting assignments unsatisfiable.
+   Exact two-symbol affine length equations now jointly search one bounded
+   length, derive the partner by exact division, build both local witnesses,
+   and commit paired models atomically. Multi-symbol inequalities remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

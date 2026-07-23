@@ -88,6 +88,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | relational-length symbolic `Seq Int` witness + bounded placement | ~6.882–6.897 us, 14,992 B, 20 allocs | ~4.140–4.292 ms, 656 B, 41 allocs | green (>600x) | green (target ≤20 allocs) |
 | affine-length symbolic `Seq Int` witness + bounded placement | ~7.394–7.411 us, 15,120 B, 25 allocs | ~4.123–4.288 ms, 800 B, 50 allocs | green (>556x) | green (target ≤25 allocs) |
 | symbolic `Seq Int` equality-class model + compatible requirement merging | ~8.840–8.850 us, 13,144 B, 29 allocs | ~4.217–4.391 ms, 1,000 B, 60 allocs | green (>476x) | green (target ≤30 allocs) |
+| two-symbol affine `Seq Int` lengths + paired exact models | ~5.282–5.295 us, 10,824 B, 19 allocs | ~1.400–1.446 ms, 720 B, 46 allocs | green (>264x) | green (target ≤23 allocs) |
 | two shared-symbol word equations + global backtracking | ~3.716–3.732 us, 8,224 B, 8 allocs | ~1.710–1.763 ms, 480 B, 32 allocs | green (>458x) | green (target ≤16 allocs) |
 | word equation + regular-language candidate selection | ~4.177–4.193 us, 8,552 B, 9 allocs | ~1.270–1.360 ms, 432 B, 29 allocs | green (>302x) | green (target ≤14 allocs) |
 | word equation + general Boolean-regex split selection | ~5.504–5.516 us, 9,144 B, 13 allocs | ~1.423–1.496 ms, 480 B, 32 allocs | green (>257x) | green (target ≤16 allocs) |
@@ -546,6 +547,15 @@ their requirements before witness construction, and expands the resulting
 model back to every public symbol. It uses 29 allocations and 8.840–8.850 us
 versus pinned Z3's 60 visible Go allocations and 4.217–4.391 ms. This is 51.7%
 fewer allocations and over 476x conservative-endpoint throughput.
+
+The paired affine-length workload solves `2*len(x)+len(y)=9` while requiring a
+three-element prefix for `x` and a three-element suffix for `y`, then extracts
+both exact models. Std keeps four relations inline, canonicalizes aliases,
+enumerates the first bounded length, derives the second by exact Euclidean
+division, and commits both witnesses only after local constraints succeed. It
+uses 19 allocations and 5.282–5.295 us versus pinned Z3's 46 visible Go
+allocations and 1.400–1.446 ms. This is 58.7% fewer allocations and over 264x
+conservative-endpoint throughput.
 
 The uniquely delimited word-equation workload solves
 `"[" ++ x ++ "]" ++ y ++ "!" = "[go]forge!"`, extracts both exact values,
