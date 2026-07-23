@@ -892,6 +892,37 @@ func TestStringReplaceIndexedInteractionCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestStringReplacePredicateInteractionCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	assertions := []string{
+		`(assert (and (= (str.replace x "a" "z") "z") (str.contains x "a")))`,
+		`(assert (and (= (str.replace x "a" "z") "z") (not (str.contains x "a"))))`,
+		`(assert (and (= (str.replace x "a" "z") "z") (= (str.len x) 1) (str.prefixof "a" x)))`,
+		`(assert (and (= (str.replace x "a" "z") "z") (or (str.prefixof "b" x) (str.suffixof "b" x))))`,
+		`(assert (and (= (str.replace x "1" "9") "9") (= (str.to_int x) 1)))`,
+		`(assert (and (= (str.replace x "\u{1f642}" "!") "!") (str.contains x "\u{1f642}")))`,
+	}
+	for example, assertion := range assertions {
+		script := fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+%s
+(check-sat)`, assertion)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestGroundIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

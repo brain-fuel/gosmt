@@ -83,6 +83,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | standalone derived substring equality + symbolic model | ~3.424–3.467 us, 17,224 B, 7 allocs | ~1.820–1.970 ms, 224 B, 15 allocs | green (>524x) | green (target ≤7 allocs) |
 | standalone first-replacement equality + symbolic model | ~3.389–3.432 us, 17,234 B, 7 allocs | ~1.204–1.305 ms, 208 B, 14 allocs | green (>350x) | green (target ≤7 allocs) |
 | first-replacement + indexed equality candidate filtering | ~4.632–4.633 us, 17,424 B, 8 allocs | ~1.388–1.471 ms, 320 B, 21 allocs | green (>299x) | green (target ≤10 allocs) |
+| first-replacement + string-predicate candidate filtering | ~4.980–5.008 us, 18,640 B, 8 allocs | ~1.329–1.410 ms, 272 B, 18 allocs | green (>265x) | green (target ≤9 allocs) |
 | ground `Seq Int` construction + equality/length/model evaluation | ~3.176–3.193 us, 8,368 B, 12 allocs | ~0.955–1.039 ms, 456 B, 30 allocs | green (>299x) | green (target ≤15 allocs) |
 | ground `Seq Int` extract/contains/index/replace + model evaluation | ~5.969–5.978 us, 9,680 B, 23 allocs | ~0.927–1.061 ms, 848 B, 53 allocs | green (>155x) | green (target ≤26 allocs) |
 | ground-assigned symbolic `Seq Int` + derived model evaluation | ~6.247–6.337 us, 16,760 B, 22 allocs | ~1.049–1.109 ms, 768 B, 48 allocs | green (>165x) | green (target ≤24 allocs) |
@@ -832,6 +833,15 @@ filters with ground-index substrings and proves unsatisfiability only after
 exhausting every replacement preimage. It uses 8 allocations and
 4.632–4.633 us versus pinned Z3's 21 allocations and 1.388–1.471 ms. This is
 61.9% fewer allocations and over 299x conservative-endpoint throughput.
+
+The mixed replacement/predicate workload uses the same two preimages and
+requires `contains(x,"a")`, selecting `x = "a"`. Exact candidate filtering
+also covers negative predicates, prefix/suffix, digit/regex membership,
+length/index/conversion arithmetic, and supported Boolean forms when the
+predicate owns only the replacement-anchored symbol. Foreign-symbol
+dependencies remain explicit `unknown`. The cold workload uses 8 allocations
+and 4.980–5.008 us versus pinned Z3's 18 allocations and 1.329–1.410 ms. This
+is 55.6% fewer allocations and over 265x conservative-endpoint throughput.
 
 The ground integer-sequence workload constructs `[7, 11]` through typed
 `empty`, `unit`, and `concat`, proves equality with a separately constructed

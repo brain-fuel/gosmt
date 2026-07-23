@@ -49,7 +49,11 @@ unchanged, empty-source, empty-replacement, ambiguous, Unicode, and
 multi-constraint intersection cases; the façade retains a compact replacement
 equality. The same exhaustive candidates compose exactly with direct-symbol
 ground-index `str.at` and `str.substr` constraints, selecting a compatible
-preimage or proving that every preimage fails. Regex-coupled
+preimage or proving that every preimage fails. They also filter through the
+bounded same-symbol string predicate language: equality/disequality,
+contains/prefix/suffix/digit/regex, length/index/conversion arithmetic, and
+supported Boolean composition. Predicates owning another unbound symbol
+remain `unknown`. Regex-coupled
 candidate selection includes bounded Boolean predicates and string
 disequalities, the core SMT-LIB regex, globally backtracked
 contains/prefix/suffix constraints, and context-indexed GoSMT construction.
