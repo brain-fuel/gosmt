@@ -878,6 +878,11 @@ func TestStandaloneStringReplaceAllEqualityCorpusAgreesWithPinnedZ3(t *testing.T
 		`(assert (and (= (str.replace_all x "ab" "") "ab") (= x "aababb")))`,
 		`(assert (and (= (str.replace_all x "ab" "") "ab") (= x "abaabb")))`,
 		`(assert (and (= (str.replace_all x "a" "") "a") (= x "a")))`,
+		`(declare-const source String)
+(declare-const replacement String)
+(declare-const target String)
+(assert (and (= source "a") (= replacement "z") (= target "zz")
+             (= (str.replace_all x source replacement) target) (= x "aa")))`,
 	}
 	for example, assertion := range assertions {
 		script := fmt.Sprintf(`(set-logic QF_SLIA)

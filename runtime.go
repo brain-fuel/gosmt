@@ -161,17 +161,22 @@ const (
 	stringFastSubstring
 	stringFastReplace
 	stringFastReplaceAll
+	stringFastReplaceAllSymbols
 )
 
 type stringFast struct {
-	kind    uint8
-	id      int
-	name    string
-	value   string
-	suffix  string
-	pattern smt.CompactStringPattern
-	offset  int64
-	length  int64
+	kind            uint8
+	id              int
+	name            string
+	value           string
+	suffix          string
+	pattern         smt.CompactStringPattern
+	offset          int64
+	length          int64
+	sourceID        int
+	sourceName      string
+	replacementID   int
+	replacementName string
 }
 
 const (
@@ -364,6 +369,18 @@ func materializeCompactString(value smt.CompactStringTerm) smt.Term[smt.StringSo
 }
 
 func fastEvaluateString(model smt.Model, value stringExprValue) (string, bool) {
+	if value.fast.kind == stringFastReplaceAllSymbols {
+		input, inputOK := smt.CompactStringModelValue(model, smt.CompactStringSymbolTerm(value.fast.id, value.fast.name))
+		source, sourceOK := smt.CompactStringModelValue(model, smt.CompactStringSymbolTerm(value.fast.sourceID, value.fast.sourceName))
+		replacement, replacementOK := smt.CompactStringModelValue(model, smt.CompactStringSymbolTerm(value.fast.replacementID, value.fast.replacementName))
+		if !inputOK || !sourceOK || !replacementOK {
+			return "", false
+		}
+		if source == "" {
+			return input, true
+		}
+		return strings.ReplaceAll(input, source, replacement), true
+	}
 	if compact, ok := compactString(value); ok {
 		return smt.CompactStringModelValue(model, compact)
 	}
@@ -589,6 +606,21 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 }
 
 func compactStringReplaceEquality(derived, target StringExpr) (smt.CompactStringReplaceEquality, bool) {
+	if derived.fast.kind == stringFastReplaceAllSymbols &&
+		(target.fast.kind == stringFastLiteral || target.fast.kind == stringFastSymbol) {
+		result := smt.CompactStringReplaceEquality{
+			SymbolID: derived.fast.id, SymbolName: derived.fast.name,
+			SourceID: derived.fast.sourceID, SourceName: derived.fast.sourceName, SourceSymbol: true,
+			ReplacementID: derived.fast.replacementID, ReplacementName: derived.fast.replacementName, ReplacementSymbol: true,
+			All: true,
+		}
+		if target.fast.kind == stringFastSymbol {
+			result.TargetID, result.TargetName, result.TargetSymbol = target.fast.id, target.fast.name, true
+		} else {
+			result.Target = target.fast.value
+		}
+		return result, true
+	}
 	if derived.fast.kind != stringFastReplace && derived.fast.kind != stringFastReplaceAll ||
 		target.fast.kind != stringFastLiteral {
 		return smt.CompactStringReplaceEquality{}, false
@@ -787,6 +819,19 @@ func fastReplaceAllString(value, source, replacement StringExpr) StringExpr {
 				name:   value.fast.name,
 				value:  source.fast.value,
 				suffix: replacement.fast.value,
+			},
+		}
+	}
+	if value.fast.kind == stringFastSymbol &&
+		source.fast.kind == stringFastSymbol &&
+		replacement.fast.kind == stringFastSymbol {
+		return stringExprValue{
+			contextID: value.contextID,
+			fast: stringFast{
+				kind: stringFastReplaceAllSymbols,
+				id:   value.fast.id, name: value.fast.name,
+				sourceID: source.fast.id, sourceName: source.fast.name,
+				replacementID: replacement.fast.id, replacementName: replacement.fast.name,
 			},
 		}
 	}
