@@ -2096,6 +2096,101 @@ func BenchmarkFiveSymbolAffineIntegerSequenceLengthRelationsQFSeq(b *testing.B) 
 	})
 }
 
+func BenchmarkDisjunctiveSymbolicIntegerSequenceQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(48)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			x := gosmt.IntSequenceConst(context, "x", 1)
+			formula := gosmt.Or(
+				gosmt.And(
+					gosmt.EqInt(
+						gosmt.LengthIntSequence(x),
+						gosmt.IntVal(context, 3),
+					),
+					gosmt.HasPrefixIntSequence(
+						x,
+						gosmt.ConcatIntSequence(
+							unit(1), unit(2), unit(3), unit(4),
+						),
+					),
+				),
+				gosmt.And(
+					gosmt.EqInt(
+						gosmt.LengthIntSequence(x),
+						gosmt.IntVal(context, 4),
+					),
+					gosmt.HasSuffixIntSequence(
+						x,
+						gosmt.ConcatIntSequence(
+							unit(5), unit(6), unit(7), unit(8),
+						),
+					),
+				),
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			value, found := gosmt.EvalIntSequence(result.Value, x)
+			if !found || value.Len() != 4 {
+				b.Fatal("invalid disjunctive sequence model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			x := context.MkConst(context.MkStringSymbol("x"), sequenceSort)
+			length := context.MkSeqLength(x)
+			first := context.MkAnd(
+				context.MkEq(length, context.MkInt(3, intSort)),
+				context.MkSeqPrefix(
+					context.MkSeqConcat(
+						context.MkSeqUnit(context.MkInt(1, intSort)),
+						context.MkSeqUnit(context.MkInt(2, intSort)),
+						context.MkSeqUnit(context.MkInt(3, intSort)),
+						context.MkSeqUnit(context.MkInt(4, intSort)),
+					),
+					x,
+				),
+			)
+			second := context.MkAnd(
+				context.MkEq(length, context.MkInt(4, intSort)),
+				context.MkSeqSuffix(
+					context.MkSeqConcat(
+						context.MkSeqUnit(context.MkInt(5, intSort)),
+						context.MkSeqUnit(context.MkInt(6, intSort)),
+						context.MkSeqUnit(context.MkInt(7, intSort)),
+						context.MkSeqUnit(context.MkInt(8, intSort)),
+					),
+					x,
+				),
+			)
+			solver := context.NewSolver()
+			solver.Assert(context.MkOr(first, second))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid disjunctive sequence model")
+			}
+			if _, found := model.Eval(length, true); !found {
+				b.Fatal("invalid disjunctive sequence length")
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

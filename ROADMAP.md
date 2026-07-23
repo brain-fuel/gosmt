@@ -94,9 +94,12 @@
    boundaries, and prove incompatible boundaries unsatisfiable.
    Exact ground lengths now use bounded complete containment placement,
    prefix/suffix overlap, deterministic zero filling, and exact
-   negative/conflicting/too-short proofs. Non-conjunctive,
-   affine systems spanning nine or more canonical sequence symbols, and
-   non-integer symbolic sequence solving remain. Ground strict/non-strict
+   negative/conflicting/too-short proofs. Bounded positive Boolean `and`/`or`
+   formulas now expand nested symbolic integer-sequence disjunctions under a
+   4,096-branch limit, try alternatives left to right, validate exact models,
+   and prove all-unsatisfiable alternatives. Negated sequence formulas, affine
+   systems spanning nine or more canonical sequence symbols, and non-integer
+   symbolic sequence solving remain. Ground strict/non-strict
    lower and upper length bounds now search admissible lengths with shared
    placement resources and prove contradictory bounds independently of
    assertion order.
