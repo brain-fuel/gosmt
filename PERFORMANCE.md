@@ -415,6 +415,13 @@ heap. Constant concatenation canonicalization also lowers the standard-library
 core from 6 allocations and 0.684–0.708 us to 3 allocations and
 0.645–0.671 us.
 
+The indexed QF_SLIA cold workload constructs and validates `str.at`,
+`str.substr`, `str.indexof`, and first-occurrence `str.replace`. Its initial
+façade path used 35 allocations. Constant folding lowers three Apple M5 Max
+samples to 11 allocations and 3.575–3.605 us versus pinned Z3's 39 visible Go
+allocations and 0.983–1.049 ms. This is 71.8% fewer allocations and about 285x
+faster at the median.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids

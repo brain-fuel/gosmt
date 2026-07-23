@@ -151,6 +151,22 @@ func EqString(0 c nat, left StringExpr[c], right StringExpr[c]) BoolExpr[c] {
 	return fastStringRelation(smt.CompactStringEqual, left, right)
 }
 
+func AtString(0 c nat, value StringExpr[c], index IntExpr[c]) StringExpr[c] {
+	return fastAtString(value, index)
+}
+
+func Substring(0 c nat, value StringExpr[c], offset IntExpr[c], length IntExpr[c]) StringExpr[c] {
+	return fastSubstring(value, offset, length)
+}
+
+func IndexOfString(0 c nat, value StringExpr[c], substring StringExpr[c], offset IntExpr[c]) IntExpr[c] {
+	return fastIndexOfString(value, substring, offset)
+}
+
+func ReplaceString(0 c nat, value StringExpr[c], source StringExpr[c], replacement StringExpr[c]) StringExpr[c] {
+	return fastReplaceString(value, source, replacement)
+}
+
 func DatatypeConst(datatype nat, constructors nat, 0 c nat, context Context[c], name string, id int) DatatypeExpr[c, datatype, constructors] {
 	match context { case contextValue(contextID): return datatypeExprValue(contextID, smt.DatatypeConst(datatype, constructors, id, name)) }
 }

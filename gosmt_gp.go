@@ -534,6 +534,26 @@ func EqString(left StringExpr, right StringExpr) BoolExpr {
 	return fastStringRelation(smt.CompactStringEqual, left, right)
 }
 
+//goplus:dep AtString(0 c nat, value StringExpr[c], index IntExpr[c]) StringExpr[c]
+func AtString(value StringExpr, index IntExpr) StringExpr {
+	return fastAtString(value, index)
+}
+
+//goplus:dep Substring(0 c nat, value StringExpr[c], offset IntExpr[c], length IntExpr[c]) StringExpr[c]
+func Substring(value StringExpr, offset IntExpr, length IntExpr) StringExpr {
+	return fastSubstring(value, offset, length)
+}
+
+//goplus:dep IndexOfString(0 c nat, value StringExpr[c], substring StringExpr[c], offset IntExpr[c]) IntExpr[c]
+func IndexOfString(value StringExpr, substring StringExpr, offset IntExpr) IntExpr {
+	return fastIndexOfString(value, substring, offset)
+}
+
+//goplus:dep ReplaceString(0 c nat, value StringExpr[c], source StringExpr[c], replacement StringExpr[c]) StringExpr[c]
+func ReplaceString(value StringExpr, source StringExpr, replacement StringExpr) StringExpr {
+	return fastReplaceString(value, source, replacement)
+}
+
 //goplus:dep DatatypeConst(datatype nat, constructors nat, 0 c nat, context Context[c], name string, id int) DatatypeExpr[c, datatype, constructors]
 func DatatypeConst(datatype int, constructors int, context Context, name string, id int) DatatypeExpr {
 	switch __gp_m5 := any(context).(type) {

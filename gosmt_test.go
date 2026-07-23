@@ -72,6 +72,37 @@ func TestContextIndexedStringDisequality(t *testing.T) {
 	}
 }
 
+func TestContextIndexedStringOperations(t *testing.T) {
+	context := NewContext(10)
+	value := StringVal(context, "a🙂bc🙂")
+	at := AtString(value, IntVal(context, 1))
+	substring := Substring(value, IntVal(context, 1), IntVal(context, 3))
+	index := IndexOfString(value, StringVal(context, "🙂"), IntVal(context, 2))
+	replaced := ReplaceString(value, StringVal(context, "🙂"), StringVal(context, "!"))
+	formula := And(
+		EqString(at, StringVal(context, "🙂")),
+		EqString(substring, StringVal(context, "🙂bc")),
+		EqInt(index, IntVal(context, 4)),
+		EqString(replaced, StringVal(context, "a!bc🙂")),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	if actual, found := EvalString(result.Value, at); !found || actual != "🙂" {
+		t.Fatalf("at=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, substring); !found || actual != "🙂bc" {
+		t.Fatalf("substring=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalInt(result.Value, index); !found || actual != 4 {
+		t.Fatalf("index=(%d,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, replaced); !found || actual != "a!bc🙂" {
+		t.Fatalf("replace=(%q,%v)", actual, found)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

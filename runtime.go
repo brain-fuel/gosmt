@@ -241,6 +241,100 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 	return fastBooleanAtom(left.contextID, term)
 }
 
+func constantIntExpr(value IntExpr) (int64, bool) {
+	if value.fast.kind != integerFastNone {
+		return 0, false
+	}
+	exact, ok := smt.ExactIntegerConstant(value.term)
+	if !ok {
+		return 0, false
+	}
+	return exact.Int64()
+}
+
+func fastAtString(value StringExpr, index IntExpr) StringExpr {
+	if value.contextID != index.contextID {
+		panic("gosmt: erased string/index context mismatch")
+	}
+	if value.fast.kind == stringFastLiteral {
+		if position, ok := constantIntExpr(index); ok {
+			runes := []rune(value.fast.value)
+			if position < 0 || position >= int64(len(runes)) {
+				return fastStringValue(value.contextID, "")
+			}
+			return fastStringValue(value.contextID, string(runes[position]))
+		}
+	}
+	return stringExprValue{contextID: value.contextID, term: smt.StringAt(materializeString(value), materializeInteger(index.term, index.fast))}
+}
+
+func fastSubstring(value StringExpr, offset, length IntExpr) StringExpr {
+	if value.contextID != offset.contextID || value.contextID != length.contextID {
+		panic("gosmt: erased string/range context mismatch")
+	}
+	if value.fast.kind == stringFastLiteral {
+		start, startOK := constantIntExpr(offset)
+		count, countOK := constantIntExpr(length)
+		if startOK && countOK {
+			runes := []rune(value.fast.value)
+			if start < 0 || start >= int64(len(runes)) || count <= 0 {
+				return fastStringValue(value.contextID, "")
+			}
+			end := start + count
+			if end < start || end > int64(len(runes)) {
+				end = int64(len(runes))
+			}
+			return fastStringValue(value.contextID, string(runes[start:end]))
+		}
+	}
+	return stringExprValue{contextID: value.contextID, term: smt.StringSubstring(materializeString(value), materializeInteger(offset.term, offset.fast), materializeInteger(length.term, length.fast))}
+}
+
+func fastIndexOfString(value, substring StringExpr, offset IntExpr) IntExpr {
+	if value.contextID != substring.contextID || value.contextID != offset.contextID {
+		panic("gosmt: erased string/index context mismatch")
+	}
+	if value.fast.kind == stringFastLiteral && substring.fast.kind == stringFastLiteral {
+		if start, ok := constantIntExpr(offset); ok {
+			return intExprValue{contextID: value.contextID, term: smt.Integer{Value: indexOfRunes(value.fast.value, substring.fast.value, start)}}
+		}
+	}
+	return intExprValue{contextID: value.contextID, term: smt.StringIndexOf(materializeString(value), materializeString(substring), materializeInteger(offset.term, offset.fast))}
+}
+
+func fastReplaceString(value, source, replacement StringExpr) StringExpr {
+	if value.contextID != source.contextID || value.contextID != replacement.contextID {
+		panic("gosmt: erased string replacement context mismatch")
+	}
+	if value.fast.kind == stringFastLiteral && source.fast.kind == stringFastLiteral && replacement.fast.kind == stringFastLiteral {
+		return fastStringValue(value.contextID, strings.Replace(value.fast.value, source.fast.value, replacement.fast.value, 1))
+	}
+	return stringExprValue{contextID: value.contextID, term: smt.StringReplace(materializeString(value), materializeString(source), materializeString(replacement))}
+}
+
+func indexOfRunes(value, substring string, offset int64) int64 {
+	text, part := []rune(value), []rune(substring)
+	if offset < 0 || offset > int64(len(text)) {
+		return -1
+	}
+	if len(part) == 0 {
+		return offset
+	}
+	for index := int(offset); index+len(part) <= len(text); index++ {
+		matches := true
+		for partIndex := range part {
+			if text[index+partIndex] != part[partIndex] {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			return int64(index)
+		}
+	}
+	return -1
+}
+
 const (
 	uninterpretedFastNone = iota
 	uninterpretedFastSymbol

@@ -68,6 +68,70 @@ func BenchmarkStringQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringIndexedQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(9)
+			value := gosmt.StringVal(context, "aXbcX")
+			at := gosmt.AtString(value, gosmt.IntVal(context, 1))
+			substring := gosmt.Substring(value, gosmt.IntVal(context, 1), gosmt.IntVal(context, 3))
+			position := gosmt.IndexOfString(value, gosmt.StringVal(context, "X"), gosmt.IntVal(context, 2))
+			replaced := gosmt.ReplaceString(value, gosmt.StringVal(context, "X"), gosmt.StringVal(context, "!"))
+			formula := gosmt.And(
+				gosmt.EqString(at, gosmt.StringVal(context, "X")),
+				gosmt.EqString(substring, gosmt.StringVal(context, "Xbc")),
+				gosmt.EqInt(position, gosmt.IntVal(context, 4)),
+				gosmt.EqString(replaced, gosmt.StringVal(context, "a!bcX")),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if _, found := gosmt.EvalString(result.Value, at); !found {
+				b.Fatal("missing at model")
+			}
+			if _, found := gosmt.EvalString(result.Value, substring); !found {
+				b.Fatal("missing substring model")
+			}
+			if _, found := gosmt.EvalInt(result.Value, position); !found {
+				b.Fatal("missing index model")
+			}
+			if _, found := gosmt.EvalString(result.Value, replaced); !found {
+				b.Fatal("missing replace model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			value := context.MkString("aXbcX")
+			at := context.MkSeqAt(value, context.MkInt(1, context.MkIntSort()))
+			substring := context.MkSeqExtract(value, context.MkInt(1, context.MkIntSort()), context.MkInt(3, context.MkIntSort()))
+			position := context.MkSeqIndexOf(value, context.MkString("X"), context.MkInt(2, context.MkIntSort()))
+			replaced := context.MkSeqReplace(value, context.MkString("X"), context.MkString("!"))
+			formula := context.MkAnd(
+				context.MkEq(at, context.MkString("X")),
+				context.MkEq(substring, context.MkString("Xbc")),
+				context.MkEq(position, context.MkInt(4, context.MkIntSort())),
+				context.MkEq(replaced, context.MkString("a!bcX")),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, term := range []*z3.Expr{at, substring, position, replaced} {
+				if _, found := model.Eval(term, true); !found {
+					b.Fatal("missing model value")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanWarm(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		context := gosmt.NewContext(1)
