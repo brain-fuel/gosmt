@@ -261,6 +261,42 @@ func ReplaceAllString(0 c nat, value StringExpr[c], source StringExpr[c], replac
 	return fastReplaceAllString(value, source, replacement)
 }
 
+func ReplaceRegexString(0 c nat, value StringExpr[c], expression RegexExpr[c], replacement StringExpr[c]) StringExpr[c] {
+	match value { case stringExprValue(contextID, term, valueFast): match expression {
+	case regexExprValue(expressionContext, core, regexFast): match replacement { case stringExprValue(replacementContext, replacementTerm, replacementFast):
+		if expressionContext != contextID || replacementContext != contextID {
+			panic("gosmt: erased string/regex context mismatch")
+		}
+		regex := materializeRegex(core, regexFast)
+		if valueFast.kind == stringFastLiteral && replacementFast.kind == stringFastLiteral {
+			result, ok := smt.StringReplaceRegexValue(valueFast.value, regex, replacementFast.value)
+			if ok { return fastStringValue(contextID, result) }
+		}
+		return stringExprValue(contextID, smt.StringReplaceRegex(
+			materializeString(stringExprValue(contextID, term, valueFast)),
+			regex,
+			materializeString(stringExprValue(replacementContext, replacementTerm, replacementFast))), stringFast{})
+	} } }
+}
+
+func ReplaceRegexAllString(0 c nat, value StringExpr[c], expression RegexExpr[c], replacement StringExpr[c]) StringExpr[c] {
+	match value { case stringExprValue(contextID, term, valueFast): match expression {
+	case regexExprValue(expressionContext, core, regexFast): match replacement { case stringExprValue(replacementContext, replacementTerm, replacementFast):
+		if expressionContext != contextID || replacementContext != contextID {
+			panic("gosmt: erased string/regex context mismatch")
+		}
+		regex := materializeRegex(core, regexFast)
+		if valueFast.kind == stringFastLiteral && replacementFast.kind == stringFastLiteral {
+			result, ok := smt.StringReplaceRegexAllValue(valueFast.value, regex, replacementFast.value)
+			if ok { return fastStringValue(contextID, result) }
+		}
+		return stringExprValue(contextID, smt.StringReplaceRegexAll(
+			materializeString(stringExprValue(contextID, term, valueFast)),
+			regex,
+			materializeString(stringExprValue(replacementContext, replacementTerm, replacementFast))), stringFast{})
+	} } }
+}
+
 func ToIntString(0 c nat, value StringExpr[c]) IntExpr[c] {
 	return fastStringToInt(value)
 }

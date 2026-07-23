@@ -1042,6 +1042,37 @@ func TestContextIndexedGroundAssignedStringIndexOfOperands(t *testing.T) {
 	}
 }
 
+func TestContextIndexedGroundStringRegexReplacement(t *testing.T) {
+	context := NewContext(46)
+	digit := RangeRegexString(
+		StringVal(context, "0"),
+		StringVal(context, "9"),
+	)
+	digits := PlusRegexExpr(digit)
+	input := StringVal(context, "abc123def456")
+	replacement := StringVal(context, "!")
+	first := ReplaceRegexString(input, digits, replacement)
+	all := ReplaceRegexAllString(input, digits, replacement)
+	formula := And(
+		EqString(first, StringVal(context, "abc!23def456")),
+		EqString(all, StringVal(context, "abc!!!def!!!")),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, first); !found || actual != "abc!23def456" {
+		t.Fatalf("first=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, all); !found || actual != "abc!!!def!!!" {
+		t.Fatalf("all=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+}
+
 func TestContextIndexedStringReplaceIndexedInteraction(t *testing.T) {
 	context := NewContext(36)
 	x := StringConst(context, "x", 1)

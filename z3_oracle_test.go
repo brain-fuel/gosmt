@@ -844,6 +844,38 @@ func TestStandaloneDerivedStringEqualityCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestGroundRegexReplacementExtendsPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	scripts := []string{
+		`(set-logic QF_SLIA)
+(assert (= (str.replace_re "abc123def456" (re.+ (re.range "0" "9")) "!")
+           "abc!23def456"))
+(check-sat)`,
+		`(set-logic QF_SLIA)
+(assert (= (str.replace_re_all "abc123def456" (re.+ (re.range "0" "9")) "!")
+           "abc!!!def!!!"))
+(check-sat)`,
+	}
+	for index, script := range scripts {
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		if got := fmt.Sprint(ours); got != "[sat]" {
+			t.Fatalf("case %d: gosmt=%s", index, got)
+		}
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("case %d: Z3: %v\n%s", index, err, output)
+		}
+		if got := strings.TrimSpace(string(output)); got != "unknown" {
+			t.Fatalf("case %d: expected pinned Z3 unknown, got %q", index, got)
+		}
+	}
+}
+
 func TestStandaloneStringReplaceEqualityCorpusAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

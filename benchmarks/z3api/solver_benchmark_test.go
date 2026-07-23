@@ -1404,6 +1404,56 @@ func BenchmarkGroundAssignedStringIndexOfLiteralComparisonQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkGroundRegexReplacementQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for iteration := 0; iteration < b.N; iteration++ {
+			context := gosmt.NewContext(46)
+			digit := gosmt.RangeRegexString(
+				gosmt.StringVal(context, "0"),
+				gosmt.StringVal(context, "9"),
+			)
+			digits := gosmt.PlusRegexExpr(digit)
+			input := gosmt.StringVal(context, "abc123def456")
+			replacement := gosmt.StringVal(context, "!")
+			first := gosmt.ReplaceRegexString(input, digits, replacement)
+			all := gosmt.ReplaceRegexAllString(input, digits, replacement)
+			formula := gosmt.And(
+				gosmt.EqString(first, gosmt.StringVal(context, "abc!23def456")),
+				gosmt.EqString(all, gosmt.StringVal(context, "abc!!!def!!!")),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(iteration+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, all); !found || value != "abc!!!def!!!" {
+				b.Fatal("invalid all replacement")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for iteration := 0; iteration < b.N; iteration++ {
+			context := z3.NewContext()
+			digit := context.MkReRange(context.MkString("0"), context.MkString("9"))
+			digits := context.MkRePlus(digit)
+			input := context.MkString("abc123def456")
+			replacement := context.MkString("!")
+			first := context.MkSeqReplaceRe(input, digits, replacement)
+			all := context.MkSeqReplaceReAll(input, digits, replacement)
+			formula := context.MkAnd(
+				context.MkEq(first, context.MkString("abc!23def456")),
+				context.MkEq(all, context.MkString("abc!!!def!!!")),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Unknown {
+				b.Fatal("pinned Z3 unexpectedly decided regex replacement")
+			}
+		}
+	})
+}
+
 func BenchmarkStringReplaceIndexedInteractionQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
