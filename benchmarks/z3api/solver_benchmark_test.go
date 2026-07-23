@@ -882,6 +882,75 @@ func BenchmarkDatatypeValuedMatchCold(b *testing.B) {
 	})
 }
 
+func BenchmarkBooleanDatatypeBranchingCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			red := smt.DatatypeConstructor(872, 2, 0, "red")
+			blue := smt.DatatypeConstructor(872, 2, 1, "blue")
+			x := smt.DatatypeConst(872, 2, 1, "x")
+			isRed := smt.Equal{Left: x, Right: red}
+			isBlue := smt.Equal{Left: x, Right: blue}
+			formula := smt.And{Values: []smt.Term[smt.BoolSort]{
+				smt.Or{Values: []smt.Term[smt.BoolSort]{isRed, isBlue}},
+				smt.Not{Value: isRed},
+			}}
+			result, ok := smt.Check(smt.Assert(1, smt.New(), formula)).(smt.Satisfiable)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			value, found := smt.DatatypeModelValue(872, 2, result.Value, x)
+			if !found || value.ConstructorID != 1 {
+				b.Fatal("missing selected model")
+			}
+			redValue, redFound := smt.BoolValue(result.Value, smt.IsDatatypeConstructor(872, 2, 0, x))
+			blueValue, blueFound := smt.BoolValue(result.Value, smt.IsDatatypeConstructor(872, 2, 1, x))
+			redConstructor, redConstructorFound := smt.DatatypeModelValue(872, 2, result.Value, red)
+			blueConstructor, blueConstructorFound := smt.DatatypeModelValue(872, 2, result.Value, blue)
+			if !redFound || redValue || !blueFound || !blueValue || !redConstructorFound || redConstructor.ConstructorID != 0 || !blueConstructorFound || blueConstructor.ConstructorID != 1 {
+				b.Fatal("invalid Boolean branch model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			redDecl := context.MkConstructor("red", "is-red", nil, nil, nil)
+			blueDecl := context.MkConstructor("blue", "is-blue", nil, nil, nil)
+			color := context.MkDatatypeSort("Color", []*z3.Constructor{redDecl, blueDecl})
+			red := context.MkApp(context.GetDatatypeSortConstructor(color, 0))
+			blue := context.MkApp(context.GetDatatypeSortConstructor(color, 1))
+			x := context.MkConst(context.MkStringSymbol("x"), color)
+			isRed := context.MkEq(x, red)
+			isBlue := context.MkEq(x, blue)
+			recognizesRed := context.MkApp(context.GetDatatypeSortRecognizer(color, 0), x)
+			recognizesBlue := context.MkApp(context.GetDatatypeSortRecognizer(color, 1), x)
+			formula := context.MkAnd(
+				context.MkOr(isRed, isBlue),
+				context.MkNot(isRed),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			_, xFound := model.Eval(x, true)
+			_, redFound := model.Eval(isRed, true)
+			_, blueFound := model.Eval(isBlue, true)
+			_, redConstructorFound := model.Eval(red, true)
+			_, blueConstructorFound := model.Eval(blue, true)
+			_, recognizesRedFound := model.Eval(recognizesRed, true)
+			_, recognizesBlueFound := model.Eval(recognizesBlue, true)
+			_, formulaFound := model.Eval(formula, true)
+			if !xFound || !redFound || !blueFound || !redConstructorFound || !blueConstructorFound || !recognizesRedFound || !recognizesBlueFound || !formulaFound {
+				b.Fatal("missing selected model")
+			}
+		}
+	})
+}
+
 func BenchmarkDisjointEUFLinearRealCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

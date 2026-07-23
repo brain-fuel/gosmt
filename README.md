@@ -16,7 +16,8 @@ with exhaustive
 Bool/Int/Real/bit-vector/datatype pattern matching—including constructor
 selection from branch constraints—and typed field updates, plus Euclidean integer
 division/modulo by nonzero constants,
-plus sound conjunctive combination while those signatures remain
+plus bounded complete Boolean QF_DT branching and sound conjunctive
+combination while those signatures remain
 disjoint and fixed-point shared equality exchange for unary Real→Real EUF.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives

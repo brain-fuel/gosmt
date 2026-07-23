@@ -395,6 +395,15 @@ solves a scalar-bearing nested value, and extracts its exact model. Three
 GoSMT versus 57 allocations and 0.862–1.064 ms for pinned Z3. This is 63.2%
 fewer allocations and about 200x faster at the median.
 
+The Boolean QF_DT cold workload solves a disjunction plus a negated datatype
+equality, then validates the selected value, both constructor values, both
+recognizers, both equality atoms, and the complete authored formula. Three
+500-iteration Apple M5 Max samples use 19 allocations and 4.765–5.350 us for
+GoSMT versus 47 allocations and 0.890–1.063 ms for pinned Z3. This is 59.6%
+fewer allocations and about 200x faster at the median. Inline branch and atom
+arenas replace the initial heap-slice implementation, which used 56
+allocations.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids

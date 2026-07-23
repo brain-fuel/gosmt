@@ -27,7 +27,9 @@
    families support identity-distinct instantiations, regular recursion, and
    nested substituted fields. Mutually parametric groups monomorphize jointly
    across cross-family cycles, including families with different arities, and
-   validate group productivity before installation.
+   validate group productivity before installation. Boolean QF_DT supports
+   disjunction, implication, equivalence, Boolean equality/ITE, nested
+   negation, and `distinct`, with an explicit bounded-expansion limit.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.
