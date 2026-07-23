@@ -794,6 +794,45 @@ func BenchmarkStringWordEquationDerivedSubstringQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStandaloneDerivedStringQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(34)
+			x := gosmt.StringConst(context, "x", 1)
+			substring := gosmt.Substring(x, gosmt.IntVal(context, 1), gosmt.IntVal(context, 3))
+			formula := gosmt.EqString(substring, gosmt.StringVal(context, "bxc"))
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "abxc" {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			intSort := context.MkIntSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			substring := context.MkSeqExtract(x, context.MkInt(1, intSort), context.MkInt(3, intSort))
+			formula := context.MkEq(substring, context.MkString("bxc"))
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+}
+
 func BenchmarkGroundIntegerSequenceQFSeq(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -110,6 +110,7 @@ const (
 	booleanFastStringRelation
 	booleanFastStringBooleanFormula
 	booleanFastStringWordEquation
+	booleanFastStringIndexedEquality
 )
 
 type booleanFast struct {
@@ -144,6 +145,7 @@ type booleanFast struct {
 	stringRelation               smt.CompactStringRelation
 	stringBooleanFormula         smt.CompactStringBooleanFormula
 	stringWordEquation           smt.CompactStringWordEquation
+	stringIndexedEquality        smt.CompactStringIndexedEquality
 	negated                      bool
 }
 
@@ -153,6 +155,8 @@ const (
 	stringFastSymbol
 	stringFastSingleSymbolConcat
 	stringFastPattern
+	stringFastAt
+	stringFastSubstring
 )
 
 type stringFast struct {
@@ -162,6 +166,8 @@ type stringFast struct {
 	value   string
 	suffix  string
 	pattern smt.CompactStringPattern
+	offset  int64
+	length  int64
 }
 
 const (
@@ -233,6 +239,17 @@ func materializeString(value StringExpr) smt.Term[smt.StringSort] {
 		}
 		terms = append(terms, smt.StringVal(pattern.Delimiters[pattern.Count]))
 		return smt.StringConcat(terms...)
+	case stringFastAt:
+		return smt.StringAt(
+			smt.StringConst(value.fast.id, value.fast.name),
+			smt.Integer{Value: value.fast.offset},
+		)
+	case stringFastSubstring:
+		return smt.StringSubstring(
+			smt.StringConst(value.fast.id, value.fast.name),
+			smt.Integer{Value: value.fast.offset},
+			smt.Integer{Value: value.fast.length},
+		)
 	default:
 		panic("gosmt: invalid erased string expression")
 	}
@@ -347,6 +364,9 @@ func fastEvaluateBoolean(model smt.Model, term smt.Term[smt.BoolSort], fast bool
 	if fast.kind == booleanFastStringWordEquation {
 		return smt.CompactStringWordEquationValue(model, fast.stringWordEquation)
 	}
+	if fast.kind == booleanFastStringIndexedEquality {
+		return smt.BoolValue(model, fast.stringIndexedEquality)
+	}
 	return smt.BoolValue(model, materializeBoolean(term, fast))
 }
 
@@ -457,6 +477,24 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 		panic("gosmt: erased string context mismatch")
 	}
 	if kind == smt.CompactStringEqual {
+		if indexed, ok := compactIndexedStringEquality(left, right); ok {
+			return boolExprValue{
+				contextID: left.contextID,
+				fast: booleanFast{
+					kind:                  booleanFastStringIndexedEquality,
+					stringIndexedEquality: indexed,
+				},
+			}
+		}
+		if indexed, ok := compactIndexedStringEquality(right, left); ok {
+			return boolExprValue{
+				contextID: left.contextID,
+				fast: booleanFast{
+					kind:                  booleanFastStringIndexedEquality,
+					stringIndexedEquality: indexed,
+				},
+			}
+		}
 		if left.fast.kind == stringFastPattern && right.fast.kind == stringFastLiteral {
 			return fastStringWordEquation(left.contextID, left.fast.pattern, right.fast.value)
 		}
@@ -513,6 +551,33 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 	return fastBooleanAtom(left.contextID, term)
 }
 
+func compactIndexedStringEquality(derived, target StringExpr) (smt.CompactStringIndexedEquality, bool) {
+	if target.fast.kind != stringFastLiteral {
+		return smt.CompactStringIndexedEquality{}, false
+	}
+	switch derived.fast.kind {
+	case stringFastAt:
+		return smt.CompactStringIndexedEquality{
+			Kind:       smt.CompactStringAtEquality,
+			SymbolID:   derived.fast.id,
+			SymbolName: derived.fast.name,
+			Offset:     derived.fast.offset,
+			Target:     target.fast.value,
+		}, true
+	case stringFastSubstring:
+		return smt.CompactStringIndexedEquality{
+			Kind:       smt.CompactStringSubstringEquality,
+			SymbolID:   derived.fast.id,
+			SymbolName: derived.fast.name,
+			Offset:     derived.fast.offset,
+			Length:     derived.fast.length,
+			Target:     target.fast.value,
+		}, true
+	default:
+		return smt.CompactStringIndexedEquality{}, false
+	}
+}
+
 func singleSymbolStringPattern(value stringFast) smt.CompactStringPattern {
 	return smt.CompactStringPattern{
 		Count:       1,
@@ -559,6 +624,19 @@ func fastAtString(value StringExpr, index IntExpr) StringExpr {
 			return fastStringValue(value.contextID, string(runes[position]))
 		}
 	}
+	if value.fast.kind == stringFastSymbol {
+		if position, ok := constantIntExpr(index); ok {
+			return stringExprValue{
+				contextID: value.contextID,
+				fast: stringFast{
+					kind:   stringFastAt,
+					id:     value.fast.id,
+					name:   value.fast.name,
+					offset: position,
+				},
+			}
+		}
+	}
 	return stringExprValue{contextID: value.contextID, term: smt.StringAt(materializeString(value), materializeInteger(index.term, index.fast))}
 }
 
@@ -579,6 +657,22 @@ func fastSubstring(value StringExpr, offset, length IntExpr) StringExpr {
 				end = int64(len(runes))
 			}
 			return fastStringValue(value.contextID, string(runes[start:end]))
+		}
+	}
+	if value.fast.kind == stringFastSymbol {
+		start, startOK := constantIntExpr(offset)
+		count, countOK := constantIntExpr(length)
+		if startOK && countOK {
+			return stringExprValue{
+				contextID: value.contextID,
+				fast: stringFast{
+					kind:   stringFastSubstring,
+					id:     value.fast.id,
+					name:   value.fast.name,
+					offset: start,
+					length: count,
+				},
+			}
 		}
 	}
 	return stringExprValue{contextID: value.contextID, term: smt.StringSubstring(materializeString(value), materializeInteger(offset.term, offset.fast), materializeInteger(length.term, length.fast))}
@@ -2601,6 +2695,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.stringBooleanFormula
 	case booleanFastStringWordEquation:
 		return fast.stringWordEquation
+	case booleanFastStringIndexedEquality:
+		return fast.stringIndexedEquality
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}

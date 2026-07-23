@@ -739,6 +739,38 @@ func TestContextIndexedWordEquationDerivedStringOperationInteraction(t *testing.
 	}
 }
 
+func TestContextIndexedStandaloneDerivedStringEqualities(t *testing.T) {
+	context := NewContext(34)
+	x := StringConst(context, "x", 1)
+	formula := And(
+		EqString(
+			Substring(x, IntVal(context, 1), IntVal(context, 3)),
+			StringVal(context, "b🙂c"),
+		),
+		EqString(AtString(x, IntVal(context, 2)), StringVal(context, "🙂")),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "ab🙂c" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	impossible := And(
+		EqString(AtString(x, IntVal(context, 0)), StringVal(context, "a")),
+		EqString(AtString(x, IntVal(context, 0)), StringVal(context, "b")),
+	)
+	checked = Check(Assert(2, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func TestContextIndexedGroundIntegerSequenceEvaluation(t *testing.T) {
 	context := NewContext(34)
 	empty := EmptyIntSequence(context)

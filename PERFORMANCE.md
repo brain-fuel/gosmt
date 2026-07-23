@@ -80,6 +80,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | word equation + exact code-point length interaction | ~3.351–3.366 us, 9,328 B, 10 allocs | ~1.518–1.584 ms, 384 B, 26 allocs | green (>450x) | green (target ≤13 allocs) |
 | word equation + code-point length bounds | ~4.395–4.413 us, 10,608 B, 13 allocs | ~1.673–1.752 ms, 440 B, 29 allocs | green (>379x) | green (target ≤14 allocs) |
 | word equation + derived substring equality | ~5.879–5.897 us, 8,168 B, 12 allocs | ~1.813–1.866 ms, 424 B, 29 allocs | green (>307x) | green (target ≤14 allocs) |
+| standalone derived substring equality + symbolic model | ~3.424–3.467 us, 17,224 B, 7 allocs | ~1.820–1.970 ms, 224 B, 15 allocs | green (>524x) | green (target ≤7 allocs) |
 | ground `Seq Int` construction + equality/length/model evaluation | ~3.176–3.193 us, 8,368 B, 12 allocs | ~0.955–1.039 ms, 456 B, 30 allocs | green (>299x) | green (target ≤15 allocs) |
 | ground `Seq Int` extract/contains/index/replace + model evaluation | ~5.969–5.978 us, 9,680 B, 23 allocs | ~0.927–1.061 ms, 848 B, 53 allocs | green (>155x) | green (target ≤26 allocs) |
 | ground-assigned symbolic `Seq Int` + derived model evaluation | ~6.247–6.337 us, 16,760 B, 22 allocs | ~1.049–1.109 ms, 768 B, 48 allocs | green (>165x) | green (target ≤24 allocs) |
@@ -798,6 +799,17 @@ semantic laws. Allocation-free Unicode/WTF-8 boundary scanning keeps the cold
 workload at 12 allocations and 5.879–5.897 us versus pinned Z3's 29 visible Go
 allocations and 1.813–1.866 ms. This is 58.6% fewer allocations and over 307x
 conservative-endpoint throughput.
+
+The standalone derived-string workload removes the word-equation anchor and
+solves `str.substr(x,1,3) = "bxc"` directly, constructing and extracting the
+canonical model `x = "abxc"`. Ground-index `str.at` and `str.substr`
+equalities lower to an exact positional/length system; semantic and pinned-Z3
+tests separately cover overlapping constraints, Unicode, truncation, empty
+results, reversed equalities, and contradictions. Compact GoSMT indexed terms
+and inline std placement storage reduced the cold official path from 26 to 7
+allocations. Pinned Z3 uses 15 visible Go allocations and
+1.820–1.970 ms versus GoSMT's 3.424–3.467 us. This is 53.3% fewer allocations
+and over 524x conservative-endpoint throughput.
 
 The ground integer-sequence workload constructs `[7, 11]` through typed
 `empty`, `unit`, and `concat`, proves equality with a separately constructed

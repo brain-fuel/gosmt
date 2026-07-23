@@ -37,11 +37,16 @@ integer-valued `str.indexof`, `str.to_int`, and `str.to_code` predicates
 coupled to word-equation candidates with exact arbitrary-precision conversion,
 and derived-string equalities over `str.at`, `str.substr`, `str.replace`,
 `str.replace_all`, `str.from_int`, and `str.from_code`. Indexed extraction
-uses allocation-free Unicode/WTF-8 boundary scans on valid SMT strings, plus
-regex-coupled candidate
-selection including bounded Boolean predicates and string disequalities, the
-core SMT-LIB regex, and globally backtracked contains/prefix/suffix constraints
-algebra, and context-indexed GoSMT construction. The standard library keeps
+uses allocation-free Unicode/WTF-8 boundary scans on valid SMT strings.
+Direct-symbol `str.at` and `str.substr` equalities with ground indices and
+results additionally solve without a bounding word equation: overlapping
+requirements reduce exactly to code-point placements and lower/upper length
+bounds, with canonical models and contradiction proofs. The GoSMT façade
+retains these as compact indexed equalities until std solving. Regex-coupled
+candidate selection includes bounded Boolean predicates and string
+disequalities, the core SMT-LIB regex, globally backtracked
+contains/prefix/suffix constraints, and context-indexed GoSMT construction.
+The standard library keeps
 regexes element-sort indexed and small Boolean-regex formulas in an inline
 postfix representation.
 Ground integer sequences now have exact `empty`, `unit`, `concat`, equality,
