@@ -563,6 +563,17 @@ remain at 8 and 15 allocations respectively. The twelve-equation workload uses
 allocations and 3.035–3.130 ms. This is 76.2% fewer allocations and over 198x
 conservative-endpoint throughput.
 
+The overflow-constraint workload combines two shared word equations with five
+distinct exact symbol-length constraints and five regex memberships, crossing
+both former four-entry family ceilings while extracting five string values and
+validating the whole formula. Length evaluation now counts SMT code points
+without allocating rune slices. The cold workload uses 28 allocations and
+13.801–13.824 us versus pinned Z3's 60 visible Go allocations and
+1.403–1.527 ms. This is 53.3% fewer allocations and over 101x
+conservative-endpoint throughput. Separate semantic and 64-case differential
+tests exercise five nontrivial regexes and five general string predicates
+together.
+
 The regex-coupled workload solves `x ++ y = "abc"` while requiring
 `x` to belong to the union of the singleton languages `"a"` and `"ab"`.
 Membership is checked while assigning candidate splits, so the initial empty

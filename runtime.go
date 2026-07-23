@@ -368,6 +368,20 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 		if right.fast.kind == stringFastPattern && left.fast.kind == stringFastLiteral {
 			return fastStringWordEquation(left.contextID, right.fast.pattern, left.fast.value)
 		}
+		if left.fast.kind == stringFastSingleSymbolConcat && right.fast.kind == stringFastLiteral {
+			return fastStringWordEquation(
+				left.contextID,
+				singleSymbolStringPattern(left.fast),
+				right.fast.value,
+			)
+		}
+		if right.fast.kind == stringFastSingleSymbolConcat && left.fast.kind == stringFastLiteral {
+			return fastStringWordEquation(
+				left.contextID,
+				singleSymbolStringPattern(right.fast),
+				left.fast.value,
+			)
+		}
 	}
 	leftCompact, leftOK := compactString(left)
 	rightCompact, rightOK := compactString(right)
@@ -402,6 +416,15 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 		term = smt.StringHasSuffix(leftTerm, rightTerm)
 	}
 	return fastBooleanAtom(left.contextID, term)
+}
+
+func singleSymbolStringPattern(value stringFast) smt.CompactStringPattern {
+	return smt.CompactStringPattern{
+		Count:       1,
+		SymbolIDs:   [4]int{value.id},
+		SymbolNames: [4]string{value.name},
+		Delimiters:  [5]string{value.value, value.suffix},
+	}
 }
 
 func fastStringWordEquation(context int, pattern smt.CompactStringPattern, target string) BoolExpr {

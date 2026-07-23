@@ -197,7 +197,7 @@ func TestContextIndexedInteractingStringRegularExpressions(t *testing.T) {
 	checked := Check(Assert(1, NewSolver(context), formula))
 	result, ok := checked.(Sat)
 	if !ok {
-		t.Fatalf("result=%T", checked)
+		t.Fatalf("result=%T (%#v)", checked, checked)
 	}
 	if actual, found := EvalString(result.Value, x); !found || actual != "b" {
 		t.Fatalf("x=(%q,%v)", actual, found)
@@ -584,6 +584,64 @@ func TestContextIndexedOverflowWordEquationInteraction(t *testing.T) {
 		{y, "bc"},
 		{z, "tail"},
 		{w, "!"},
+	} {
+		if actual, found := EvalString(result.Value, item.expression); !found || actual != item.expected {
+			t.Fatalf("value=(%q,%v), want=%q", actual, found, item.expected)
+		}
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+}
+
+func TestContextIndexedOverflowWordEquationConstraintInteraction(t *testing.T) {
+	context := NewContext(29)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	z := StringConst(context, "z", 3)
+	w := StringConst(context, "w", 4)
+	v := StringConst(context, "v", 5)
+	stringValue := func(value string) StringExpr {
+		return StringVal(context, value)
+	}
+	a := ToRegexString(stringValue("a"))
+	notA := ToRegexString(stringValue("z"))
+	formula := And(
+		EqString(
+			ConcatString(x, stringValue("-"), y, stringValue("-"), z, stringValue("-"), w),
+			stringValue("a-b-c-d"),
+		),
+		EqString(ConcatString(v, stringValue("!")), stringValue("e!")),
+		EqInt(LengthString(x), IntVal(context, 1)),
+		EqInt(LengthString(y), IntVal(context, 1)),
+		EqInt(LengthString(z), IntVal(context, 1)),
+		EqInt(LengthString(w), IntVal(context, 1)),
+		EqInt(LengthString(v), IntVal(context, 1)),
+		InRegexString(x, a),
+		InRegexString(x, UnionRegexExpr(a, notA)),
+		InRegexString(x, IntersectRegexExpr(FullStringRegex(context), a)),
+		InRegexString(x, DifferenceRegexExpr(a, notA)),
+		InRegexString(x, ComplementRegexExpr(notA)),
+		ContainsString(x, stringValue("a")),
+		HasPrefixString(x, stringValue("a")),
+		HasSuffixString(x, stringValue("a")),
+		Not(EqString(x, stringValue("z"))),
+		Not(EqString(x, stringValue(""))),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("overflow constraints result=%T (%#v)", checked, checked)
+	}
+	for _, item := range []struct {
+		expression StringExpr
+		expected   string
+	}{
+		{x, "a"},
+		{y, "b"},
+		{z, "c"},
+		{w, "d"},
+		{v, "e"},
 	} {
 		if actual, found := EvalString(result.Value, item.expression); !found || actual != item.expected {
 			t.Fatalf("value=(%q,%v), want=%q", actual, found, item.expected)

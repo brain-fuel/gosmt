@@ -791,6 +791,97 @@ func BenchmarkStringOverflowWordEquationQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringOverflowWordEquationConstraintQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(29)
+			x := gosmt.StringConst(context, "x", 1)
+			y := gosmt.StringConst(context, "y", 2)
+			z := gosmt.StringConst(context, "z", 3)
+			w := gosmt.StringConst(context, "w", 4)
+			v := gosmt.StringConst(context, "v", 5)
+			stringValue := func(value string) gosmt.StringExpr {
+				return gosmt.StringVal(context, value)
+			}
+			a := gosmt.ToRegexString(stringValue("a"))
+			one := gosmt.IntVal(context, 1)
+			formula := gosmt.And(
+				gosmt.EqString(
+					gosmt.ConcatString(x, stringValue("-"), y, stringValue("-"), z, stringValue("-"), w),
+					stringValue("a-b-c-d"),
+				),
+				gosmt.EqString(gosmt.ConcatString(v, stringValue("!")), stringValue("e!")),
+				gosmt.EqInt(gosmt.LengthString(x), one),
+				gosmt.EqInt(gosmt.LengthString(y), one),
+				gosmt.EqInt(gosmt.LengthString(z), one),
+				gosmt.EqInt(gosmt.LengthString(w), one),
+				gosmt.EqInt(gosmt.LengthString(v), one),
+				gosmt.InRegexString(x, a),
+				gosmt.InRegexString(x, a),
+				gosmt.InRegexString(x, a),
+				gosmt.InRegexString(x, a),
+				gosmt.InRegexString(x, a),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			for _, expression := range []gosmt.StringExpr{x, y, z, w, v} {
+				if _, found := gosmt.EvalString(result.Value, expression); !found {
+					b.Fatal("invalid overflow-constraint model")
+				}
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid overflow-constraint formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			y := context.MkConst(context.MkStringSymbol("y"), stringSort)
+			z := context.MkConst(context.MkStringSymbol("z"), stringSort)
+			w := context.MkConst(context.MkStringSymbol("w"), stringSort)
+			v := context.MkConst(context.MkStringSymbol("v"), stringSort)
+			stringValue := context.MkString
+			a := context.MkToRe(stringValue("a"))
+			one := context.MkInt(1, context.MkIntSort())
+			formula := context.MkAnd(
+				context.MkEq(
+					context.MkSeqConcat(x, stringValue("-"), y, stringValue("-"), z, stringValue("-"), w),
+					stringValue("a-b-c-d"),
+				),
+				context.MkEq(context.MkSeqConcat(v, stringValue("!")), stringValue("e!")),
+				context.MkEq(context.MkSeqLength(x), one),
+				context.MkEq(context.MkSeqLength(y), one),
+				context.MkEq(context.MkSeqLength(z), one),
+				context.MkEq(context.MkSeqLength(w), one),
+				context.MkEq(context.MkSeqLength(v), one),
+				context.MkInRe(x, a),
+				context.MkInRe(x, a),
+				context.MkInRe(x, a),
+				context.MkInRe(x, a),
+				context.MkInRe(x, a),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, y, z, w, v, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid overflow-constraint model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringWordEquationRegexQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
