@@ -817,6 +817,11 @@ func TestStandaloneDerivedStringEqualityCorpusAgreesWithPinnedZ3(t *testing.T) {
 (assert (and (= offset 1) (= length 2)
              (= (str.substr x offset length) "bc")
              (= (str.at x offset) "b")))`,
+		`(declare-const needle String)
+(declare-const offset Int)
+(declare-const expected Int)
+(assert (and (= x "abcabc") (= needle "bc") (= offset 2) (= expected 4)
+             (= (str.indexof x needle offset) expected)))`,
 	}
 	for example, assertion := range scripts {
 		script := fmt.Sprintf(`(set-logic QF_SLIA)

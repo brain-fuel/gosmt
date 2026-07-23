@@ -1001,6 +1001,33 @@ func TestContextIndexedGroundAssignedIndexedStringOperands(t *testing.T) {
 	}
 }
 
+func TestContextIndexedGroundAssignedStringIndexOfOperands(t *testing.T) {
+	context := NewContext(44)
+	text := StringConst(context, "text", 1)
+	needle := StringConst(context, "needle", 2)
+	offset := IntConst(context, "offset", 3)
+	expected := IntConst(context, "expected", 4)
+	index := IndexOfString(text, needle, offset)
+	formula := And(
+		EqString(text, StringVal(context, "abcabc")),
+		EqString(needle, StringVal(context, "bc")),
+		EqInt(offset, IntVal(context, 2)),
+		EqInt(expected, IntVal(context, 4)),
+		EqInt(index, expected),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalInt(result.Value, index); !found || actual != 4 {
+		t.Fatalf("index=(%d,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+}
+
 func TestContextIndexedStringReplaceIndexedInteraction(t *testing.T) {
 	context := NewContext(36)
 	x := StringConst(context, "x", 1)
