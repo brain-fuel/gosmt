@@ -24,6 +24,9 @@ type IntExpr[c nat] enum { intExprValue(ContextID int, Term smt.Term[smt.IntSort
 type RealExpr[c nat] enum { realExprValue(ContextID int, Term smt.Term[smt.RealSort], Fast realFast) RealExpr[c] }
 //goplus:derive off
 //goplus:repr transparent
+type StringExpr[c nat] enum { stringExprValue(ContextID int, Term smt.Term[smt.StringSort]) StringExpr[c] }
+//goplus:derive off
+//goplus:repr transparent
 type BitVecExpr[c nat, w nat] enum { bitVecExprValue(ContextID int, Term smt.Term[smt.BitVecSort[w]], Fast bitVectorFast) BitVecExpr[c, w] }
 //goplus:derive off
 type ArrayExpr[c nat, I any, E any] enum { arrayExprValue(ContextID int, Term smt.Term[smt.ArraySort[I, E]], Fast arrayFast) ArrayExpr[c, I, E] }
@@ -110,6 +113,59 @@ func BoolConst(0 c nat, context Context[c], name string, id int) BoolExpr[c] {
 
 func BoolValue(0 c nat, context Context[c], value bool) BoolExpr[c] {
 	match context { case contextValue(contextID): return boolExprValue(contextID, smt.Bool(value), booleanFast{}) }
+}
+
+func StringVal(0 c nat, context Context[c], value string) StringExpr[c] {
+	match context { case contextValue(contextID): return stringExprValue(contextID, smt.StringVal(value)) }
+}
+
+func StringConst(0 c nat, context Context[c], name string, id int) StringExpr[c] {
+	match context { case contextValue(contextID): return stringExprValue(contextID, smt.StringConst(id, name)) }
+}
+
+func ConcatString(0 c nat, values ...StringExpr[c]) StringExpr[c] {
+	if len(values) == 0 { panic("gosmt: string concatenation requires at least one value") }
+	contextID := 0
+	terms := make([]smt.Term[smt.StringSort], len(values))
+	for index, value := range values {
+		match value { case stringExprValue(current, term):
+			if index == 0 { contextID = current } else if current != contextID { panic("gosmt: erased string context mismatch") }
+			terms[index] = term
+		}
+	}
+	return stringExprValue(contextID, smt.StringConcat(terms...))
+}
+
+func LengthString(0 c nat, value StringExpr[c]) IntExpr[c] {
+	match value { case stringExprValue(contextID, term): return intExprValue(contextID, smt.StringLength(term), integerFast{}) }
+}
+
+func ContainsString(0 c nat, value StringExpr[c], substring StringExpr[c]) BoolExpr[c] {
+	match value { case stringExprValue(contextID, term): match substring { case stringExprValue(otherContext, other):
+		if contextID != otherContext { panic("gosmt: erased string context mismatch") }
+		return fastBooleanAtom(contextID, smt.StringContains(term, other))
+	} }
+}
+
+func HasPrefixString(0 c nat, value StringExpr[c], prefix StringExpr[c]) BoolExpr[c] {
+	match value { case stringExprValue(contextID, term): match prefix { case stringExprValue(otherContext, other):
+		if contextID != otherContext { panic("gosmt: erased string context mismatch") }
+		return fastBooleanAtom(contextID, smt.StringHasPrefix(term, other))
+	} }
+}
+
+func HasSuffixString(0 c nat, value StringExpr[c], suffix StringExpr[c]) BoolExpr[c] {
+	match value { case stringExprValue(contextID, term): match suffix { case stringExprValue(otherContext, other):
+		if contextID != otherContext { panic("gosmt: erased string context mismatch") }
+		return fastBooleanAtom(contextID, smt.StringHasSuffix(term, other))
+	} }
+}
+
+func EqString(0 c nat, left StringExpr[c], right StringExpr[c]) BoolExpr[c] {
+	match left { case stringExprValue(contextID, leftTerm): match right { case stringExprValue(otherContext, rightTerm):
+		if contextID != otherContext { panic("gosmt: erased string context mismatch") }
+		return fastBooleanAtom(contextID, smt.Equal(leftTerm, rightTerm))
+	} }
 }
 
 func DatatypeConst(datatype nat, constructors nat, 0 c nat, context Context[c], name string, id int) DatatypeExpr[c, datatype, constructors] {
@@ -815,7 +871,10 @@ func EvalInt(0 c nat, 0 a nat, model Model[c, a], expression IntExpr[c]) (int64,
 		match expression {
 		case intExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
-			return smt.IntValue(core, materializeInteger(term, fast))
+			materialized := materializeInteger(term, fast)
+			value, found := smt.IntValue(core, materialized)
+			if found { return value, true }
+			return smt.StringIntegerModelValue(core, materialized)
 		}
 	}
 }
@@ -871,6 +930,17 @@ func EvalReal(0 c nat, 0 a nat, model Model[c, a], expression RealExpr[c]) (smt.
 		case realExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
 			return smt.RealValue(core, materializeReal(term, fast))
+		}
+	}
+}
+
+func EvalString(0 c nat, 0 a nat, model Model[c, a], expression StringExpr[c]) (string, bool) {
+	match model {
+	case modelValue(context, core):
+		match expression {
+		case stringExprValue(expressionContext, term):
+			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
+			return smt.StringModelValue(core, term)
 		}
 	}
 }

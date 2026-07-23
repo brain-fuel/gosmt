@@ -34,6 +34,47 @@ func TestContextIndexedBooleanSolve(t *testing.T) {
 	}
 }
 
+func TestContextIndexedStringSolve(t *testing.T) {
+	context := NewContext(8)
+	x := StringConst(context, "x", 1)
+	value := ConcatString(StringVal(context, "go"), StringVal(context, "forge"))
+	formula := And(
+		EqString(x, value),
+		ContainsString(x, StringVal(context, "of")),
+		HasPrefixString(x, StringVal(context, "go")),
+		HasSuffixString(x, StringVal(context, "forge")),
+		EqInt(LengthString(x), IntVal(context, 7)),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "goforge" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if length, found := EvalInt(result.Value, LengthString(x)); !found || length != 7 {
+		t.Fatalf("length=(%d,%v)", length, found)
+	}
+}
+
+func BenchmarkContextIndexedStringSolve(b *testing.B) {
+	context := NewContext(8)
+	x := StringConst(context, "x", 1)
+	formula := And(
+		EqString(x, ConcatString(StringVal(context, "go-"), StringVal(context, "forge"))),
+		EqInt(LengthString(x), IntVal(context, 8)),
+		ContainsString(x, StringVal(context, "-")),
+		HasPrefixString(x, StringVal(context, "go")),
+		HasSuffixString(x, StringVal(context, "forge")),
+	)
+	b.ReportAllocs()
+	for index := 0; index < b.N; index++ {
+		if _, ok := Check(Assert(index+1, NewSolver(context), formula)).(Sat); !ok {
+			b.Fatal("expected satisfiable string workload")
+		}
+	}
+}
+
 func TestBooleanInlineCNFFallsBackForWideSymbolIDs(t *testing.T) {
 	context := NewContext(101)
 	a := BoolConst(context, "a", 100)

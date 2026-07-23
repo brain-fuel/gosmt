@@ -211,6 +211,38 @@ func TestBooleanDatatypeCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestStringCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		value := fmt.Sprintf("go-%02d-forge", example)
+		final := fmt.Sprintf(`(assert (= (str.len x) %d))`, len(value))
+		if example%2 != 0 {
+			final = `(assert (str.prefixof "not-a-prefix" "forge"))`
+		}
+		script := fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+(assert (= x (str.++ "go-" "%02d" "-forge")))
+(assert (str.contains x "%02d"))
+(assert (str.prefixof "go-" x))
+(assert (str.suffixof "-forge" x))
+%s
+(check-sat)`, example, example, final)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestBooleanPigeonholeAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

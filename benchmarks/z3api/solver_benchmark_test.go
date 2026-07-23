@@ -9,6 +9,65 @@ import (
 	"goforge.dev/gosmt"
 )
 
+func BenchmarkStringQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(8)
+			x := gosmt.StringConst(context, "x", 1)
+			formula := gosmt.And(
+				gosmt.EqString(x, gosmt.ConcatString(gosmt.StringVal(context, "go-"), gosmt.StringVal(context, "forge"))),
+				gosmt.EqInt(gosmt.LengthString(x), gosmt.IntVal(context, 8)),
+				gosmt.ContainsString(x, gosmt.StringVal(context, "-")),
+				gosmt.HasPrefixString(x, gosmt.StringVal(context, "go")),
+				gosmt.HasSuffixString(x, gosmt.StringVal(context, "forge")),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "go-forge" {
+				b.Fatal("invalid string model")
+			}
+			if length, found := gosmt.EvalInt(result.Value, gosmt.LengthString(x)); !found || length != 8 {
+				b.Fatal("invalid string length model")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid formula model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			x := context.MkConst(context.MkStringSymbol("x"), context.MkStringSort())
+			formula := context.MkAnd(
+				context.MkEq(x, context.MkSeqConcat(context.MkString("go-"), context.MkString("forge"))),
+				context.MkEq(context.MkSeqLength(x), context.MkInt(8, context.MkIntSort())),
+				context.MkSeqContains(x, context.MkString("-")),
+				context.MkSeqPrefix(context.MkString("go"), x),
+				context.MkSeqSuffix(context.MkString("forge"), x),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid string model")
+			}
+			if _, found := model.Eval(context.MkSeqLength(x), true); !found {
+				b.Fatal("invalid string length model")
+			}
+			if _, found := model.Eval(formula, true); !found {
+				b.Fatal("invalid formula model")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanWarm(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		context := gosmt.NewContext(1)

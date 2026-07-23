@@ -404,6 +404,17 @@ fewer allocations and about 200x faster at the median. Inline branch and atom
 arenas replace the initial heap-slice implementation, which used 56
 allocations.
 
+The initial QF_SLIA cold workload constructs a symbolic string, concatenation,
+length, contains, prefix, and suffix constraints, solves them, and validates
+the string, length, and complete formula model. Three Apple M5 Max samples use
+28 allocations and 3.615–3.670 us for GoSMT versus 31 Go-wrapper allocations
+and 1.029–1.093 ms for pinned Z3. Throughput is about 280x faster. The
+allocation gate is deliberately still red: 28 is not 50% fewer than 31, and
+Z3's Go allocation count does not include its native C heap. The standard
+library core alone solves the same authored constraints in 6 allocations and
+0.684–0.708 us; reducing public façade construction and model-view allocations
+is the next required optimization.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids
