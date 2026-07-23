@@ -870,6 +870,14 @@ func InRegexString(value StringExpr, expression RegexExpr) BoolExpr {
 					return boolExprValue{contextID: contextID, term: smt.Bool{Value: true}, fast: booleanFast{}}
 				}
 			}
+			if fast.kind == stringFastSymbol && regex.kind == regexFastLiteral {
+				formula, ok := smt.CompactStringRegexLiteralFormula(
+					smt.CompactStringSymbolTerm(fast.id, fast.name), regex.value)
+				if ok {
+					return boolExprValue{contextID: contextID, term: nil, fast: booleanFast{
+						kind: booleanFastStringBooleanFormula, stringBooleanFormula: formula}}
+				}
+			}
 			return fastBooleanAtom(contextID, smt.StringInRegex(materializeString(stringExprValue{contextID: contextID, term: term, fast: fast}), materializeRegex(core, regex)))
 		default:
 			panic("goplus: impossible enum value in match")
@@ -2367,6 +2375,11 @@ func IffBool(left BoolExpr, right BoolExpr) BoolExpr {
 	return And(ImpliesBool(left, right), ImpliesBool(right, left))
 }
 
+//goplus:dep IfBool(0 c nat, condition BoolExpr[c], thenValue BoolExpr[c], elseValue BoolExpr[c]) BoolExpr[c]
+func IfBool(condition BoolExpr, thenValue BoolExpr, elseValue BoolExpr) BoolExpr {
+	return Or(And(condition, thenValue), And(Not(condition), elseValue))
+}
+
 //goplus:dep EqBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c]
 func EqBool(left BoolExpr, right BoolExpr) BoolExpr {
 	switch __gp_m131 := any(left).(type) {
@@ -2601,7 +2614,7 @@ func EvalBool(model Model, expression BoolExpr) (bool, bool) {
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
 			}
-			return smt.BoolValue(core, materializeBoolean(term, fast))
+			return fastEvaluateBoolean(core, term, fast)
 		default:
 			panic("goplus: impossible enum value in match")
 		}
@@ -2785,7 +2798,7 @@ func EvalString(model Model, expression StringExpr) (string, bool) {
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
 			}
-			return smt.StringModelValue(core, materializeString(stringExprValue{contextID: expressionContext, term: term, fast: fast}))
+			return fastEvaluateString(core, stringExprValue{contextID: expressionContext, term: term, fast: fast})
 		default:
 			panic("goplus: impossible enum value in match")
 		}

@@ -322,6 +322,109 @@ func BenchmarkStringRegexInteractingQFS(b *testing.B) {
 	})
 }
 
+func BenchmarkStringRegexBooleanQFS(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(14)
+			x := gosmt.StringConst(context, "x", 1)
+			a := gosmt.InRegexString(x, gosmt.ToRegexString(gosmt.StringVal(context, "a")))
+			middle := gosmt.InRegexString(x, gosmt.ToRegexString(gosmt.StringVal(context, "b")))
+			formula := gosmt.And(
+				gosmt.Or(a, middle),
+				gosmt.Not(a),
+				gosmt.IfBool(a, gosmt.BoolValue(context, false), middle),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "b" {
+				b.Fatal("invalid Boolean regex model")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid Boolean regex formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			x := context.MkConst(context.MkStringSymbol("x"), context.MkStringSort())
+			a := context.MkInRe(x, context.MkToRe(context.MkString("a")))
+			middle := context.MkInRe(x, context.MkToRe(context.MkString("b")))
+			formula := context.MkAnd(
+				context.MkOr(a, middle),
+				context.MkNot(a),
+				context.MkOr(
+					context.MkAnd(a, context.MkFalse()),
+					context.MkAnd(context.MkNot(a), middle),
+				),
+			)
+			solver := context.NewSolverForLogic("QF_S")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid Boolean regex model")
+			}
+			if _, found := model.Eval(formula, true); !found {
+				b.Fatal("invalid Boolean regex formula")
+			}
+		}
+	})
+}
+
+func BenchmarkStringWordEquationQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(15)
+			x := gosmt.StringConst(context, "x", 1)
+			formula := gosmt.EqString(
+				gosmt.ConcatString(gosmt.StringVal(context, "go-"), x, gosmt.StringVal(context, "!")),
+				gosmt.StringVal(context, "go-forge!"),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "forge" {
+				b.Fatal("invalid word-equation model")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid word-equation formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			x := context.MkConst(context.MkStringSymbol("x"), context.MkStringSort())
+			formula := context.MkEq(
+				context.MkSeqConcat(context.MkString("go-"), x, context.MkString("!")),
+				context.MkString("go-forge!"),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid word-equation model")
+			}
+			if _, found := model.Eval(formula, true); !found {
+				b.Fatal("invalid word-equation formula")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanWarm(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		context := gosmt.NewContext(1)

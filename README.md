@@ -20,10 +20,12 @@ plus bounded complete Boolean QF_DT branching and sound conjunctive
 combination while those signatures remain
 disjoint and fixed-point shared equality exchange for unary Real→Real EUF.
 Strings include exact ground regular-language membership, constructive
-symbolic and shared-conjunction witnesses, equality-forced and singleton-
-intersection contradiction proofs, the core SMT-LIB regex algebra, and
-context-indexed GoSMT construction; the standard-library regex representation
-remains element-sort indexed.
+symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
+equality-forced and singleton-intersection contradiction proofs, constructive
+single-unknown literal-prefix/suffix word equations, the core SMT-LIB regex
+algebra, and context-indexed GoSMT construction. The standard library keeps
+regexes element-sort indexed and small Boolean-regex formulas in an inline
+postfix representation.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,

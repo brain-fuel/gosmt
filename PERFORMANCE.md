@@ -71,6 +71,8 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | ground QF_AUFBV symbolic-index equality exchange | ~865–868 ns, 2,296 B, 5 allocs | ~1.05–1.16 ms, 360 B, 23 allocs | green | green (target ≤11 allocs) |
 | ground QF_AUFBV extensional model + two evaluations | ~1.31–1.32 us, 8,208 B, 8 allocs | ~1.12–1.18 ms, 272 B, 18 allocs | green | green (target ≤9 allocs) |
 | ground QF_AUFBV two-store extensionality | ~769–770 ns, 2,088 B, 4 allocs | ~1.01–1.12 ms, 344 B, 22 allocs | green | green (target ≤11 allocs) |
+| Boolean QF_S model selection + evaluation | ~3.902–3.910 us, 7,120 B, 6 allocs | ~1.018–1.072 ms, 464 B, 30 allocs | green (>260x) | green (target ≤15 allocs) |
+| single-unknown QF_SLIA word equation + evaluation | ~1.575–1.586 us, 8,192 B, 6 allocs | ~0.979–1.059 ms, 256 B, 17 allocs | green (>617x) | green (target ≤8 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -452,6 +454,22 @@ Direct fixed-bitset evaluation plus single-pass inline constraint collection
 uses 13 allocations and 4.658–4.701 us across five Apple M5 Max samples.
 Pinned Z3 uses 27 visible Go allocations and 1.239–1.353 ms. This is 51.9%
 fewer allocations and about 275x faster at the median.
+
+The Boolean QF_S cold workload combines singleton-regex memberships through
+disjunction, negation, and Boolean ITE, selects the exact surviving model, and
+validates the complete formula. A standard-library inline postfix Boolean
+program and fixed four-atom model search reduce the initial public path from
+23 allocations and roughly 10.2 us to 6 allocations and 3.902–3.910 us.
+Pinned Z3 uses 30 visible Go allocations and 1.018–1.072 ms. This is 80.0%
+fewer allocations and over 260x conservative-endpoint throughput.
+
+The single-unknown word-equation workload solves
+`"go-" ++ x ++ "!" = "go-forge!"`, extracts `x = "forge"`, and validates the
+authored equality. A compact prefix/symbol/suffix term plus allocation-free
+matching reduces the initial generic path from 25 allocations to 6 and
+1.575–1.586 us. Pinned Z3 uses 17 visible Go allocations and
+0.979–1.059 ms. This is 64.7% fewer allocations and over 617x
+conservative-endpoint throughput.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph

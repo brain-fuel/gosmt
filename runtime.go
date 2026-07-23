@@ -101,6 +101,7 @@ const (
 	booleanFastIntegerDivModSystem
 	booleanFastUninterpretedEUFRelation
 	booleanFastStringRelation
+	booleanFastStringBooleanFormula
 )
 
 type booleanFast struct {
@@ -133,6 +134,7 @@ type booleanFast struct {
 	integerDivModSystem          smt.IntegerDivModSystem
 	uninterpretedEUFRelation     smt.UninterpretedEUFRelation
 	stringRelation               smt.CompactStringRelation
+	stringBooleanFormula         smt.CompactStringBooleanFormula
 	negated                      bool
 }
 
@@ -140,13 +142,15 @@ const (
 	stringFastNone = iota
 	stringFastLiteral
 	stringFastSymbol
+	stringFastSingleSymbolConcat
 )
 
 type stringFast struct {
-	kind  uint8
-	id    int
-	name  string
-	value string
+	kind   uint8
+	id     int
+	name   string
+	value  string
+	suffix string
 }
 
 const (
@@ -183,6 +187,10 @@ func compactString(value StringExpr) (smt.CompactStringTerm, bool) {
 		return smt.CompactStringLiteralTerm(value.fast.value), true
 	case stringFastSymbol:
 		return smt.CompactStringSymbolTerm(value.fast.id, value.fast.name), true
+	case stringFastSingleSymbolConcat:
+		return smt.CompactStringSingleSymbolConcatTerm(
+			value.fast.value, value.fast.id, value.fast.name, value.fast.suffix,
+		), true
 	default:
 		return smt.CompactStringTerm{}, false
 	}
@@ -197,16 +205,36 @@ func materializeString(value StringExpr) smt.Term[smt.StringSort] {
 		return smt.StringVal(value.fast.value)
 	case stringFastSymbol:
 		return smt.StringConst(value.fast.id, value.fast.name)
+	case stringFastSingleSymbolConcat:
+		return smt.StringConcat(
+			smt.StringVal(value.fast.value),
+			smt.StringConst(value.fast.id, value.fast.name),
+			smt.StringVal(value.fast.suffix),
+		)
 	default:
 		panic("gosmt: invalid erased string expression")
 	}
 }
 
 func materializeCompactString(value smt.CompactStringTerm) smt.Term[smt.StringSort] {
-	if value.Kind == 0 {
-		return smt.StringVal(value.Value)
+	return smt.MaterializeCompactStringTerm(value)
+}
+
+func fastEvaluateString(model smt.Model, value stringExprValue) (string, bool) {
+	if compact, ok := compactString(value); ok {
+		return smt.CompactStringModelValue(model, compact)
 	}
-	return smt.StringConst(value.ID, value.Name)
+	return smt.StringModelValue(model, materializeString(value))
+}
+
+func fastEvaluateBoolean(model smt.Model, term smt.Term[smt.BoolSort], fast booleanFast) (bool, bool) {
+	if fast.kind == booleanFastStringRelation {
+		return smt.CompactStringRelationValue(model, fast.stringRelation)
+	}
+	if fast.kind == booleanFastStringBooleanFormula {
+		return smt.CompactStringBooleanValue(model, fast.stringBooleanFormula)
+	}
+	return smt.BoolValue(model, materializeBoolean(term, fast))
 }
 
 func fastStringValue(context int, value string) StringExpr {
@@ -237,6 +265,39 @@ func fastConcatString(values []StringExpr) StringExpr {
 			result.WriteString(value.fast.value)
 		}
 		return fastStringValue(context, result.String())
+	}
+	prefix, suffix := "", ""
+	symbolID, symbolName := 0, ""
+	foundSymbol, compact := false, true
+	for _, value := range values {
+		switch value.fast.kind {
+		case stringFastLiteral:
+			if foundSymbol {
+				suffix += value.fast.value
+			} else {
+				prefix += value.fast.value
+			}
+		case stringFastSymbol:
+			if foundSymbol {
+				compact = false
+				break
+			}
+			symbolID, symbolName, foundSymbol = value.fast.id, value.fast.name, true
+		default:
+			compact = false
+		}
+		if !compact {
+			break
+		}
+	}
+	if compact && foundSymbol {
+		return stringExprValue{
+			contextID: context,
+			fast: stringFast{
+				kind: stringFastSingleSymbolConcat, id: symbolID, name: symbolName,
+				value: prefix, suffix: suffix,
+			},
+		}
 	}
 	terms := make([]smt.Term[smt.StringSort], len(values))
 	for index, value := range values {
@@ -1688,11 +1749,22 @@ func fastNot(value BoolExpr) BoolExpr {
 		value.fast.stringRelation.Negated = !value.fast.stringRelation.Negated
 		return value
 	}
+	if value.fast.kind == booleanFastStringBooleanFormula {
+		if formula, ok := smt.CompactStringBooleanNotFormula(value.fast.stringBooleanFormula); ok {
+			value.fast.stringBooleanFormula = formula
+			return value
+		}
+	}
 	return boolExprValue{contextID: value.contextID, term: smt.Not{Value: materializeBoolean(value.term, value.fast)}}
 }
 
 func fastOr(values []BoolExpr) BoolExpr {
 	context := booleanContext(values)
+	if formula, ok := combineCompactStringBooleanValues(values, false); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastStringBooleanFormula, stringBooleanFormula: formula,
+		}}
+	}
 	if len(values) == 2 && values[0].fast.kind == booleanFastIntegerLinearEquality && values[1].fast.kind == booleanFastIntegerLinearEquality {
 		return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastIntegerLinearChoice, integerLinearChoice: smt.IntegerLinearChoice{
 			First: values[0].fast.integerLinearEquality, Second: values[1].fast.integerLinearEquality,
@@ -1729,6 +1801,11 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	}
 	if allConstants {
 		return boolExprValue{contextID: context, term: smt.Bool{Value: result}}
+	}
+	if formula, ok := combineCompactStringBooleanValues(values, true); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastStringBooleanFormula, stringBooleanFormula: formula,
+		}}
 	}
 	if cnf, ok := compactBooleanCNF(values); ok {
 		return boolExprValue{contextID: context, term: cnf}
@@ -2099,6 +2176,43 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	return boolExprValue{contextID: context, term: smt.BooleanCNF{Literals: literals, ClauseEnds: ends}}
 }
 
+func combineCompactStringBooleanValues(values []BoolExpr, conjunction bool) (smt.CompactStringBooleanFormula, bool) {
+	if len(values) == 0 {
+		return smt.CompactStringBooleanFormula{}, false
+	}
+	result, ok := compactStringBooleanValue(values[0])
+	if !ok {
+		return smt.CompactStringBooleanFormula{}, false
+	}
+	for _, value := range values[1:] {
+		next, nextOK := compactStringBooleanValue(value)
+		if !nextOK {
+			return smt.CompactStringBooleanFormula{}, false
+		}
+		if conjunction {
+			result, ok = smt.CompactStringBooleanAndFormula(result, next)
+		} else {
+			result, ok = smt.CompactStringBooleanOrFormula(result, next)
+		}
+		if !ok {
+			return smt.CompactStringBooleanFormula{}, false
+		}
+	}
+	return result, true
+}
+
+func compactStringBooleanValue(value BoolExpr) (smt.CompactStringBooleanFormula, bool) {
+	if value.fast.kind == booleanFastStringBooleanFormula {
+		return value.fast.stringBooleanFormula, true
+	}
+	if value.fast.kind == booleanFastNone {
+		if constant, ok := value.term.(smt.Bool); ok {
+			return smt.CompactStringBooleanConstant(constant.Value), true
+		}
+	}
+	return smt.CompactStringBooleanFormula{}, false
+}
+
 func compactBooleanCNF(values []BoolExpr) (smt.BooleanInlineCNF, bool) {
 	var cnf smt.BooleanInlineCNF
 	if len(values) == 0 || len(values) > len(cnf.ClauseEnds) {
@@ -2220,6 +2334,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		var system smt.CompactStringSystem
 		system = smt.AppendCompactStringRelation(system, fast.stringRelation)
 		return smt.CompactStringAssertions(system)
+	case booleanFastStringBooleanFormula:
+		return fast.stringBooleanFormula
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}

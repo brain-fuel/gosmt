@@ -281,6 +281,14 @@ func InRegexString(0 c nat, value StringExpr[c], expression RegexExpr[c]) BoolEx
 			if regex.kind == regexFastEmpty { return boolExprValue(contextID, smt.Bool{Value: false}, booleanFast{}) }
 			if regex.kind == regexFastFull { return boolExprValue(contextID, smt.Bool{Value: true}, booleanFast{}) }
 		}
+		if fast.kind == stringFastSymbol && regex.kind == regexFastLiteral {
+			formula, ok := smt.CompactStringRegexLiteralFormula(
+				smt.CompactStringSymbolTerm(fast.id, fast.name), regex.value)
+			if ok {
+				return boolExprValue(contextID, nil, booleanFast{
+					kind: booleanFastStringBooleanFormula, stringBooleanFormula: formula})
+			}
+		}
 		return fastBooleanAtom(contextID, smt.StringInRegex(materializeString(stringExprValue(contextID, term, fast)), materializeRegex(core, regex)))
 	} }
 }
@@ -855,6 +863,10 @@ func IffBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c] {
 	return And(ImpliesBool(left, right), ImpliesBool(right, left))
 }
 
+func IfBool(0 c nat, condition BoolExpr[c], thenValue BoolExpr[c], elseValue BoolExpr[c]) BoolExpr[c] {
+	return Or(And(condition, thenValue), And(Not(condition), elseValue))
+}
+
 func EqBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c] {
 	match left { case boolExprValue(leftContext, leftTerm, leftFast):
 		match right { case boolExprValue(rightContext, rightTerm, rightFast):
@@ -977,7 +989,7 @@ func EvalBool(0 c nat, 0 a nat, model Model[c, a], expression BoolExpr[c]) (bool
 		match expression {
 		case boolExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
-			return smt.BoolValue(core, materializeBoolean(term, fast))
+			return fastEvaluateBoolean(core, term, fast)
 		}
 	}
 }
@@ -1060,7 +1072,7 @@ func EvalString(0 c nat, 0 a nat, model Model[c, a], expression StringExpr[c]) (
 		match expression {
 		case stringExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
-			return smt.StringModelValue(core, materializeString(stringExprValue(expressionContext, term, fast)))
+			return fastEvaluateString(core, stringExprValue(expressionContext, term, fast))
 		}
 	}
 }

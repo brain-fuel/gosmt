@@ -37,8 +37,11 @@
    the literal/range/concat/union/closure/bounded-loop fragment, and
    equality-forced symbols produce exact contradiction proofs. Conjunctive
    positive/negative memberships now synthesize a shared witness, and
-   incompatible singleton intersections are proved unsatisfiable. Complete
-   non-conjunctive symbolic language constraints and word equations remain.
+   incompatible singleton intersections are proved unsatisfiable. Bounded
+   non-conjunctive Boolean regex formulas now select exact models, and
+   literal-prefix/suffix equations with one unbound string symbol construct
+   their exact middle value. Unbounded/general Boolean regex constraints and
+   multi-unknown/general word equations remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.
