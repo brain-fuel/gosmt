@@ -372,6 +372,15 @@ decision: both GoSMT and pinned Z3 must select `cons` and solve its synthetic
 head field. Exact model extraction is covered separately in the standard
 library tests.
 
+The datatype-valued match cold workload leaves a two-constructor input
+unconstrained, requires its `Color` result to be `blue`, solves the resulting
+constructor choice, and extracts the selected input model. Three 500-iteration
+Apple M5 Max samples use 18 allocations and 3.531–4.053 us for GoSMT versus
+46 allocations and 1.017–1.167 ms for pinned Z3. This is 60.9% fewer
+allocations and about 300x faster at the median. The pinned Go binding omits
+the ITE constructor, so its side uses the logically equivalent guarded
+disjunction through the public API.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids

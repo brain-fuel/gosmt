@@ -723,6 +723,59 @@ func BenchmarkDatatypeUpdateFieldCold(b *testing.B) {
 	})
 }
 
+func BenchmarkDatatypeValuedMatchCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			x := smt.DatatypeConst(870, 2, 1, "xs")
+			red := smt.DatatypeConstructor(871, 2, 0, "red")
+			blue := smt.DatatypeConstructor(871, 2, 1, "blue")
+			matched := smt.If[smt.DatatypeSort]{
+				Condition: smt.IsDatatypeConstructor(870, 2, 0, x),
+				Then:      red,
+				Else:      blue,
+			}
+			result, ok := smt.Check(smt.Assert(1, smt.New(), smt.Equal{Left: matched, Right: blue})).(smt.Satisfiable)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			value, found := smt.DatatypeModelValue(870, 2, result.Value, x)
+			if !found || value.ConstructorID != 1 {
+				b.Fatal("missing selected constructor")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			nilDecl := context.MkConstructor("nil", "is-nil", nil, nil, nil)
+			consDecl := context.MkConstructor("cons", "is-cons", []string{"head"}, []*z3.Sort{context.MkIntSort()}, []uint{0})
+			listInt := context.MkDatatypeSort("PListInt", []*z3.Constructor{nilDecl, consDecl})
+			redDecl := context.MkConstructor("red", "is-red", nil, nil, nil)
+			blueDecl := context.MkConstructor("blue", "is-blue", nil, nil, nil)
+			color := context.MkDatatypeSort("Color", []*z3.Constructor{redDecl, blueDecl})
+			x := context.MkConst(context.MkStringSymbol("xs"), listInt)
+			isNil := context.MkApp(context.GetDatatypeSortRecognizer(listInt, 0), x)
+			red := context.MkApp(context.GetDatatypeSortConstructor(color, 0))
+			blue := context.MkApp(context.GetDatatypeSortConstructor(color, 1))
+			solver := context.NewSolver()
+			// The pinned Go binding omits Z3_mk_ite. This disjunction is the
+			// equivalent datatype-valued two-branch match constraint.
+			solver.Assert(context.MkOr(
+				context.MkAnd(isNil, context.MkEq(red, blue)),
+				context.MkAnd(context.MkNot(isNil), context.MkEq(blue, blue)),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, found := solver.Model().Eval(x, true); !found {
+				b.Fatal("missing selected constructor")
+			}
+		}
+	})
+}
+
 func BenchmarkDisjointEUFLinearRealCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

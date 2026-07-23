@@ -11,9 +11,9 @@ incremental scopes, temporary assumptions, minimized unsat cores, and native
 Boolean, integer-difference, general exact-linear-integer, exact-linear-real,
 and typed unary/binary EUF
 solving, including finite, arbitrary-arity same-sort, mixed-sort, mutually
-recursive, and unary parametric algebraic datatypes with exhaustive scalar
-pattern matching—including constructor selection from branch constraints—and
-typed field updates, plus Euclidean integer
+recursive, and unary parametric algebraic datatypes with exhaustive
+Bool/Int/Real/bit-vector/datatype pattern matching—including constructor
+selection from branch constraints—and typed field updates, plus Euclidean integer
 division/modulo by nonzero constants,
 plus sound conjunctive combination while those signatures remain
 disjoint and fixed-point shared equality exchange for unary Real→Real EUF.
