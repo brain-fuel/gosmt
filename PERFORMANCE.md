@@ -359,6 +359,12 @@ APIs. Three 500-iteration Apple M5 Max samples use 19 allocations and
 5.412–6.407 us for GoSMT versus 41 allocations and 0.909–1.065 ms for pinned
 Z3. This is 53.7% fewer allocations and about 172x faster at the median.
 
+The `update-field` cold workload constructs a `PList Int`, solves its original
+value, applies a typed head update, and evaluates the rebuilt model. Three
+500-iteration samples use 14 allocations and 2.868–3.405 us for GoSMT versus
+35 allocations and 0.906–1.052 ms for pinned Z3. This is 60.0% fewer
+allocations and about 330x faster at the median.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids

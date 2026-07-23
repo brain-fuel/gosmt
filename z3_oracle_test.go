@@ -56,6 +56,10 @@ func TestParametricDatatypeCorpusAgreesWithPinnedZ3(t *testing.T) {
 		if value < 0 {
 			valueTerm = fmt.Sprintf("(- %d)", -value)
 		}
+		nextTerm := fmt.Sprint(value + 1)
+		if value+1 < 0 {
+			nextTerm = fmt.Sprintf("(- %d)", -(value + 1))
+		}
 		assertion := fmt.Sprintf("(assert (= (head xs) %s))", valueTerm)
 		if example%2 != 0 {
 			assertion = fmt.Sprintf("(assert (not (= (head xs) %s)))", valueTerm)
@@ -66,8 +70,9 @@ func TestParametricDatatypeCorpusAgreesWithPinnedZ3(t *testing.T) {
 (assert (= xs (cons %s (as nil (PList Int)))))
 (assert ((_ is cons) xs))
 (assert (= (match xs (((nil) 0) ((cons h t) h))) %s))
+(assert (= ((_ update-field head) xs %s) (cons %s (as nil (PList Int)))))
 %s
-(check-sat)`, valueTerm, valueTerm, assertion)
+(check-sat)`, valueTerm, valueTerm, nextTerm, nextTerm, assertion)
 		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
 		command := exec.Command(z3, "-in", "-smt2")
 		command.Stdin = strings.NewReader(script)

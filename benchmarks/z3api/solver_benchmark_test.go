@@ -680,6 +680,49 @@ func BenchmarkParametricDatatypeInstantiationCold(b *testing.B) {
 	})
 }
 
+func BenchmarkDatatypeUpdateFieldCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			signature := smt.IntDatatypeField("head", smt.SelfDatatypeField("tail", smt.EmptyMixedDatatypeSignature{}))
+			cons := smt.DeclareMixedRecursiveDatatypeConstructor(860, 2, 1, "cons", signature)
+			nilValue := smt.DatatypeConstructor(860, 2, 0, "nil")
+			arguments := smt.IntDatatypeArgument(smt.Integer{Value: 42}, smt.SelfDatatypeArgument(nilValue, smt.EmptyMixedDatatypeArguments{}))
+			x := smt.DatatypeConst(860, 2, 1, "xs")
+			updated := smt.UpdateMixedIntDatatypeField(smt.MixedDatatypeFields(cons), x, smt.Integer{Value: 7})
+			formula := smt.Equal{Left: x, Right: smt.ApplyMixedRecursiveDatatypeConstructor(cons, arguments)}
+			result, ok := smt.Check(smt.Assert(1, smt.New(), formula)).(smt.Satisfiable)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if _, found := smt.DatatypeModelValue(860, 2, result.Value, updated); !found {
+				b.Fatal("missing updated model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			nilDecl := context.MkConstructor("nil", "is-nil", nil, nil, nil)
+			consDecl := context.MkConstructor("cons", "is-cons", []string{"head", "tail"}, []*z3.Sort{context.MkIntSort(), nil}, []uint{0, 0})
+			listInt := context.MkDatatypeSort("PListInt", []*z3.Constructor{nilDecl, consDecl})
+			nilValue := context.MkApp(context.GetDatatypeSortConstructor(listInt, 0))
+			original := context.MkApp(context.GetDatatypeSortConstructor(listInt, 1), context.MkInt(42, context.MkIntSort()), nilValue)
+			updated := context.MkApp(context.GetDatatypeSortConstructor(listInt, 1), context.MkInt(7, context.MkIntSort()), nilValue)
+			x := context.MkConst(context.MkStringSymbol("xs"), listInt)
+			solver := context.NewSolver()
+			solver.Assert(context.MkEq(x, original))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, found := solver.Model().Eval(updated, true); !found {
+				b.Fatal("missing updated model")
+			}
+		}
+	})
+}
+
 func BenchmarkDisjointEUFLinearRealCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
