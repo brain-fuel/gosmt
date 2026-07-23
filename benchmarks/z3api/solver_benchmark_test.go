@@ -634,6 +634,52 @@ func BenchmarkMutuallyRecursiveDatatypeCold(b *testing.B) {
 	})
 }
 
+func BenchmarkParametricDatatypeInstantiationCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(85)
+			signature := gosmt.IntDatatypeMixedField("head", gosmt.SelfDatatypeMixedField("tail", gosmt.EmptyDatatypeMixedSignature()))
+			cons := gosmt.DeclareMixedDatatypeConstructor(850, 2, 1, context, "cons", signature)
+			nilValue := gosmt.DatatypeConstructor(850, 2, 0, context, "nil")
+			arguments := gosmt.IntDatatypeMixedArgument(gosmt.IntVal(context, 42), gosmt.SelfDatatypeMixedArgument(nilValue, gosmt.EmptyDatatypeMixedArguments(context)))
+			x := gosmt.DatatypeConst(850, 2, context, "xs", 1)
+			value := gosmt.ApplyMixedDatatypeConstructor(cons, arguments)
+			head := gosmt.MixedDatatypeFields(cons)
+			formula := gosmt.And(gosmt.EqDatatype(x, value), gosmt.EqInt(gosmt.SelectMixedIntDatatypeField(head, x), gosmt.IntVal(context, 42)), gosmt.IsMixedDatatypeConstructor(cons, x))
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if _, found := gosmt.EvalDatatype(850, 2, result.Value, x); !found {
+				b.Fatal("missing model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			nilDecl := context.MkConstructor("nil", "is-nil", nil, nil, nil)
+			consDecl := context.MkConstructor("cons", "is-cons", []string{"head", "tail"}, []*z3.Sort{context.MkIntSort(), nil}, []uint{0, 0})
+			listInt := context.MkDatatypeSort("PListInt", []*z3.Constructor{nilDecl, consDecl})
+			nilValue := context.MkApp(context.GetDatatypeSortConstructor(listInt, 0))
+			cons := context.MkApp(context.GetDatatypeSortConstructor(listInt, 1), context.MkInt(42, context.MkIntSort()), nilValue)
+			x := context.MkConst(context.MkStringSymbol("xs"), listInt)
+			head := context.MkApp(context.GetDatatypeSortConstructorAccessor(listInt, 1, 0), x)
+			recognizer := context.MkApp(context.GetDatatypeSortRecognizer(listInt, 1), x)
+			solver := context.NewSolver()
+			solver.Assert(context.MkAnd(context.MkEq(x, cons), context.MkEq(head, context.MkInt(42, context.MkIntSort())), recognizer))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, found := solver.Model().Eval(x, true); !found {
+				b.Fatal("missing model value")
+			}
+		}
+	})
+}
+
 func BenchmarkDisjointEUFLinearRealCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -45,6 +45,42 @@ func TestBooleanResultsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestParametricDatatypeCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		value := example*17 - 211
+		valueTerm := fmt.Sprint(value)
+		if value < 0 {
+			valueTerm = fmt.Sprintf("(- %d)", -value)
+		}
+		assertion := fmt.Sprintf("(assert (= (head xs) %s))", valueTerm)
+		if example%2 != 0 {
+			assertion = fmt.Sprintf("(assert (not (= (head xs) %s)))", valueTerm)
+		}
+		script := fmt.Sprintf(`(declare-datatypes ((PList 1))
+  ((par (T) ((nil) (cons (head T) (tail (PList T)))))))
+(declare-const xs (PList Int))
+(assert (= xs (cons %s (as nil (PList Int)))))
+(assert ((_ is cons) xs))
+(assert (= (match xs (((nil) 0) ((cons h t) h))) %s))
+%s
+(check-sat)`, valueTerm, valueTerm, assertion)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestBooleanPigeonholeAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

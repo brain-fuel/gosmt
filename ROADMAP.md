@@ -16,7 +16,12 @@
    GoSMT construction, and SMT-LIB execution are implemented. Target-indexed
    cross-declaration references, productive mutually recursive groups,
    cross-sort acyclicity/models, and SMT-LIB `declare-datatypes` are
-   implemented. Parametric datatypes remain the next datatype layer.
+   implemented. Unary `par` families now monomorphize lazily into distinct
+   concrete identities across scalar, datatype, and nested parametric
+   arguments; qualified constructors, indexed recognizers, exact scalar
+   selector models, and constructor-determined exhaustive scalar `match`
+   agree with pinned Z3. General match results, `update-field`,
+   multi-parameter families, and mutually parametric groups remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

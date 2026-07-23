@@ -353,6 +353,12 @@ Apple M5 Max samples use 22 allocations and 6.584–7.439 us for GoSMT versus
 allocations and at least 117x faster (about 146x at the median), including
 both declarations, construction, solving, and model evaluation.
 
+The unary parametric QF_DT workload instantiates `PList Int`, then constructs,
+selects, recognizes, solves, and evaluates a `cons` model through both public
+APIs. Three 500-iteration Apple M5 Max samples use 19 allocations and
+5.412–6.407 us for GoSMT versus 41 allocations and 0.909–1.065 ms for pinned
+Z3. This is 53.7% fewer allocations and about 172x faster at the median.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids
