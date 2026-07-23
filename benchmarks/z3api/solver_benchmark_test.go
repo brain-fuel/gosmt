@@ -577,6 +577,63 @@ func BenchmarkMixedRecursiveDatatypeCold(b *testing.B) {
 	})
 }
 
+func BenchmarkMutuallyRecursiveDatatypeCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(84)
+			leaf := gosmt.DatatypeConstructor(840, 2, 0, context, "leaf")
+			nilValue := gosmt.DatatypeConstructor(841, 2, 0, context, "nil")
+			node := gosmt.DeclareMixedDatatypeConstructor(840, 2, 1, context, "node", gosmt.DatatypeReferenceMixedField(841, 2, "children", gosmt.EmptyDatatypeMixedSignature()))
+			cons := gosmt.DeclareMixedDatatypeConstructor(841, 2, 1, context, "cons", gosmt.DatatypeReferenceMixedField(840, 2, "head", gosmt.SelfDatatypeMixedField("tail", gosmt.EmptyDatatypeMixedSignature())))
+			forest := gosmt.ApplyMixedDatatypeConstructor(cons, gosmt.DatatypeReferenceMixedArgument(840, 2, leaf, gosmt.SelfDatatypeMixedArgument(nilValue, gosmt.EmptyDatatypeMixedArguments(context))))
+			tree := gosmt.ApplyMixedDatatypeConstructor(node, gosmt.DatatypeReferenceMixedArgument(841, 2, forest, gosmt.EmptyDatatypeMixedArguments(context)))
+			x := gosmt.DatatypeConst(840, 2, context, "x", 1)
+			children := gosmt.MixedDatatypeFields(node)
+			head := gosmt.MixedDatatypeFields(cons)
+			selected := gosmt.SelectMixedDatatypeReferenceField(841, 2, children, x)
+			formula := gosmt.And(gosmt.EqDatatype(x, tree), gosmt.EqDatatype(gosmt.SelectMixedDatatypeReferenceField(840, 2, head, selected), leaf))
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if _, found := gosmt.EvalDatatype(840, 2, result.Value, x); !found {
+				b.Fatal("missing model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			leafDecl := context.MkConstructor("leaf", "is-leaf", nil, nil, nil)
+			nodeDecl := context.MkConstructor("node", "is-node", []string{"children"}, []*z3.Sort{nil}, []uint{1})
+			nilDecl := context.MkConstructor("nil", "is-nil", nil, nil, nil)
+			consDecl := context.MkConstructor("cons", "is-cons", []string{"head", "tail"}, []*z3.Sort{nil, nil}, []uint{0, 1})
+			sorts := context.MkDatatypeSorts([]string{"Tree", "Forest"}, [][]*z3.Constructor{{leafDecl, nodeDecl}, {nilDecl, consDecl}})
+			leaf := context.MkApp(context.GetDatatypeSortConstructor(sorts[0], 0))
+			nilValue := context.MkApp(context.GetDatatypeSortConstructor(sorts[1], 0))
+			forest := context.MkApp(context.GetDatatypeSortConstructor(sorts[1], 1), leaf, nilValue)
+			tree := context.MkApp(context.GetDatatypeSortConstructor(sorts[0], 1), forest)
+			x := context.MkConst(context.MkStringSymbol("x"), sorts[0])
+			children := context.MkApp(context.GetDatatypeSortConstructorAccessor(sorts[0], 1, 0), x)
+			head := context.MkApp(context.GetDatatypeSortConstructorAccessor(sorts[1], 1, 0), children)
+			solver := context.NewSolver()
+			solver.Assert(context.MkAnd(context.MkEq(x, tree), context.MkEq(head, leaf)))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if model == nil {
+				b.Fatal("missing model")
+			}
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("missing model value")
+			}
+		}
+	})
+}
+
 func BenchmarkDisjointEUFLinearRealCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

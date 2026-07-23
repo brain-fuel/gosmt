@@ -922,6 +922,37 @@ func TestContextIndexedMixedDatatype(t *testing.T) {
 	}
 }
 
+func TestContextIndexedMutuallyRecursiveDatatypes(t *testing.T) {
+	context := NewContext(84)
+	treeLeaf := DatatypeConstructor(840, 2, 0, context, "leaf")
+	forestNil := DatatypeConstructor(841, 2, 0, context, "nil")
+	treeNode := DeclareMixedDatatypeConstructor(840, 2, 1, context, "node",
+		DatatypeReferenceMixedField(841, 2, "children", EmptyDatatypeMixedSignature()))
+	forestCons := DeclareMixedDatatypeConstructor(841, 2, 1, context, "cons",
+		DatatypeReferenceMixedField(840, 2, "head", SelfDatatypeMixedField("tail", EmptyDatatypeMixedSignature())))
+	forest := ApplyMixedDatatypeConstructor(forestCons,
+		DatatypeReferenceMixedArgument(840, 2, treeLeaf, SelfDatatypeMixedArgument(forestNil, EmptyDatatypeMixedArguments(context))))
+	tree := ApplyMixedDatatypeConstructor(treeNode,
+		DatatypeReferenceMixedArgument(841, 2, forest, EmptyDatatypeMixedArguments(context)))
+	x := DatatypeConst(840, 2, context, "x", 1)
+	children := MixedDatatypeFields(treeNode)
+	head := MixedDatatypeFields(forestCons)
+	selectedForest := SelectMixedDatatypeReferenceField(841, 2, children, x)
+	formula := And(
+		EqDatatype(x, tree),
+		EqDatatype(SelectMixedDatatypeReferenceField(840, 2, head, selectedForest), treeLeaf),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("mutual datatype result=%#v", Check(Assert(1, NewSolver(context), formula)))
+	}
+	model, found := EvalDatatype(840, 2, result.Value, x)
+	childrenValue, childrenOK := model.Fields.At(0)
+	if !found || !childrenOK || childrenValue.Datatype == nil || childrenValue.Datatype.ConstructorID != 1 {
+		t.Fatalf("mutual datatype model=%+v found=%v", model, found)
+	}
+}
+
 func TestIndexedBitVectorRotateRepeatOperators(t *testing.T) {
 	context := NewContext(79)
 	x := BitVecConst(8, context, "x", 1)

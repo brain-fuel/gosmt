@@ -345,6 +345,14 @@ pinned Z3 4.16.0 Go API. This is 53.7% fewer allocations and at least 183x
 faster (about 226x at the median), including declaration, construction,
 solving, and exact model evaluation.
 
+The mutually recursive QF_DT workload builds a `Tree`/`Forest` declaration
+group, crosses both target-indexed selector boundaries, solves the nested
+constructor equality, and extracts the complete model. Three 500-iteration
+Apple M5 Max samples use 22 allocations and 6.584–7.439 us for GoSMT versus
+58 allocations and 0.875–1.060 ms for pinned Z3. This is 62.1% fewer
+allocations and at least 117x faster (about 146x at the median), including
+both declarations, construction, solving, and model evaluation.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids

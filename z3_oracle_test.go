@@ -1972,6 +1972,22 @@ func TestMixedDatatypeSMTLibAgreesWithPinnedZ3(t *testing.T) {
 (assert (= (payload x) 7))
 (assert (is-box x))
 (check-sat)`,
+		`(declare-datatypes ((Tree 0) (Forest 0))
+  (((leaf) (node (children Forest)))
+   ((nil) (cons (head Tree) (tail Forest)))))
+(declare-const x Tree)
+(assert (= x (node (cons leaf nil))))
+(assert (= (head (children x)) leaf))
+(assert (= (tail (children x)) nil))
+(check-sat)`,
+		`(declare-datatypes ((Tree 0) (Forest 0))
+  (((leaf) (node (children Forest)))
+   ((nil) (cons (head Tree) (tail Forest)))))
+(declare-const tree Tree)
+(declare-const forest Forest)
+(assert (= tree (node forest)))
+(assert (= forest (cons tree nil)))
+(check-sat)`,
 	}
 	for index, script := range tests {
 		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
@@ -1986,6 +2002,53 @@ func TestMixedDatatypeSMTLibAgreesWithPinnedZ3(t *testing.T) {
 			t.Fatalf("case %d: gosmt=%v z3=%v\n%s", index, ours, want, script)
 		}
 	}
+}
+
+func TestMutuallyRecursiveDatatypeCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	var script strings.Builder
+	script.WriteString(`(declare-datatypes ((Tree 0) (Forest 0))
+  (((leaf) (node (children Forest)))
+   ((nil) (cons (head Tree) (tail Forest)))))
+(declare-const x Tree)
+`)
+	for example := 0; example < 64; example++ {
+		left := mutualTreeTerm(4, uint64(example*17+5))
+		right := left
+		if example%2 != 0 {
+			right = mutualTreeTerm(4, uint64(example*31+19))
+		}
+		fmt.Fprintf(&script, "(push 1)\n(assert (= x %s))\n(assert (= x %s))\n(check-sat)\n(pop 1)\n", left, right)
+	}
+	source := script.String()
+	ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(source))
+	command := exec.Command(z3, "-in", "-smt2")
+	command.Stdin = strings.NewReader(source)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run Z3: %v\n%s", err, output)
+	}
+	want := strings.Fields(string(output))
+	if strings.Join(ours, " ") != strings.Join(want, " ") {
+		t.Fatalf("mutual corpus mismatch: gosmt=%v z3=%v\n%s", ours, want, source)
+	}
+}
+
+func mutualTreeTerm(depth int, seed uint64) string {
+	if depth == 0 || seed%3 == 0 {
+		return "leaf"
+	}
+	return "(node " + mutualForestTerm(depth-1, seed/3+7) + ")"
+}
+
+func mutualForestTerm(depth int, seed uint64) string {
+	if depth == 0 || seed%4 == 0 {
+		return "nil"
+	}
+	return "(cons " + mutualTreeTerm(depth-1, seed/5+11) + " " + mutualForestTerm(depth-1, seed/7+13) + ")"
 }
 
 func TestSMTLibExecutionAgreesWithPinnedZ3(t *testing.T) {

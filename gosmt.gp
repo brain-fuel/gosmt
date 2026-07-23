@@ -203,9 +203,13 @@ func IntDatatypeMixedField(name string, 0 tail smt.DatatypeFieldList, rest smt.M
 func RealDatatypeMixedField(name string, 0 tail smt.DatatypeFieldList, rest smt.MixedDatatypeSignature[tail]) smt.MixedDatatypeSignature[smt.DatatypeFieldCons(smt.RealDatatypeFieldSort, tail)] { return smt.RealDatatypeField(name, rest) }
 func BitVecDatatypeMixedField(width nat, name string, 0 tail smt.DatatypeFieldList, rest smt.MixedDatatypeSignature[tail]) smt.MixedDatatypeSignature[smt.DatatypeFieldCons(smt.BitVecDatatypeFieldSort(width), tail)] { return smt.BitVecDatatypeField(width, name, rest) }
 func SelfDatatypeMixedField(name string, 0 tail smt.DatatypeFieldList, rest smt.MixedDatatypeSignature[tail]) smt.MixedDatatypeSignature[smt.DatatypeFieldCons(smt.SelfDatatypeFieldSort, tail)] { return smt.SelfDatatypeField(name, rest) }
+func DatatypeReferenceMixedField(targetDatatype nat, targetConstructors nat, name string, 0 tail smt.DatatypeFieldList, rest smt.MixedDatatypeSignature[tail]) smt.MixedDatatypeSignature[smt.DatatypeFieldCons(smt.DatatypeReferenceFieldSort(targetDatatype, targetConstructors), tail)] { return smt.DatatypeReferenceField(targetDatatype, targetConstructors, name, rest) }
 
 func EmptyDatatypeMixedArguments(0 c nat, 0 datatype nat, 0 constructors nat, context Context[c]) DatatypeMixedArguments[c, datatype, constructors, smt.NoDatatypeFields] {
 	match context { case contextValue(contextID): return datatypeMixedArgumentsValue(contextID, smt.EmptyMixedDatatypeArguments()) }
+}
+func EmptyDatatypeMixedArgumentsFor(datatype nat, constructors nat, 0 c nat, context Context[c]) DatatypeMixedArguments[c, datatype, constructors, smt.NoDatatypeFields] {
+	match context { case contextValue(contextID): return datatypeMixedArgumentsValue(contextID, smt.EmptyMixedDatatypeArgumentsFor(datatype, constructors)) }
 }
 
 func BoolDatatypeMixedArgument(0 c nat, 0 datatype nat, 0 constructors nat, 0 tail smt.DatatypeFieldList, value BoolExpr[c], rest DatatypeMixedArguments[c, datatype, constructors, tail]) DatatypeMixedArguments[c, datatype, constructors, smt.DatatypeFieldCons(smt.BoolDatatypeFieldSort, tail)] {
@@ -222,6 +226,9 @@ func BitVecDatatypeMixedArgument(width nat, 0 c nat, 0 datatype nat, 0 construct
 }
 func SelfDatatypeMixedArgument(0 c nat, 0 datatype nat, 0 constructors nat, 0 tail smt.DatatypeFieldList, value DatatypeExpr[c, datatype, constructors], rest DatatypeMixedArguments[c, datatype, constructors, tail]) DatatypeMixedArguments[c, datatype, constructors, smt.DatatypeFieldCons(smt.SelfDatatypeFieldSort, tail)] {
 	match value { case datatypeExprValue(contextID, term): match rest { case datatypeMixedArgumentsValue(restContext, core): if contextID != restContext { panic("gosmt: erased mixed datatype argument context mismatch") }; return datatypeMixedArgumentsValue(contextID, smt.SelfDatatypeArgument(term, core)) } }
+}
+func DatatypeReferenceMixedArgument(targetDatatype nat, targetConstructors nat, 0 c nat, 0 datatype nat, 0 constructors nat, 0 tail smt.DatatypeFieldList, value DatatypeExpr[c, targetDatatype, targetConstructors], rest DatatypeMixedArguments[c, datatype, constructors, tail]) DatatypeMixedArguments[c, datatype, constructors, smt.DatatypeFieldCons(smt.DatatypeReferenceFieldSort(targetDatatype, targetConstructors), tail)] {
+	match value { case datatypeExprValue(contextID, term): match rest { case datatypeMixedArgumentsValue(restContext, core): if contextID != restContext { panic("gosmt: erased datatype reference argument context mismatch") }; return datatypeMixedArgumentsValue(contextID, smt.DatatypeReferenceArgument(targetDatatype, targetConstructors, term, core)) } }
 }
 
 func DeclareMixedDatatypeConstructor(datatype nat, constructors nat, constructor nat, 0 c nat, 0 fields smt.DatatypeFieldList, context Context[c], name string, signature smt.MixedDatatypeSignature[fields]) DatatypeMixedConstructor[c, datatype, constructors, constructor, fields] {
@@ -250,6 +257,9 @@ func SelectMixedBitVecDatatypeField(width nat, 0 c nat, 0 datatype nat, 0 constr
 }
 func SelectMixedSelfDatatypeField(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, 0 tail smt.DatatypeFieldList, cursor DatatypeMixedCursor[c, datatype, constructors, constructor, smt.DatatypeFieldCons(smt.SelfDatatypeFieldSort, tail)], value DatatypeExpr[c, datatype, constructors]) DatatypeExpr[c, datatype, constructors] {
 	match cursor { case datatypeMixedCursorValue(contextID, core): match value { case datatypeExprValue(valueContext, term): if contextID != valueContext { panic("gosmt: erased mixed datatype selector context mismatch") }; return datatypeExprValue(contextID, smt.SelectMixedSelfDatatypeField(core, term)) } }
+}
+func SelectMixedDatatypeReferenceField(targetDatatype nat, targetConstructors nat, 0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, 0 tail smt.DatatypeFieldList, cursor DatatypeMixedCursor[c, datatype, constructors, constructor, smt.DatatypeFieldCons(smt.DatatypeReferenceFieldSort(targetDatatype, targetConstructors), tail)], value DatatypeExpr[c, datatype, constructors]) DatatypeExpr[c, targetDatatype, targetConstructors] {
+	match cursor { case datatypeMixedCursorValue(contextID, core): match value { case datatypeExprValue(valueContext, term): if contextID != valueContext { panic("gosmt: erased datatype reference selector context mismatch") }; return datatypeExprValue(contextID, smt.SelectMixedDatatypeReferenceField(targetDatatype, targetConstructors, core, term)) } }
 }
 func IsMixedDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, 0 fields smt.DatatypeFieldList, declaration DatatypeMixedConstructor[c, datatype, constructors, constructor, fields], value DatatypeExpr[c, datatype, constructors]) BoolExpr[c] {
 	match declaration { case datatypeMixedConstructorValue(contextID, core): match value { case datatypeExprValue(valueContext, term): if contextID != valueContext { panic("gosmt: erased mixed datatype recognizer context mismatch") }; return boolExprValue(contextID, smt.IsMixedRecursiveDatatypeConstructor(core, term), booleanFast{}) } }
