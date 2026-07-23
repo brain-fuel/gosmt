@@ -1195,6 +1195,87 @@ func BenchmarkGroundAssignedFirstStringReplaceOperandsQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkGroundAssignedIndexedStringOperandsQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(43)
+			x := gosmt.StringConst(context, "x", 1)
+			offset := gosmt.IntConst(context, "offset", 2)
+			length := gosmt.IntConst(context, "length", 3)
+			zero := gosmt.IntConst(context, "zero", 4)
+			end := gosmt.IntConst(context, "end", 5)
+			substring := gosmt.Substring(x, offset, length)
+			at := gosmt.AtString(x, offset)
+			formula := gosmt.And(
+				gosmt.EqInt(offset, gosmt.IntVal(context, 1)),
+				gosmt.EqInt(length, gosmt.IntVal(context, 2)),
+				gosmt.EqInt(zero, gosmt.IntVal(context, 0)),
+				gosmt.EqInt(end, gosmt.IntVal(context, 3)),
+				gosmt.EqString(substring, gosmt.StringVal(context, "bc")),
+				gosmt.EqString(at, gosmt.StringVal(context, "b")),
+				gosmt.EqString(gosmt.AtString(x, zero), gosmt.StringVal(context, "a")),
+				gosmt.EqString(gosmt.AtString(x, end), gosmt.StringVal(context, "")),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "abc" {
+				b.Fatal("invalid input model")
+			}
+			if value, found := gosmt.EvalInt(result.Value, offset); !found || value != 1 {
+				b.Fatal("invalid offset model")
+			}
+			if value, found := gosmt.EvalInt(result.Value, length); !found || value != 2 {
+				b.Fatal("invalid length model")
+			}
+			if value, found := gosmt.EvalInt(result.Value, zero); !found || value != 0 {
+				b.Fatal("invalid zero model")
+			}
+			if value, found := gosmt.EvalInt(result.Value, end); !found || value != 3 {
+				b.Fatal("invalid end model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			intSort := context.MkIntSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			offset := context.MkConst(context.MkStringSymbol("offset"), intSort)
+			length := context.MkConst(context.MkStringSymbol("length"), intSort)
+			zero := context.MkConst(context.MkStringSymbol("zero"), intSort)
+			end := context.MkConst(context.MkStringSymbol("end"), intSort)
+			substring := context.MkSeqExtract(x, offset, length)
+			at := context.MkSeqAt(x, offset)
+			formula := context.MkAnd(
+				context.MkEq(offset, context.MkInt(1, intSort)),
+				context.MkEq(length, context.MkInt(2, intSort)),
+				context.MkEq(zero, context.MkInt(0, intSort)),
+				context.MkEq(end, context.MkInt(3, intSort)),
+				context.MkEq(substring, context.MkString("bc")),
+				context.MkEq(at, context.MkString("b")),
+				context.MkEq(context.MkSeqAt(x, zero), context.MkString("a")),
+				context.MkEq(context.MkSeqAt(x, end), context.MkString("")),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, offset, length, zero, end} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringReplaceIndexedInteractionQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

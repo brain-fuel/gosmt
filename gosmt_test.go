@@ -939,6 +939,9 @@ func TestContextIndexedGroundAssignedStringReplaceOperands(t *testing.T) {
 
 	firstTarget := StringConst(context, "first_target", 5)
 	firstReplaced := ReplaceString(x, source, replacement)
+	if materializeString(firstReplaced) == nil {
+		t.Fatal("missing symbolic first-replace materialization")
+	}
 	firstFormula := And(
 		EqString(source, StringVal(context, "a")),
 		EqString(replacement, StringVal(context, "z")),
@@ -961,6 +964,40 @@ func TestContextIndexedGroundAssignedStringReplaceOperands(t *testing.T) {
 	}
 	if valid, found := EvalBool(result.Value, firstFormula); !found || !valid {
 		t.Fatalf("first formula=(%v,%v)", valid, found)
+	}
+}
+
+func TestContextIndexedGroundAssignedIndexedStringOperands(t *testing.T) {
+	context := NewContext(43)
+	x := StringConst(context, "x", 1)
+	offset := IntConst(context, "offset", 2)
+	length := IntConst(context, "length", 3)
+	formula := And(
+		EqInt(offset, IntVal(context, 1)),
+		EqInt(length, IntVal(context, 2)),
+		EqString(Substring(x, offset, length), StringVal(context, "bc")),
+		EqString(AtString(x, offset), StringVal(context, "b")),
+	)
+	if materializeString(Substring(x, offset, length)) == nil ||
+		materializeString(AtString(x, offset)) == nil {
+		t.Fatal("missing assigned-index materialization")
+	}
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "abc" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalInt(result.Value, offset); !found || actual != 1 {
+		t.Fatalf("offset=(%d,%v)", actual, found)
+	}
+	if actual, found := EvalInt(result.Value, length); !found || actual != 2 {
+		t.Fatalf("length=(%d,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
 	}
 }
 

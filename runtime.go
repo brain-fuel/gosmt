@@ -112,6 +112,7 @@ const (
 	booleanFastStringWordEquation
 	booleanFastStringIndexedEquality
 	booleanFastStringReplaceEquality
+	booleanFastGroundIndexedStringFormula
 )
 
 type booleanFast struct {
@@ -148,6 +149,7 @@ type booleanFast struct {
 	stringWordEquation           smt.CompactStringWordEquation
 	stringIndexedEquality        smt.CompactStringIndexedEquality
 	stringReplaceEquality        smt.CompactStringReplaceEquality
+	groundIndexedStringFormula   *smt.CompactGroundIndexedStringFormula
 	negated                      bool
 }
 
@@ -159,6 +161,8 @@ const (
 	stringFastPattern
 	stringFastAt
 	stringFastSubstring
+	stringFastAtSymbol
+	stringFastSubstringSymbols
 	stringFastReplace
 	stringFastReplaceAll
 	stringFastReplaceSymbols
@@ -259,6 +263,17 @@ func materializeString(value StringExpr) smt.Term[smt.StringSort] {
 			smt.Integer{Value: value.fast.offset},
 			smt.Integer{Value: value.fast.length},
 		)
+	case stringFastAtSymbol:
+		return smt.StringAt(
+			smt.StringConst(value.fast.id, value.fast.name),
+			smt.IntSymbol{ID: value.fast.sourceID, Name: value.fast.sourceName},
+		)
+	case stringFastSubstringSymbols:
+		return smt.StringSubstring(
+			smt.StringConst(value.fast.id, value.fast.name),
+			smt.IntSymbol{ID: value.fast.sourceID, Name: value.fast.sourceName},
+			smt.IntSymbol{ID: value.fast.replacementID, Name: value.fast.replacementName},
+		)
 	case stringFastReplace:
 		return smt.StringReplace(
 			smt.StringConst(value.fast.id, value.fast.name),
@@ -271,6 +286,14 @@ func materializeString(value StringExpr) smt.Term[smt.StringSort] {
 			smt.StringVal(value.fast.value),
 			smt.StringVal(value.fast.suffix),
 		)
+	case stringFastReplaceSymbols:
+		input := smt.StringConst(value.fast.id, value.fast.name)
+		source := smt.StringConst(value.fast.sourceID, value.fast.sourceName)
+		replacement := smt.StringConst(value.fast.replacementID, value.fast.replacementName)
+		if value.fast.length != 0 {
+			return smt.StringReplaceAll(input, source, replacement)
+		}
+		return smt.StringReplace(input, source, replacement)
 	default:
 		panic("gosmt: invalid erased string expression")
 	}
@@ -369,6 +392,31 @@ func materializeCompactString(value smt.CompactStringTerm) smt.Term[smt.StringSo
 }
 
 func fastEvaluateString(model smt.Model, value stringExprValue) (string, bool) {
+	if value.fast.kind == stringFastAtSymbol || value.fast.kind == stringFastSubstringSymbols {
+		input, inputOK := smt.CompactStringModelValue(model, smt.CompactStringSymbolTerm(value.fast.id, value.fast.name))
+		offset, offsetOK := smt.IntegerModelValue(model, smt.IntSymbol{ID: value.fast.sourceID, Name: value.fast.sourceName})
+		if !inputOK || !offsetOK {
+			return "", false
+		}
+		offsetValue, fits := offset.Int64()
+		if !fits {
+			return "", true
+		}
+		if value.fast.kind == stringFastAtSymbol {
+			return smt.StringModelValue(model, smt.StringAt(smt.StringVal(input), smt.Integer{Value: offsetValue}))
+		}
+		length, lengthOK := smt.IntegerModelValue(model, smt.IntSymbol{ID: value.fast.replacementID, Name: value.fast.replacementName})
+		if !lengthOK {
+			return "", false
+		}
+		lengthValue, fits := length.Int64()
+		if !fits {
+			return "", true
+		}
+		return smt.StringModelValue(model, smt.StringSubstring(
+			smt.StringVal(input), smt.Integer{Value: offsetValue}, smt.Integer{Value: lengthValue},
+		))
+	}
 	if value.fast.kind == stringFastReplaceSymbols {
 		input, inputOK := smt.CompactStringModelValue(model, smt.CompactStringSymbolTerm(value.fast.id, value.fast.name))
 		source, sourceOK := smt.CompactStringModelValue(model, smt.CompactStringSymbolTerm(value.fast.sourceID, value.fast.sourceName))
@@ -406,6 +454,9 @@ func fastEvaluateBoolean(model smt.Model, term smt.Term[smt.BoolSort], fast bool
 	}
 	if fast.kind == booleanFastStringReplaceEquality {
 		return smt.BoolValue(model, fast.stringReplaceEquality)
+	}
+	if fast.kind == booleanFastGroundIndexedStringFormula {
+		return smt.BoolValue(model, fast.groundIndexedStringFormula)
 	}
 	return smt.BoolValue(model, materializeBoolean(term, fast))
 }
@@ -644,6 +695,19 @@ func compactIndexedStringEquality(derived, target StringExpr) (smt.CompactString
 		return smt.CompactStringIndexedEquality{}, false
 	}
 	switch derived.fast.kind {
+	case stringFastAtSymbol:
+		return smt.CompactStringIndexedEquality{
+			Kind: smt.CompactStringAtEquality, SymbolID: derived.fast.id, SymbolName: derived.fast.name,
+			OffsetID: derived.fast.sourceID, OffsetName: derived.fast.sourceName, OffsetSymbol: true,
+			Target: target.fast.value,
+		}, true
+	case stringFastSubstringSymbols:
+		return smt.CompactStringIndexedEquality{
+			Kind: smt.CompactStringSubstringEquality, SymbolID: derived.fast.id, SymbolName: derived.fast.name,
+			OffsetID: derived.fast.sourceID, OffsetName: derived.fast.sourceName, OffsetSymbol: true,
+			LengthID: derived.fast.replacementID, LengthName: derived.fast.replacementName, LengthSymbol: true,
+			Target: target.fast.value,
+		}, true
 	case stringFastAt:
 		return smt.CompactStringIndexedEquality{
 			Kind:       smt.CompactStringAtEquality,
@@ -724,6 +788,15 @@ func fastAtString(value StringExpr, index IntExpr) StringExpr {
 				},
 			}
 		}
+		if id, name, ok := directIntegerExprSymbol(index); ok {
+			return stringExprValue{
+				contextID: value.contextID,
+				fast: stringFast{
+					kind: stringFastAtSymbol, id: value.fast.id, name: value.fast.name,
+					sourceID: id, sourceName: name,
+				},
+			}
+		}
 	}
 	return stringExprValue{contextID: value.contextID, term: smt.StringAt(materializeString(value), materializeInteger(index.term, index.fast))}
 }
@@ -762,8 +835,24 @@ func fastSubstring(value StringExpr, offset, length IntExpr) StringExpr {
 				},
 			}
 		}
+		offsetID, offsetName, offsetSymbol := directIntegerExprSymbol(offset)
+		lengthID, lengthName, lengthSymbol := directIntegerExprSymbol(length)
+		if offsetSymbol && lengthSymbol {
+			return stringExprValue{
+				contextID: value.contextID,
+				fast: stringFast{
+					kind: stringFastSubstringSymbols, id: value.fast.id, name: value.fast.name,
+					sourceID: offsetID, sourceName: offsetName,
+					replacementID: lengthID, replacementName: lengthName,
+				},
+			}
+		}
 	}
 	return stringExprValue{contextID: value.contextID, term: smt.StringSubstring(materializeString(value), materializeInteger(offset.term, offset.fast), materializeInteger(length.term, length.fast))}
+}
+
+func directIntegerExprSymbol(value IntExpr) (int, string, bool) {
+	return smt.IntegerSymbol(materializeInteger(value.term, value.fast))
 }
 
 func fastIndexOfString(value, substring StringExpr, offset IntExpr) IntExpr {
@@ -2307,6 +2396,36 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	if allConstants {
 		return boolExprValue{contextID: context, term: smt.Bool{Value: result}}
 	}
+	indexed := &smt.CompactGroundIndexedStringFormula{}
+	allGroundIndexed := len(values) > 0
+	for _, value := range values {
+		switch value.fast.kind {
+		case booleanFastIntegerLinearEquality:
+			if indexed.AssignmentCount == uint8(len(indexed.Assignments)) {
+				allGroundIndexed = false
+				break
+			}
+			indexed.Assignments[indexed.AssignmentCount] = value.fast.integerLinearEquality
+			indexed.AssignmentCount++
+		case booleanFastStringIndexedEquality:
+			if indexed.EqualityCount == uint8(len(indexed.Equalities)) {
+				allGroundIndexed = false
+				break
+			}
+			indexed.Equalities[indexed.EqualityCount] = value.fast.stringIndexedEquality
+			indexed.EqualityCount++
+		default:
+			allGroundIndexed = false
+		}
+		if !allGroundIndexed {
+			break
+		}
+	}
+	if allGroundIndexed && indexed.AssignmentCount != 0 && indexed.EqualityCount != 0 {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastGroundIndexedStringFormula, groundIndexedStringFormula: indexed,
+		}}
+	}
 	if formula, ok := combineCompactStringBooleanValues(values, true); ok {
 		return boolExprValue{contextID: context, fast: booleanFast{
 			kind: booleanFastStringBooleanFormula, stringBooleanFormula: formula,
@@ -2847,6 +2966,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.stringIndexedEquality
 	case booleanFastStringReplaceEquality:
 		return fast.stringReplaceEquality
+	case booleanFastGroundIndexedStringFormula:
+		return fast.groundIndexedStringFormula
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}
