@@ -812,6 +812,44 @@ func TestContextIndexedStandaloneStringReplaceEqualities(t *testing.T) {
 	}
 }
 
+func TestContextIndexedStandaloneStringReplaceAllEqualities(t *testing.T) {
+	context := NewContext(38)
+	x := StringConst(context, "x", 1)
+	formula := And(
+		EqString(
+			ReplaceAllString(x, StringVal(context, "a"), StringVal(context, "aa")),
+			StringVal(context, "aa"),
+		),
+		ContainsString(x, StringVal(context, "a")),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "a" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	impossible := And(
+		EqString(
+			ReplaceAllString(x, StringVal(context, "a"), StringVal(context, "z")),
+			StringVal(context, "zz"),
+		),
+		EqString(
+			ReplaceAllString(x, StringVal(context, "a"), StringVal(context, "z")),
+			StringVal(context, "q"),
+		),
+	)
+	checked = Check(Assert(2, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func TestContextIndexedStringReplaceIndexedInteraction(t *testing.T) {
 	context := NewContext(36)
 	x := StringConst(context, "x", 1)

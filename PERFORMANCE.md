@@ -82,6 +82,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | word equation + derived substring equality | ~5.879–5.897 us, 8,168 B, 12 allocs | ~1.813–1.866 ms, 424 B, 29 allocs | green (>307x) | green (target ≤14 allocs) |
 | standalone derived substring equality + symbolic model | ~3.424–3.467 us, 17,224 B, 7 allocs | ~1.820–1.970 ms, 224 B, 15 allocs | green (>524x) | green (target ≤7 allocs) |
 | standalone first-replacement equality + symbolic model | ~3.389–3.432 us, 17,234 B, 7 allocs | ~1.204–1.305 ms, 208 B, 14 allocs | green (>350x) | green (target ≤7 allocs) |
+| standalone all-replacement inverse + predicate/model validation | ~4.981–5.008 us, 18,640 B, 8 allocs | ~1.267–1.399 ms, 256 B, 17 allocs | green (>252x) | green (target ≤8 allocs) |
 | first-replacement + indexed equality candidate filtering | ~4.632–4.633 us, 17,424 B, 8 allocs | ~1.388–1.471 ms, 320 B, 21 allocs | green (>299x) | green (target ≤10 allocs) |
 | first-replacement + string-predicate candidate filtering | ~4.980–5.008 us, 18,640 B, 8 allocs | ~1.329–1.410 ms, 272 B, 18 allocs | green (>265x) | green (target ≤9 allocs) |
 | ground `Seq Int` construction + equality/length/model evaluation | ~3.176–3.193 us, 8,368 B, 12 allocs | ~0.955–1.039 ms, 456 B, 30 allocs | green (>299x) | green (target ≤15 allocs) |
@@ -824,6 +825,18 @@ candidate sets under the shared 4,096-resource contract. Compact GoSMT
 replacement equalities and inline std constraint storage keep the cold path
 at 7 allocations and 3.389–3.432 us versus pinned Z3's 14 allocations and
 1.204–1.305 ms. This is exactly 50.0% fewer allocations and over 350x
+conservative-endpoint throughput.
+
+The standalone all-replacement workload solves
+`str.replace_all(x,"a","aa") = "aa"` under positive source containment and
+extracts `x = "a"`. Std enumerates overlapping target parses, streams exact
+forward validation without constructing replacement strings, and returns
+`unknown` instead of an unsound answer when the shared 4,096-state limit or
+the unbounded empty-replacement deletion inverse is reached. The pinned Go
+binding omits the literal replace-all AST constructor, so its direct-API side
+uses first replacement on this uniquely equivalent constrained model. GoSMT
+uses 8 allocations and 4.981–5.008 us versus Z3's 17 allocations and
+1.267–1.399 ms: 52.9% fewer allocations and over 252x
 conservative-endpoint throughput.
 
 The mixed replacement/indexed workload starts with the two exact preimages of

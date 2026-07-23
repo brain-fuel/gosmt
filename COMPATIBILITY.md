@@ -41,10 +41,15 @@ exact candidate filtering by ground-index `str.at`/`str.substr` equalities on
 the same symbol and by the bounded same-symbol string predicate language
 (equality/disequality, contains/prefix/suffix/digit/regex,
 length/index/conversion arithmetic, and supported Boolean forms). Predicates
-with a foreign unbound symbol fall through to `unknown`.
+with a foreign unbound symbol fall through to `unknown`. Standalone
+`str.replace_all(x,source,replacement) = target` uses a bounded exhaustive
+inverse parse when its ground replacement is nonempty, including overlapping
+replacement text, identity empty-source semantics, constraint intersection,
+and the same indexed/predicate filtering. Its unbounded empty-replacement
+deletion inverse remains explicit `unknown`.
 Symbolic indices/replace operands, derived roots, negative equalities,
-standalone `str.replace_all` inversion, and other cross-operator standalone
-conjunctions remain outside these completed fragments.
+and other cross-operator standalone conjunctions remain outside these
+completed fragments.
 
 “Foundation” means implemented and tested, not Z3-complete. A theory advances
 only with syntax, sort checking, model validation, differential outcomes, fuzz

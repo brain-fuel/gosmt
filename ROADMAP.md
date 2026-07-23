@@ -121,6 +121,10 @@
    lower and upper length bounds now search admissible lengths with shared
    placement resources and prove contradictory bounds independently of
    assertion order.
+   Standalone direct-symbol `str.replace_all` equalities with ground operands
+   now invert every finite nonempty-replacement target parse, compose with
+   same-symbol indexed and general string predicates, and preserve explicit
+   resource-limit/empty-deletion `unknown` outcomes.
    Single-symbol affine length expressions now normalize exact addition,
    subtraction, and arbitrary-precision constant scaling with divisibility,
    sign reversal, integer rounding, and cancellation.

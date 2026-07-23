@@ -160,6 +160,7 @@ const (
 	stringFastAt
 	stringFastSubstring
 	stringFastReplace
+	stringFastReplaceAll
 )
 
 type stringFast struct {
@@ -255,6 +256,12 @@ func materializeString(value StringExpr) smt.Term[smt.StringSort] {
 		)
 	case stringFastReplace:
 		return smt.StringReplace(
+			smt.StringConst(value.fast.id, value.fast.name),
+			smt.StringVal(value.fast.value),
+			smt.StringVal(value.fast.suffix),
+		)
+	case stringFastReplaceAll:
+		return smt.StringReplaceAll(
 			smt.StringConst(value.fast.id, value.fast.name),
 			smt.StringVal(value.fast.value),
 			smt.StringVal(value.fast.suffix),
@@ -582,7 +589,8 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 }
 
 func compactStringReplaceEquality(derived, target StringExpr) (smt.CompactStringReplaceEquality, bool) {
-	if derived.fast.kind != stringFastReplace || target.fast.kind != stringFastLiteral {
+	if derived.fast.kind != stringFastReplace && derived.fast.kind != stringFastReplaceAll ||
+		target.fast.kind != stringFastLiteral {
 		return smt.CompactStringReplaceEquality{}, false
 	}
 	return smt.CompactStringReplaceEquality{
@@ -591,6 +599,7 @@ func compactStringReplaceEquality(derived, target StringExpr) (smt.CompactString
 		Source:      derived.fast.value,
 		Replacement: derived.fast.suffix,
 		Target:      target.fast.value,
+		All:         derived.fast.kind == stringFastReplaceAll,
 	}, true
 }
 
@@ -766,6 +775,20 @@ func fastReplaceAllString(value, source, replacement StringExpr) StringExpr {
 			return value
 		}
 		return fastStringValue(value.contextID, strings.ReplaceAll(value.fast.value, source.fast.value, replacement.fast.value))
+	}
+	if value.fast.kind == stringFastSymbol &&
+		source.fast.kind == stringFastLiteral &&
+		replacement.fast.kind == stringFastLiteral {
+		return stringExprValue{
+			contextID: value.contextID,
+			fast: stringFast{
+				kind:   stringFastReplaceAll,
+				id:     value.fast.id,
+				name:   value.fast.name,
+				value:  source.fast.value,
+				suffix: replacement.fast.value,
+			},
+		}
 	}
 	return stringExprValue{contextID: value.contextID, term: smt.StringReplaceAll(materializeString(value), materializeString(source), materializeString(replacement))}
 }

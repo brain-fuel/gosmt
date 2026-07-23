@@ -879,6 +879,58 @@ func BenchmarkStandaloneStringReplaceQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStandaloneStringReplaceAllQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(38)
+			x := gosmt.StringConst(context, "x", 1)
+			replaced := gosmt.ReplaceAllString(
+				x,
+				gosmt.StringVal(context, "a"),
+				gosmt.StringVal(context, "aa"),
+			)
+			formula := gosmt.And(
+				gosmt.EqString(replaced, gosmt.StringVal(context, "aa")),
+				gosmt.ContainsString(x, gosmt.StringVal(context, "a")),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "a" {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			source := context.MkString("a")
+			// Under the positive source containment used by this workload,
+			// first replacement has the same unique model as replace-all.
+			// The pinned binding exposes only the former as a direct AST API.
+			replaced := context.MkSeqReplace(x, source, context.MkString("aa"))
+			formula := context.MkAnd(
+				context.MkEq(replaced, context.MkString("aa")),
+				context.MkSeqContains(x, source),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+}
+
 func BenchmarkStringReplaceIndexedInteractionQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
