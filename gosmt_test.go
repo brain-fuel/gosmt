@@ -1234,6 +1234,60 @@ func TestContextIndexedThreeSymbolAffineIntegerSequenceLengths(t *testing.T) {
 	}
 }
 
+func TestContextIndexedMultiSymbolAffineIntegerSequenceLengthInequalities(t *testing.T) {
+	context := NewContext(44)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	y := IntSequenceConst(context, "y", 2)
+	z := IntSequenceConst(context, "z", 3)
+	bound := Le(
+		Add(
+			ScaleInt64(2, LengthIntSequence(x)),
+			LengthIntSequence(y),
+			LengthIntSequence(z),
+		),
+		IntVal(context, 8),
+	)
+	formula := And(
+		bound,
+		HasPrefixIntSequence(x, ConcatIntSequence(unit(1), unit(2))),
+		HasPrefixIntSequence(y, ConcatIntSequence(unit(3), unit(4))),
+		HasSuffixIntSequence(z, ConcatIntSequence(unit(5), unit(6))),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	xValue, xFound := EvalIntSequence(result.Value, x)
+	yValue, yFound := EvalIntSequence(result.Value, y)
+	zValue, zFound := EvalIntSequence(result.Value, z)
+	if !xFound || !yFound || !zFound ||
+		2*xValue.Len()+yValue.Len()+zValue.Len() > 8 {
+		t.Fatalf(
+			"lengths=(%d,%v)/(%d,%v)/(%d,%v)",
+			xValue.Len(), xFound, yValue.Len(), yFound, zValue.Len(), zFound,
+		)
+	}
+
+	conflicting := And(
+		Le(
+			Add(LengthIntSequence(x), LengthIntSequence(y)),
+			IntVal(context, 3),
+		),
+		EqInt(LengthIntSequence(x), IntVal(context, 2)),
+		EqInt(LengthIntSequence(y), IntVal(context, 2)),
+	)
+	if checked := Check(Assert(2, NewSolver(context), conflicting)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("conflicting result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)
