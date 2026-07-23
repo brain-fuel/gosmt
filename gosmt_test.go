@@ -231,6 +231,7 @@ func TestContextIndexedBooleanStringRegularExpressions(t *testing.T) {
 	if valid, found := EvalBool(result.Value, formula); !found || !valid {
 		t.Fatalf("formula=(%v,%v)", valid, found)
 	}
+
 }
 
 func TestContextIndexedSingleUnknownWordEquation(t *testing.T) {
@@ -289,6 +290,53 @@ func TestContextIndexedUniquelyDelimitedWordEquation(t *testing.T) {
 	checked = Check(Assert(3, NewSolver(context), conflict))
 	if _, ok := checked.(Unsat); !ok {
 		t.Fatalf("conflict result=%T", checked)
+	}
+}
+
+func TestContextIndexedCanonicalBoundedWordEquation(t *testing.T) {
+	context := NewContext(17)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	formula := EqString(ConcatString(x, y), StringVal(context, "forge"))
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "forge" {
+		t.Fatalf("y=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	interacting := And(formula, EqString(x, StringVal(context, "for")))
+	checked = Check(Assert(2, NewSolver(context), interacting))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("interacting result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "ge" {
+		t.Fatalf("interacting y=(%q,%v)", actual, found)
+	}
+
+	ambiguous := EqString(
+		ConcatString(StringVal(context, "["), x, StringVal(context, "]"), y, StringVal(context, "!")),
+		StringVal(context, "[a]b]c!"),
+	)
+	checked = Check(Assert(3, NewSolver(context), ambiguous))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("ambiguous result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "a" {
+		t.Fatalf("ambiguous x=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "b]c" {
+		t.Fatalf("ambiguous y=(%q,%v)", actual, found)
 	}
 }
 

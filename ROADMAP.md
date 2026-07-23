@@ -42,9 +42,12 @@
    literal-prefix/suffix equations with one unbound string symbol construct
    their exact middle value. Up to four distinct symbols separated by unique
    nonempty literal delimiters also receive exact constructive models,
-   including interaction with additional equalities. Unbounded/general Boolean
-   regex constraints and ambiguous, repeated-symbol, or larger word equations
-   remain.
+   including interaction with additional equalities. Standalone bounded
+   equations with adjacent symbols or multiply occurring delimiters select a
+   deterministic leftmost canonical model without treating that choice as
+   forced during conjunction propagation. Unbounded/general Boolean regex
+   constraints and repeated-symbol, larger, or generally interacting ambiguous
+   word equations remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

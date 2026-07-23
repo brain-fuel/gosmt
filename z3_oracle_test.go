@@ -458,6 +458,54 @@ func TestUniquelyDelimitedWordEquationCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestCanonicalBoundedWordEquationCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		var script string
+		switch example % 4 {
+		case 0:
+			script = fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const a String)
+(declare-const b String)
+(declare-const c String)
+(declare-const d String)
+(assert (= (str.++ a b c d) "word%02d"))
+(check-sat)`, example)
+		case 1:
+			script = fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+(declare-const y String)
+(assert (= (str.++ "[" x "]" y "!") "[a%02d]b]c!"))
+(check-sat)`, example)
+		case 2:
+			script = fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+(declare-const y String)
+(assert (= (str.++ "[" x "]" y "!") "wrong%02d!"))
+(check-sat)`, example)
+		default:
+			script = fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+(declare-const y String)
+(assert (= (str.++ "[" x "]" y "!") "[a%02d]missing"))
+(check-sat)`, example)
+		}
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestBooleanPigeonholeAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

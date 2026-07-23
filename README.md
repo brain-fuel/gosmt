@@ -22,7 +22,8 @@ disjoint and fixed-point shared equality exchange for unary Real→Real EUF.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive
-single-unknown and bounded uniquely delimited multi-symbol word equations, the core SMT-LIB regex
+single-unknown, uniquely delimited, adjacent-symbol, and canonically split
+bounded word equations, the core SMT-LIB regex
 algebra, and context-indexed GoSMT construction. The standard library keeps
 regexes element-sort indexed and small Boolean-regex formulas in an inline
 postfix representation.

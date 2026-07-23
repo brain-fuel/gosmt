@@ -74,6 +74,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | Boolean QF_S model selection + evaluation | ~3.902–3.910 us, 7,120 B, 6 allocs | ~1.018–1.072 ms, 464 B, 30 allocs | green (>260x) | green (target ≤15 allocs) |
 | single-unknown QF_SLIA word equation + evaluation | ~1.575–1.586 us, 8,192 B, 6 allocs | ~0.979–1.059 ms, 256 B, 17 allocs | green (>617x) | green (target ≤8 allocs) |
 | two-symbol uniquely delimited QF_SLIA word equation + evaluation | ~1.728–1.755 us, 7,888 B, 6 allocs | ~1.951–2.042 ms, 368 B, 23 allocs | green (>1,111x) | green (target ≤11 allocs) |
+| two-adjacent-symbol canonical QF_SLIA word equation + evaluation | ~1.698–1.714 us, 7,888 B, 6 allocs | ~1.195–1.264 ms, 288 B, 20 allocs | green (>697x) | green (target ≤10 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -481,6 +482,16 @@ and return `unknown` unless another exact solver path decides them. This
 reduces the initial generic façade from 29 allocations and roughly 2.35 us to
 6 allocations and 1.728–1.755 us. Pinned Z3 uses 23 visible Go allocations
 and 1.951–2.042 ms. This is 73.9% fewer allocations and over 1,111x
+conservative-endpoint throughput.
+
+The canonical bounded word-equation workload solves `x ++ y = "forge"`,
+selects the deterministic model `x = ""`, `y = "forge"`, extracts both
+values, and validates the equality. The same bounded pattern representation
+uses a leftmost split for repeated delimiters and an empty earlier component
+for adjacent symbols only when constructing a standalone model; conjunction
+propagation still requires a unique forced split. It uses 6 allocations and
+1.698–1.714 us versus pinned Z3's 20 visible Go allocations and
+1.195–1.264 ms. This is 70.0% fewer allocations and over 697x
 conservative-endpoint throughput.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only
