@@ -30,7 +30,10 @@ Pinned source: `Z3Prover/z3` tag `z3-4.16.0`, commit
 | Proof objects and interpolation | planned | proof-check/interpolation corpus |
 | C/Python/.NET/Java API parity | out of Go API scope | SMT-LIB is wire boundary |
 
-The string foundation also includes exact standalone positive equalities for
+The string foundation accepts checked SMT-LIB singleton constants
+`(_ char #xH)` across the exact 0..0x2ffff domain and exposes corresponding
+checked constructors from solver-neutral std and context-indexed GoSMT.
+It also includes exact standalone positive equalities for
 `str.at(x,k)` and `str.substr(x,o,n)` when `x` is a direct symbolic string and
 the indices and result are ground. Overlapping constraints share positional
 code-point requirements and length bounds; they no longer require a bounding

@@ -73,7 +73,9 @@ postfix representation. Core SMT-LIB lexicographic `str.<` and reflexive
 `str.<=` compare Unicode code points without decoded-slice allocations.
 Compact direct-symbol systems construct ordered models, merge literal
 lower/upper bounds, and prove reflexive, boundary, strict-cycle, and mixed
-strict/non-strict cycle contradictions.
+strict/non-strict cycle contradictions. Checked std and context-indexed GoSMT
+character constructors cover the complete SMT-LIB 0..0x2ffff domain, while
+the executor validates and evaluates indexed `(_ char #xH)` constants.
 Ground integer sequences now have exact `empty`, `unit`, `concat`, equality,
 disequality, length arithmetic, indexed `at`/extract, contains/prefix/suffix,
 index-of, first replacement, Boolean composition, and inline model evaluation.

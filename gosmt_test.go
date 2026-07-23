@@ -1122,6 +1122,28 @@ func TestContextIndexedStringLexicographicOrdering(t *testing.T) {
 	}
 }
 
+func TestContextIndexedStringCharacter(t *testing.T) {
+	context := NewContext(48)
+	value, ok := CharString(context, 0xd800)
+	if !ok {
+		t.Fatal("expected valid character")
+	}
+	result, sat := Check(Assert(
+		1,
+		NewSolver(context),
+		EqString(value, StringVal(context, "\xed\xa0\x80")),
+	)).(Sat)
+	if !sat {
+		t.Fatal("expected satisfiable")
+	}
+	if actual, found := EvalString(result.Value, value); !found || actual != "\xed\xa0\x80" {
+		t.Fatalf("value=%q/%v", actual, found)
+	}
+	if _, valid := CharString(context, 0x30000); valid {
+		t.Fatal("out-of-range character accepted")
+	}
+}
+
 func TestContextIndexedStringReplaceIndexedInteraction(t *testing.T) {
 	context := NewContext(36)
 	x := StringConst(context, "x", 1)

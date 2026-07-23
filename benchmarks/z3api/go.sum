@@ -6,3 +6,5 @@ goforge.dev/goplus/std v0.114.0 h1:1xw/ipfF8WulOuP82hi+iffcIaW/eeHWn5YaY/sPWxo=
 goforge.dev/goplus/std v0.114.0/go.mod h1:kr7uOTXhg4p16dGLzGTBnVBsteQnUo3e/5XU055m1PM=
 goforge.dev/goplus/std v0.115.0 h1:wCt8LrVdIKJydSvHpitbUXl9B/1e/lEyhLMQCcyeO40=
 goforge.dev/goplus/std v0.115.0/go.mod h1:kr7uOTXhg4p16dGLzGTBnVBsteQnUo3e/5XU055m1PM=
+goforge.dev/goplus/std v0.116.0 h1:O+Sn40XRi902myyzuIyOUcxPDSpr+/JomH/kR+1Wo+Q=
+goforge.dev/goplus/std v0.116.0/go.mod h1:kr7uOTXhg4p16dGLzGTBnVBsteQnUo3e/5XU055m1PM=

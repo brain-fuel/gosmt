@@ -125,6 +125,13 @@ func StringVal(0 c nat, context Context[c], value string) StringExpr[c] {
 	match context { case contextValue(contextID): return fastStringValue(contextID, value) }
 }
 
+func CharString(0 c nat, context Context[c], value int64) (StringExpr[c], bool) {
+	match context { case contextValue(contextID):
+		encoded, ok := smt.EncodeStringCodePoint(value)
+		return fastStringValue(contextID, encoded), ok
+	}
+}
+
 func StringConst(0 c nat, context Context[c], name string, id int) StringExpr[c] {
 	match context { case contextValue(contextID): return fastStringConst(contextID, name, id) }
 }

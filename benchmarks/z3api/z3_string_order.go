@@ -12,6 +12,11 @@ static void *gosmt_z3_mk_str_le(void *context, void *left, void *right) {
 	return Z3_mk_str_le((Z3_context)context, (Z3_ast)left, (Z3_ast)right);
 }
 
+static void *gosmt_z3_mk_char_string(void *context, unsigned code) {
+	Z3_ast character = Z3_mk_char((Z3_context)context, code);
+	return Z3_mk_seq_unit((Z3_context)context, character);
+}
+
 static void gosmt_z3_inc_ref(void *context, void *value) {
 	Z3_inc_ref((Z3_context)context, (Z3_ast)value);
 }
@@ -42,6 +47,15 @@ func z3StringLessEqual(context *z3.Context, left, right *z3.Expr) *z3.Expr {
 	return z3StringOrder(context, left, right, true)
 }
 
+func z3CharacterString(context *z3.Context, code uint32) *z3.Expr {
+	contextPointer := *(*unsafe.Pointer)(unsafe.Pointer(context))
+	return z3ManagedExpression(
+		context,
+		contextPointer,
+		C.gosmt_z3_mk_char_string(contextPointer, C.uint(code)),
+	)
+}
+
 func z3StringOrder(
 	context *z3.Context,
 	left, right *z3.Expr,
@@ -56,6 +70,14 @@ func z3StringOrder(
 	} else {
 		resultPointer = C.gosmt_z3_mk_str_lt(contextPointer, leftPointer, rightPointer)
 	}
+	return z3ManagedExpression(context, contextPointer, resultPointer)
+}
+
+func z3ManagedExpression(
+	context *z3.Context,
+	contextPointer unsafe.Pointer,
+	resultPointer unsafe.Pointer,
+) *z3.Expr {
 	C.gosmt_z3_inc_ref(contextPointer, resultPointer)
 	layout := &z3ExpressionLayout{context: context, pointer: resultPointer}
 	result := (*z3.Expr)(unsafe.Pointer(layout))

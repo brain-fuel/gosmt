@@ -942,6 +942,35 @@ func TestStringLexicographicOrderingCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestIndexedCharacterConstantCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	boundaries := []int{0, 1, 0x7f, 0x80, 0x7ff, 0x800, 0xd7ff, 0xd800, 0xdfff, 0xe000, 0xffff, 0x10000, 0x2ffff}
+	for example := 0; example < 64; example++ {
+		code := (example*3137 + 97) % 0x30000
+		if example < len(boundaries) {
+			code = boundaries[example]
+		}
+		script := fmt.Sprintf(`(set-logic QF_SLIA)
+(assert (= (str.to_code (_ char #x%X)) %d))
+(assert (= (str.len (_ char #x%05x)) 1))
+(assert (= (_ char #x%X) (str.from_code %d)))
+(check-sat)`, code, code, code, code, code)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d code=%x: Z3: %v\n%s\n%s", example, code, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d code=%x: gosmt=%s z3=%s\n%s", example, code, got, want, script)
+		}
+	}
+}
+
 func TestStandaloneStringReplaceEqualityCorpusAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

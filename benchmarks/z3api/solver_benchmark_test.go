@@ -9,6 +9,14 @@ import (
 	"goforge.dev/gosmt"
 )
 
+var benchmarkCharacterString StringCharacterBenchmarkSink
+
+type StringCharacterBenchmarkSink struct {
+	GoSMT gosmt.StringExpr
+	Z3    *z3.Expr
+	Valid bool
+}
+
 func BenchmarkStringQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
@@ -1500,6 +1508,32 @@ func BenchmarkStringLexicographicOrderingQFSLIA(b *testing.B) {
 			yValue, yOK := model.Eval(y, true)
 			if !xOK || !yOK || xValue == nil || yValue == nil {
 				b.Fatal("invalid model")
+			}
+		}
+	})
+}
+
+func BenchmarkStringCharacterConstruction(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		context := gosmt.NewContext(48)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for iteration := 0; iteration < b.N; iteration++ {
+			benchmarkCharacterString.GoSMT, benchmarkCharacterString.Valid =
+				gosmt.CharString(context, 0x1f642)
+			if !benchmarkCharacterString.Valid {
+				b.Fatal("invalid character")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		context := z3.NewContext()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for iteration := 0; iteration < b.N; iteration++ {
+			benchmarkCharacterString.Z3 = z3CharacterString(context, 0x1f642)
+			if benchmarkCharacterString.Z3 == nil {
+				b.Fatal("invalid character")
 			}
 		}
 	})
