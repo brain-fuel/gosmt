@@ -23,7 +23,8 @@ Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive
 single-unknown, uniquely delimited, adjacent-symbol, repeated-symbol, and
-canonically split bounded word equations, the core SMT-LIB regex
+canonically split bounded word equations with exact ground-equality
+interaction, the core SMT-LIB regex
 algebra, and context-indexed GoSMT construction. The standard library keeps
 regexes element-sort indexed and small Boolean-regex formulas in an inline
 postfix representation.

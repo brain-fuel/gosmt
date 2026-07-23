@@ -338,6 +338,22 @@ func TestContextIndexedCanonicalBoundedWordEquation(t *testing.T) {
 	if actual, found := EvalString(result.Value, y); !found || actual != "b]c" {
 		t.Fatalf("ambiguous y=(%q,%v)", actual, found)
 	}
+
+	secondSplit := And(ambiguous, EqString(x, StringVal(context, "a]b")))
+	checked = Check(Assert(4, NewSolver(context), secondSplit))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("second split result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "c" {
+		t.Fatalf("second split y=(%q,%v)", actual, found)
+	}
+
+	impossibleSplit := And(ambiguous, EqString(x, StringVal(context, "wrong")))
+	checked = Check(Assert(5, NewSolver(context), impossibleSplit))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible split result=%T", checked)
+	}
 }
 
 func TestContextIndexedRepeatedSymbolWordEquation(t *testing.T) {
