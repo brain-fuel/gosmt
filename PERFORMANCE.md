@@ -77,6 +77,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | two-adjacent-symbol canonical QF_SLIA word equation + evaluation | ~1.698–1.714 us, 7,888 B, 6 allocs | ~1.195–1.264 ms, 288 B, 20 allocs | green (>697x) | green (target ≤10 allocs) |
 | repeated-symbol QF_SLIA word equation + evaluation | ~1.711–1.740 us, 7,888 B, 6 allocs | ~2.711–2.820 ms, 240 B, 16 allocs | green (>1,558x) | green (target ≤8 allocs) |
 | ambiguous word equation + ground equality interaction | ~3.354–3.359 us, 9,296 B, 8 allocs | ~0.987–1.084 ms, 432 B, 27 allocs | green (>293x) | green (target ≤13 allocs) |
+| word equation + exact code-point length interaction | ~3.351–3.366 us, 9,328 B, 10 allocs | ~1.518–1.584 ms, 384 B, 26 allocs | green (>450x) | green (target ≤13 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -479,8 +480,8 @@ The uniquely delimited word-equation workload solves
 `"[" ++ x ++ "]" ++ y ++ "!" = "[go]forge!"`, extracts both exact values,
 and validates the complete equality. The standard library represents up to
 four distinct symbols and their five literal delimiters in a fixed value;
-ambiguous, empty, or repeated delimiters remain on the general representation
-and return `unknown` unless another exact solver path decides them. This
+ambiguous, empty, or repeated delimiters use bounded exhaustive search with an
+explicit resource limit. This
 reduces the initial generic façade from 29 allocations and roughly 2.35 us to
 6 allocations and 1.728–1.755 us. Pinned Z3 uses 23 visible Go allocations
 and 1.951–2.042 ms. This is 73.9% fewer allocations and over 1,111x
@@ -512,6 +513,14 @@ incompatible fixed prefixes unsatisfiable. Fixed conjunct storage and
 model-seeded bounded search use 8 allocations and 3.354–3.359 us versus pinned
 Z3's 27 visible Go allocations and 0.987–1.084 ms. This is 70.4% fewer
 allocations and over 293x conservative-endpoint throughput.
+
+The length-interaction workload solves `x ++ y = "forge"` together with
+`str.len(x) = 3`, extracts `x = "for"` and `y = "ge"`, and validates the
+conjunction. Exact length metadata prunes the Unicode-boundary search by SMT
+code-point count and also proves out-of-range lengths unsatisfiable. It uses
+10 allocations and 3.351–3.366 us versus pinned Z3's 26 visible Go allocations
+and 1.518–1.584 ms. This is 61.5% fewer allocations and over 450x
+conservative-endpoint throughput.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph

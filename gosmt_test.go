@@ -385,6 +385,40 @@ func TestContextIndexedRepeatedSymbolWordEquation(t *testing.T) {
 	}
 }
 
+func TestContextIndexedWordEquationLengthInteraction(t *testing.T) {
+	context := NewContext(19)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	equation := EqString(ConcatString(x, y), StringVal(context, "forge"))
+	formula := And(
+		equation,
+		EqInt(LengthString(x), IntVal(context, 3)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "for" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "ge" {
+		t.Fatalf("y=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	impossible := And(
+		equation,
+		EqInt(LengthString(x), IntVal(context, 10)),
+	)
+	checked = Check(Assert(2, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

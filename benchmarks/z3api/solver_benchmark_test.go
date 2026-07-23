@@ -425,6 +425,71 @@ func BenchmarkStringWordEquationQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringWordEquationLengthQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(20)
+			x := gosmt.StringConst(context, "x", 1)
+			y := gosmt.StringConst(context, "y", 2)
+			formula := gosmt.And(
+				gosmt.EqString(
+					gosmt.ConcatString(x, y),
+					gosmt.StringVal(context, "forge"),
+				),
+				gosmt.EqInt(gosmt.LengthString(x), gosmt.IntVal(context, 3)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "for" {
+				b.Fatal("invalid left word-equation model")
+			}
+			if value, found := gosmt.EvalString(result.Value, y); !found || value != "ge" {
+				b.Fatal("invalid right word-equation model")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid word-equation formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			x := context.MkConst(context.MkStringSymbol("x"), context.MkStringSort())
+			y := context.MkConst(context.MkStringSymbol("y"), context.MkStringSort())
+			equation := context.MkEq(
+				context.MkSeqConcat(x, y),
+				context.MkString("forge"),
+			)
+			formula := context.MkAnd(
+				equation,
+				context.MkEq(
+					context.MkSeqLength(x),
+					context.MkInt(3, context.MkIntSort()),
+				),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid left word-equation model")
+			}
+			if _, found := model.Eval(y, true); !found {
+				b.Fatal("invalid right word-equation model")
+			}
+			if _, found := model.Eval(formula, true); !found {
+				b.Fatal("invalid word-equation formula")
+			}
+		}
+	})
+}
+
 func BenchmarkStringDelimitedWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -49,8 +49,10 @@
    covers repeated symbols and every Unicode-boundary split under an explicit
    4,096-state limit. Ambiguous bounded equations now combine exactly with
    ground assignments, including alternative-split models and contradiction
-   proofs. Unbounded/general Boolean regex constraints and larger or
-   regex/length/multi-equation word-equation interactions remain.
+   proofs. Exact symbol-length equalities now prune that search by Unicode
+   code-point length, construct satisfying splits, and prove impossible
+   lengths contradictory. Unbounded/general Boolean regex constraints and
+   larger or regex/inequality/multi-equation word-equation interactions remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.
