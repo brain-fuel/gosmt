@@ -894,6 +894,34 @@ func TestIndexedBitVectorStructuralOperators(t *testing.T) {
 	}
 }
 
+func TestContextIndexedMixedDatatype(t *testing.T) {
+	context := NewContext(82)
+	signature := IntDatatypeMixedField("payload", SelfDatatypeMixedField("next", EmptyDatatypeMixedSignature()))
+	node := DeclareMixedDatatypeConstructor(820, 2, 1, context, "node", signature)
+	leaf := DatatypeConstructor(820, 2, 0, context, "leaf")
+	arguments := IntDatatypeMixedArgument(IntVal(context, 42), SelfDatatypeMixedArgument(leaf, EmptyDatatypeMixedArguments(context)))
+	x := DatatypeConst(820, 2, context, "x", 1)
+	value := ApplyMixedDatatypeConstructor(node, arguments)
+	payload := MixedDatatypeFields(node)
+	next := NextMixedDatatypeField(payload)
+	formula := And(
+		EqDatatype(x, value),
+		EqInt(SelectMixedIntDatatypeField(payload, x), IntVal(context, 42)),
+		EqDatatype(SelectMixedSelfDatatypeField(next, x), leaf),
+		IsMixedDatatypeConstructor(node, x),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("mixed datatype result=%#v", Check(Assert(1, NewSolver(context), formula)))
+	}
+	model, found := EvalDatatype(820, 2, result.Value, x)
+	payloadValue, payloadOK := model.Fields.At(0)
+	nextValue, nextOK := model.Fields.At(1)
+	if !found || model.ConstructorID != 1 || !payloadOK || smt.CompareIntegerValue(payloadValue.Integer, smt.NewIntegerValue(42)) != 0 || !nextOK || nextValue.Datatype == nil || nextValue.Datatype.ConstructorID != 0 {
+		t.Fatalf("mixed datatype model=%+v found=%v", model, found)
+	}
+}
+
 func TestIndexedBitVectorRotateRepeatOperators(t *testing.T) {
 	context := NewContext(79)
 	x := BitVecConst(8, context, "x", 1)

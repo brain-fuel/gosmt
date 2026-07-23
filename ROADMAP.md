@@ -11,8 +11,11 @@
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,
    recognizers, graph acyclicity, exact n-ary models, and SMT-LIB execution are
-   implemented. Mixed-sort fields, mutually recursive declarations, and
-   parametric datatypes remain the next datatype layer.
+   implemented. Mixed-sort Bool/Int/Real/bit-vector/Self fields, scalar product
+   constructors, sort-refining selector cursors, exact models, context-indexed
+   GoSMT construction, and SMT-LIB execution are implemented. Mutually
+   recursive declarations and parametric datatypes remain the next datatype
+   layer.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

@@ -1946,6 +1946,48 @@ func TestFormattedSMTLibIsAcceptedByPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestMixedDatatypeSMTLibAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	tests := []string{
+		`(declare-datatype Tree ((leaf) (node (payload Int) (next Tree))))
+(declare-const x Tree)
+(assert (= x (node 42 leaf)))
+(assert (= (payload x) 42))
+(assert (is-node x))
+(check-sat)`,
+		`(declare-datatype Tree ((leaf) (node (payload Int) (next Tree))))
+(assert (= (node 1 leaf) (node 2 leaf)))
+(check-sat)`,
+		`(declare-datatype Tree ((leaf) (node (flag Bool) (weight Real) (bits (_ BitVec 8)) (next Tree))))
+(declare-const x Tree)
+(assert (= x (node true (/ 3.0 2.0) #xa5 leaf)))
+(assert (= (weight x) (/ 3.0 2.0)))
+(assert (= (bits x) #xa5))
+(check-sat)`,
+		`(declare-datatype Box ((box (payload Int))))
+(declare-const x Box)
+(assert (= (payload x) 7))
+(assert (is-box x))
+(check-sat)`,
+	}
+	for index, script := range tests {
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("case %d: run Z3: %v\n%s", index, err, output)
+		}
+		want := strings.Fields(string(output))
+		if strings.Join(ours, " ") != strings.Join(want, " ") {
+			t.Fatalf("case %d: gosmt=%v z3=%v\n%s", index, ours, want, script)
+		}
+	}
+}
+
 func TestSMTLibExecutionAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

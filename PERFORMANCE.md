@@ -335,6 +335,16 @@ injectivity and graph acyclicity share the same indexed datatype arena. It uses
 20 allocations versus Z3's 43 and 3.154–3.271 us versus 0.989–1.081 ms,
 clearing both gates independently.
 
+The mixed recursive QF_DT workload constructs `node(payload Int, next Tree)`,
+checks a scalar selector and recognizer, and extracts the exact nested model
+through the public context-indexed API. Constant scalar fields now bypass the
+inner arithmetic solver while symbolic fields retain explicit model evidence.
+On Apple M5 Max, five 1,000-iteration samples use 19 allocations and
+4.244–5.027 us for GoSMT versus 41 allocations and 0.922–1.073 ms for the
+pinned Z3 4.16.0 Go API. This is 53.7% fewer allocations and at least 183x
+faster (about 226x at the median), including declaration, construction,
+solving, and exact model evaluation.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids
