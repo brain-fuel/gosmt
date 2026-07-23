@@ -956,6 +956,74 @@ func TestGroundIntegerSequenceOperationCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestGroundAssignedIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(540 + example)
+		unit := func(value int64) IntSequenceExpr {
+			return UnitIntSequence(IntVal(context, value))
+		}
+		x := IntSequenceConst(context, "x", 1)
+		ground := ConcatIntSequence(unit(1), unit(2), unit(3))
+		relation := ContainsIntSequence(x, ConcatIntSequence(unit(2), unit(3)))
+		assertion := "(seq.contains x (seq.++ (seq.unit 2) (seq.unit 3)))"
+		switch example % 8 {
+		case 1:
+			relation = HasPrefixIntSequence(x, ConcatIntSequence(unit(1), unit(2)))
+			assertion = "(seq.prefixof (seq.++ (seq.unit 1) (seq.unit 2)) x)"
+		case 2:
+			relation = EqInt(LengthIntSequence(x), IntVal(context, 3))
+			assertion = "(= (seq.len x) 3)"
+		case 3:
+			relation = EqIntSequence(AtIntSequence(x, IntVal(context, 1)), unit(2))
+			assertion = "(= (seq.at x 1) (seq.unit 2))"
+		case 4:
+			relation = EqInt(
+				IndexOfIntSequence(x, unit(3), IntVal(context, 0)),
+				IntVal(context, 2),
+			)
+			assertion = "(= (seq.indexof x (seq.unit 3) 0) 2)"
+		case 5:
+			relation = EqIntSequence(
+				ReplaceIntSequence(x, unit(2), unit(9)),
+				ConcatIntSequence(unit(1), unit(9), unit(3)),
+			)
+			assertion = "(= (seq.replace x (seq.unit 2) (seq.unit 9)) (seq.++ (seq.unit 1) (seq.unit 9) (seq.unit 3)))"
+		case 6:
+			relation = EqIntSequence(x, ConcatIntSequence(unit(1), unit(2)))
+			assertion = "(= x (seq.++ (seq.unit 1) (seq.unit 2)))"
+		case 7:
+			relation = Not(HasSuffixIntSequence(x, unit(3)))
+			assertion = "(not (seq.suffixof (seq.unit 3) x))"
+		}
+		formula := And(EqIntSequence(x, ground), relation)
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+(declare-const x (Seq Int))
+(assert (= x (seq.++ (seq.unit 1) (seq.unit 2) (seq.unit 3))))
+(assert ` + assertion + `)
+(check-sat)`
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)

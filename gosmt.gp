@@ -147,6 +147,12 @@ func EmptyIntSequence(0 c nat, context Context[c]) IntSequenceExpr[c] {
 	}
 }
 
+func IntSequenceConst(0 c nat, context Context[c], name string, id int) IntSequenceExpr[c] {
+	match context { case contextValue(contextID):
+		return intSequenceExprValue(contextID, smt.SequenceConst[smt.IntSort](id, name), integerSequenceFast{})
+	}
+}
+
 func UnitIntSequence(0 c nat, value IntExpr[c]) IntSequenceExpr[c] {
 	match value { case intExprValue(contextID, term, fast):
 		return unitIntegerSequence(contextID, term, fast)

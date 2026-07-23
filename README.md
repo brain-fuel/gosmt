@@ -48,7 +48,9 @@ Ground integer sequences now have exact `empty`, `unit`, `concat`, equality,
 disequality, length arithmetic, indexed `at`/extract, contains/prefix/suffix,
 index-of, first replacement, Boolean composition, and inline model evaluation.
 Go+ retains both the sequence element sort in std and the context identity in
-the GoSMT façade; symbolic sequence constants remain explicit future work.
+the GoSMT façade. Ground-assigned symbolic sequence constants retain exact
+model values across derived operators and assumptions; underconstrained
+symbolic sequence search remains explicit future work.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,

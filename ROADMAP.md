@@ -86,8 +86,11 @@
    first eight values remain inline in std and in the context-indexed GoSMT
    façade before exact overflow. Indexed `at`/extract, contains, prefix,
    suffix, index-of, and first replacement share that evaluator, including
-   empty-sequence and out-of-range semantics. Symbolic sequence constants and
-   non-integer sequence solving remain.
+   empty-sequence and out-of-range semantics. Generic sequence symbols and
+   exact integer-sequence model storage now support ground assignments,
+   conflicting-assignment proofs, derived operators, and temporary
+   assumptions. Underconstrained symbolic witness search and non-integer
+   sequence solving remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

@@ -840,6 +840,54 @@ func TestContextIndexedGroundIntegerSequenceOperations(t *testing.T) {
 	}
 }
 
+func TestContextIndexedGroundAssignedIntegerSequence(t *testing.T) {
+	context := NewContext(36)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	ground := ConcatIntSequence(unit(1), unit(2), unit(3))
+	formula := And(
+		EqIntSequence(x, ground),
+		ContainsIntSequence(x, ConcatIntSequence(unit(2), unit(3))),
+		EqInt(LengthIntSequence(x), IntVal(context, 3)),
+		EqIntSequence(AtIntSequence(x, IntVal(context, 1)), unit(2)),
+		EqIntSequence(
+			ReplaceIntSequence(x, unit(2), unit(9)),
+			ConcatIntSequence(unit(1), unit(9), unit(3)),
+		),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	value, found := EvalIntSequence(result.Value, x)
+	if !found || value.Len() != 3 {
+		t.Fatalf("x len=(%d,%v)", value.Len(), found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+	if length, found := EvalInt(result.Value, LengthIntSequence(x)); !found || length != 3 {
+		t.Fatalf("length=(%d,%v)", length, found)
+	}
+
+	conflicting := And(
+		EqIntSequence(x, ground),
+		EqIntSequence(x, ConcatIntSequence(unit(1), unit(2))),
+	)
+	checked = Check(Assert(2, NewSolver(context), conflicting))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("conflicting result=%T", checked)
+	}
+
+	checked = Check(Assert(3, NewSolver(context), ContainsIntSequence(x, unit(2))))
+	if _, ok := checked.(Unknown); !ok {
+		t.Fatalf("unbound result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)
