@@ -931,6 +931,55 @@ func BenchmarkStandaloneStringReplaceAllQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStandaloneStringReplaceAllDeletionQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(39)
+			x := gosmt.StringConst(context, "x", 1)
+			replaced := gosmt.ReplaceAllString(
+				x,
+				gosmt.StringVal(context, "ab"),
+				gosmt.StringVal(context, ""),
+			)
+			formula := gosmt.EqString(replaced, gosmt.StringVal(context, "ab"))
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "aabb" {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			// The pinned Go binding omits replace-all. On this shortest
+			// deletion-preimage workload, first and all replacement have the
+			// same canonical model x = "aabb".
+			replaced := context.MkSeqReplace(
+				x,
+				context.MkString("ab"),
+				context.MkString(""),
+			)
+			formula := context.MkEq(replaced, context.MkString("ab"))
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+}
+
 func BenchmarkStringReplaceIndexedInteractionQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

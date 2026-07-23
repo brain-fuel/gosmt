@@ -124,7 +124,9 @@
    Standalone direct-symbol `str.replace_all` equalities with ground operands
    now invert every finite nonempty-replacement target parse, compose with
    same-symbol indexed and general string predicates, and preserve explicit
-   resource-limit/empty-deletion `unknown` outcomes.
+   resource-limit outcomes. Empty replacement now uses a finite-state
+   leftmost deletion transducer for complete standalone shortest witnesses and
+   impossibility proofs; filtered cyclic deletion languages remain bounded.
    Single-symbol affine length expressions now normalize exact addition,
    subtraction, and arbitrary-precision constant scaling with divisibility,
    sign reversal, integer rounding, and cancellation.

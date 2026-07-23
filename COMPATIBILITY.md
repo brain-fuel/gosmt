@@ -45,8 +45,10 @@ with a foreign unbound symbol fall through to `unknown`. Standalone
 `str.replace_all(x,source,replacement) = target` uses a bounded exhaustive
 inverse parse when its ground replacement is nonempty, including overlapping
 replacement text, identity empty-source semantics, constraint intersection,
-and the same indexed/predicate filtering. Its unbounded empty-replacement
-deletion inverse remains explicit `unknown`.
+and the same indexed/predicate filtering. Empty replacement uses a finite-state
+leftmost non-overlapping deletion transducer for complete standalone witnesses
+and contradiction proofs. A secondary constraint that rejects the shortest
+witness of a cyclic deletion inverse remains explicit `unknown`.
 Symbolic indices/replace operands, derived roots, negative equalities,
 and other cross-operator standalone conjunctions remain outside these
 completed fragments.

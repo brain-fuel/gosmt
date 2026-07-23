@@ -83,6 +83,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | standalone derived substring equality + symbolic model | ~3.424–3.467 us, 17,224 B, 7 allocs | ~1.820–1.970 ms, 224 B, 15 allocs | green (>524x) | green (target ≤7 allocs) |
 | standalone first-replacement equality + symbolic model | ~3.389–3.432 us, 17,234 B, 7 allocs | ~1.204–1.305 ms, 208 B, 14 allocs | green (>350x) | green (target ≤7 allocs) |
 | standalone all-replacement inverse + predicate/model validation | ~4.981–5.008 us, 18,640 B, 8 allocs | ~1.267–1.399 ms, 256 B, 17 allocs | green (>252x) | green (target ≤8 allocs) |
+| standalone all-replacement deletion inverse + model validation | ~3.496–3.582 us, 17,240 B, 7 allocs | ~5.886–6.088 ms, 208 B, 14 allocs | green (>1,640x) | green (target ≤7 allocs) |
 | first-replacement + indexed equality candidate filtering | ~4.632–4.633 us, 17,424 B, 8 allocs | ~1.388–1.471 ms, 320 B, 21 allocs | green (>299x) | green (target ≤10 allocs) |
 | first-replacement + string-predicate candidate filtering | ~4.980–5.008 us, 18,640 B, 8 allocs | ~1.329–1.410 ms, 272 B, 18 allocs | green (>265x) | green (target ≤9 allocs) |
 | ground `Seq Int` construction + equality/length/model evaluation | ~3.176–3.193 us, 8,368 B, 12 allocs | ~0.955–1.039 ms, 456 B, 30 allocs | green (>299x) | green (target ≤15 allocs) |
@@ -831,12 +832,23 @@ The standalone all-replacement workload solves
 `str.replace_all(x,"a","aa") = "aa"` under positive source containment and
 extracts `x = "a"`. Std enumerates overlapping target parses, streams exact
 forward validation without constructing replacement strings, and returns
-`unknown` instead of an unsound answer when the shared 4,096-state limit or
-the unbounded empty-replacement deletion inverse is reached. The pinned Go
+`unknown` instead of an unsound answer when the shared 4,096-state limit is
+reached. Empty-replacement deletion is gated separately below. The pinned Go
 binding omits the literal replace-all AST constructor, so its direct-API side
 uses first replacement on this uniquely equivalent constrained model. GoSMT
 uses 8 allocations and 4.981–5.008 us versus Z3's 17 allocations and
 1.267–1.399 ms: 52.9% fewer allocations and over 252x
+conservative-endpoint throughput.
+
+The standalone deletion workload solves
+`str.replace_all(x,"ab","") = "ab"` and extracts the shortest model
+`x = "aabb"`. A finite transducer tracks the unmatched source prefix and
+consumed target output, so standalone emptiness is decidable rather than
+approximated. ASCII code points and 32 transducer states stay inline before
+exact overflow. The pinned binding again uses first replacement on this
+identical canonical model because it lacks the replace-all constructor. GoSMT
+uses 7 allocations and 3.496–3.582 us versus Z3's 14 allocations and
+5.886–6.088 ms: exactly 50% fewer allocations and over 1,640x
 conservative-endpoint throughput.
 
 The mixed replacement/indexed workload starts with the two exact preimages of

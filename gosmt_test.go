@@ -848,6 +848,31 @@ func TestContextIndexedStandaloneStringReplaceAllEqualities(t *testing.T) {
 	if _, ok := checked.(Unsat); !ok {
 		t.Fatalf("impossible result=%T", checked)
 	}
+
+	deletion := EqString(
+		ReplaceAllString(x, StringVal(context, "ab"), StringVal(context, "")),
+		StringVal(context, "ab"),
+	)
+	checked = Check(Assert(3, NewSolver(context), deletion))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("deletion result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "aabb" {
+		t.Fatalf("deletion x=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, deletion); !found || !valid {
+		t.Fatalf("deletion formula=(%v,%v)", valid, found)
+	}
+
+	noDeletionPreimage := EqString(
+		ReplaceAllString(x, StringVal(context, "a"), StringVal(context, "")),
+		StringVal(context, "a"),
+	)
+	checked = Check(Assert(4, NewSolver(context), noDeletionPreimage))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("no-deletion-preimage result=%T", checked)
+	}
 }
 
 func TestContextIndexedStringReplaceIndexedInteraction(t *testing.T) {

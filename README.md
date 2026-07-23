@@ -58,8 +58,11 @@ standalone when source, replacement, and target are ground and the replacement
 is nonempty. Std enumerates every target parse into literal output and replaced
 source occurrences, validates candidates without allocating replacement
 strings, and shares the same indexed/predicate filtering and 4,096-state
-contract. Empty source retains SMT-LIB identity semantics; the unbounded
-deletion inverse remains explicit `unknown`. Regex-coupled
+contract. Empty source retains SMT-LIB identity semantics. Empty replacement
+uses an exact finite-state deletion transducer to construct the shortest
+standalone preimage or prove that none exists; if a secondary predicate rejects
+that witness and the inverse language contains cycles, the broader search
+remains explicit `unknown`. Regex-coupled
 candidate selection includes bounded Boolean predicates and string
 disequalities, the core SMT-LIB regex, globally backtracked
 contains/prefix/suffix constraints, and context-indexed GoSMT construction.
