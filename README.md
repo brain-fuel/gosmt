@@ -54,7 +54,7 @@ model values across derived operators and assumptions. Positive conjunctive
 witnesses, merge compatible prefix/suffix requirements, and reject conflicts.
 Exact ground length constraints add bounded placement/backtracking, overlapping
 prefix/suffix models, zero-filled unconstrained positions, and exact
-negative/conflicting/too-short proofs. Non-conjunctive, three-or-more-symbol
+negative/conflicting/too-short proofs. Non-conjunctive, four-or-more-symbol
 length systems, multi-symbol inequalities, and symbolic-element sequence
 search remain explicit future work. Ground strict
 and non-strict length bounds now normalize into exact lower/upper requirements,
@@ -70,6 +70,11 @@ assignments are unsatisfiable.
 Exact affine equations across two distinct symbolic sequence lengths now use
 bounded joint search, exact partner-length division, per-symbol constructive
 requirements, alias canonicalization, and atomic paired model commitment.
+The same exact normalization extends to three canonical sequence symbols:
+constructive minima prune bounded recursive search, the final length is
+derived by exact division, and all three witnesses commit atomically. A
+coefficient-GCD divisibility check proves impossible affine systems before
+bounded search.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,

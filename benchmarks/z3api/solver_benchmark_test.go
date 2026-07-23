@@ -1517,6 +1517,116 @@ func BenchmarkTwoSymbolAffineIntegerSequenceLengthQFSeq(b *testing.B) {
 	})
 }
 
+func BenchmarkThreeSymbolAffineIntegerSequenceLengthQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(43)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			x := gosmt.IntSequenceConst(context, "x", 1)
+			y := gosmt.IntSequenceConst(context, "y", 2)
+			z := gosmt.IntSequenceConst(context, "z", 3)
+			relation := gosmt.EqInt(
+				gosmt.Add(
+					gosmt.ScaleInt64(2, gosmt.LengthIntSequence(x)),
+					gosmt.LengthIntSequence(y),
+					gosmt.LengthIntSequence(z),
+				),
+				gosmt.IntVal(context, 8),
+			)
+			formula := gosmt.And(
+				relation,
+				gosmt.HasPrefixIntSequence(
+					x,
+					gosmt.ConcatIntSequence(unit(1), unit(2)),
+				),
+				gosmt.HasPrefixIntSequence(
+					y,
+					gosmt.ConcatIntSequence(unit(3), unit(4)),
+				),
+				gosmt.HasSuffixIntSequence(
+					z,
+					gosmt.ConcatIntSequence(unit(5), unit(6)),
+				),
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			xValue, xFound := gosmt.EvalIntSequence(result.Value, x)
+			yValue, yFound := gosmt.EvalIntSequence(result.Value, y)
+			zValue, zFound := gosmt.EvalIntSequence(result.Value, z)
+			if !xFound || !yFound || !zFound ||
+				2*xValue.Len()+yValue.Len()+zValue.Len() != 8 {
+				b.Fatal("invalid three-sequence model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			x := context.MkConst(context.MkStringSymbol("x"), sequenceSort)
+			y := context.MkConst(context.MkStringSymbol("y"), sequenceSort)
+			z := context.MkConst(context.MkStringSymbol("z"), sequenceSort)
+			xLength := context.MkSeqLength(x)
+			yLength := context.MkSeqLength(y)
+			zLength := context.MkSeqLength(z)
+			relation := context.MkEq(
+				context.MkAdd(
+					context.MkMul(context.MkInt(2, intSort), xLength),
+					yLength,
+					zLength,
+				),
+				context.MkInt(8, intSort),
+			)
+			formula := context.MkAnd(
+				relation,
+				context.MkSeqPrefix(
+					context.MkSeqConcat(
+						context.MkSeqUnit(context.MkInt(1, intSort)),
+						context.MkSeqUnit(context.MkInt(2, intSort)),
+					),
+					x,
+				),
+				context.MkSeqPrefix(
+					context.MkSeqConcat(
+						context.MkSeqUnit(context.MkInt(3, intSort)),
+						context.MkSeqUnit(context.MkInt(4, intSort)),
+					),
+					y,
+				),
+				context.MkSeqSuffix(
+					context.MkSeqConcat(
+						context.MkSeqUnit(context.MkInt(5, intSort)),
+						context.MkSeqUnit(context.MkInt(6, intSort)),
+					),
+					z,
+				),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{
+				x, y, z, xLength, yLength, zLength,
+			} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid three-sequence model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
