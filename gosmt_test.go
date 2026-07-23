@@ -1026,6 +1026,20 @@ func TestContextIndexedGroundAssignedStringIndexOfOperands(t *testing.T) {
 	if valid, found := EvalBool(result.Value, formula); !found || !valid {
 		t.Fatalf("formula=(%v,%v)", valid, found)
 	}
+	literalIndex := IndexOfString(text, needle, IntVal(context, 2))
+	literalFormula := And(
+		EqString(text, StringVal(context, "abcabc")),
+		EqString(needle, StringVal(context, "bc")),
+		EqInt(literalIndex, IntVal(context, 4)),
+	)
+	checked = Check(Assert(2, NewSolver(context), literalFormula))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("literal result=%T", checked)
+	}
+	if actual, found := EvalInt(result.Value, literalIndex); !found || actual != 4 {
+		t.Fatalf("literal index=(%d,%v)", actual, found)
+	}
 }
 
 func TestContextIndexedStringReplaceIndexedInteraction(t *testing.T) {

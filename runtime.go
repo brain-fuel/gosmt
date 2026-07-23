@@ -876,14 +876,20 @@ func fastIndexOfString(value, substring StringExpr, offset IntExpr) IntExpr {
 		}
 	}
 	if value.fast.kind == stringFastSymbol && substring.fast.kind == stringFastSymbol {
-		if offsetID, offsetName, ok := directIntegerExprSymbol(offset); ok {
+		offsetValue, offsetOK := constantIntExpr(offset)
+		offsetID, _, offsetSymbol := directIntegerExprSymbol(offset)
+		if offsetOK || offsetSymbol {
+			storedOffset := int(offsetValue)
+			if offsetSymbol {
+				storedOffset = offsetID
+			}
 			return intExprValue{
 				contextID: value.contextID,
 				fast: integerFast{
 					kind:  integerFastStringIndexOfSymbols,
-					width: offsetID, symbolID: value.fast.id, name: value.fast.name,
+					width: storedOffset, symbolID: value.fast.id, name: value.fast.name,
 					string: smt.CompactStringSymbolTerm(substring.fast.id, substring.fast.name),
-					signed: offsetName != "",
+					signed: offsetSymbol,
 				},
 			}
 		}
@@ -2455,7 +2461,7 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		}
 	}
 	if allGroundEvaluation && groundEvaluation.StringAssignmentCount != 0 &&
-		groundEvaluation.IntegerAssignmentCount != 0 && groundEvaluation.IndexOfCount != 0 {
+		groundEvaluation.IndexOfCount != 0 {
 		return boolExprValue{contextID: context, fast: booleanFast{
 			kind: booleanFastGroundStringEvaluationFormula, groundStringEvaluation: groundEvaluation,
 		}}
@@ -3060,16 +3066,26 @@ func fastEqInteger(left, right IntExpr) BoolExpr {
 		indexOf, expected = right, left
 	}
 	if indexOf.fast.kind == integerFastStringIndexOfSymbols {
+		relation := smt.CompactStringIndexOfEquality{
+			TextID: indexOf.fast.symbolID, TextName: indexOf.fast.name,
+			NeedleID: indexOf.fast.string.ID, NeedleName: indexOf.fast.string.Name,
+			Offset: int64(indexOf.fast.width), OffsetID: indexOf.fast.width,
+			OffsetSymbol: indexOf.fast.signed,
+		}
 		if resultID, resultName, ok := directIntegerExprSymbol(expected); ok {
+			relation.ResultID, relation.ResultName, relation.ResultSymbol = resultID, resultName, true
 			return boolExprValue{contextID: left.contextID, fast: booleanFast{
-				kind: booleanFastStringIndexOfEquality,
-				stringIndexOfEquality: smt.CompactStringIndexOfEquality{
-					TextID: indexOf.fast.symbolID, TextName: indexOf.fast.name,
-					NeedleID: indexOf.fast.string.ID, NeedleName: indexOf.fast.string.Name,
-					OffsetID: indexOf.fast.width,
-					ResultID: resultID, ResultName: resultName,
-				},
+				kind:                  booleanFastStringIndexOfEquality,
+				stringIndexOfEquality: relation,
 			}}
+		}
+		if value, ok := smt.ExactIntegerConstant(materializeInteger(expected.term, expected.fast)); ok {
+			if result, fits := value.Int64(); fits {
+				relation.Result = result
+				return boolExprValue{contextID: left.contextID, fast: booleanFast{
+					kind: booleanFastStringIndexOfEquality, stringIndexOfEquality: relation,
+				}}
+			}
 		}
 	}
 	if left.fast.kind == integerFastNone && right.fast.kind == integerFastNone {
@@ -3155,10 +3171,14 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 		return smt.StringLength(materializeCompactString(fast.string))
 	}
 	if fast.kind == integerFastStringIndexOfSymbols {
+		offset := smt.Term[smt.IntSort](smt.Integer{Value: int64(fast.width)})
+		if fast.signed {
+			offset = smt.IntSymbol{ID: fast.width}
+		}
 		return smt.StringIndexOf(
 			smt.StringConst(fast.symbolID, fast.name),
 			materializeCompactString(fast.string),
-			smt.IntSymbol{ID: fast.width},
+			offset,
 		)
 	}
 	panic("gosmt: invalid erased integer expression")

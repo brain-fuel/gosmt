@@ -1347,6 +1347,63 @@ func BenchmarkGroundAssignedStringIndexOfOperandsQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkGroundAssignedStringIndexOfLiteralComparisonQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for iteration := 0; iteration < b.N; iteration++ {
+			context := gosmt.NewContext(45)
+			text := gosmt.StringConst(context, "text", 1)
+			needle := gosmt.StringConst(context, "needle", 2)
+			index := gosmt.IndexOfString(text, needle, gosmt.IntVal(context, 2))
+			formula := gosmt.And(
+				gosmt.EqString(text, gosmt.StringVal(context, "abcabc")),
+				gosmt.EqString(needle, gosmt.StringVal(context, "bc")),
+				gosmt.EqInt(index, gosmt.IntVal(context, 4)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(iteration+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, text); !found || value != "abcabc" {
+				b.Fatal("invalid text model")
+			}
+			if value, found := gosmt.EvalString(result.Value, needle); !found || value != "bc" {
+				b.Fatal("invalid needle model")
+			}
+			if value, found := gosmt.EvalInt(result.Value, index); !found || value != 4 {
+				b.Fatal("invalid index result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for iteration := 0; iteration < b.N; iteration++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			intSort := context.MkIntSort()
+			text := context.MkConst(context.MkStringSymbol("text"), stringSort)
+			needle := context.MkConst(context.MkStringSymbol("needle"), stringSort)
+			index := context.MkSeqIndexOf(text, needle, context.MkInt(2, intSort))
+			formula := context.MkAnd(
+				context.MkEq(text, context.MkString("abcabc")),
+				context.MkEq(needle, context.MkString("bc")),
+				context.MkEq(index, context.MkInt(4, intSort)),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{text, needle, index} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringReplaceIndexedInteractionQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
