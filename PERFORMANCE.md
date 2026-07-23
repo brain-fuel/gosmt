@@ -40,6 +40,8 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | ground QF_UF cold construct + check | ~1.330–1.341 us, 4,680 B, 8 allocs | ~0.78–1.00 ms, 304 B, 21 allocs | green | green (target ≤10 allocs) |
 | binary ground QF_UF cold construct + check | ~1.691–1.712 us, 4,824 B, 9 allocs | ~0.83–0.97 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
 | binary Int×Int→Int QF_UFLIA congruence cold construct + check | ~4.42–4.48 us, 10,520 B, 10 allocs | ~0.95–1.05 ms, 344 B, 22 allocs | green (>212x) | green (target ≤11 allocs) |
+| shared Int→Int QF_UFLIA LIA-implied equality exchange | ~3.692–3.702 us, 12,072 B, 9 allocs | ~0.997–1.132 ms, 344 B, 23 allocs | green (>269x) | green (target ≤11 allocs) |
+| purified binary Int×Int→Int applications inside affine arithmetic | ~3.539–3.759 us, 10,600 B, 7 allocs | ~0.880–1.034 ms, 368 B, 23 allocs | green (>234x) | green (target ≤11 allocs) |
 | finite QF_DT enum construct + model evaluation | ~1.98 us, 6,320 B, 11 allocs | ~1.17 ms, 512 B, 31 allocs | green | green (target ≤15 allocs) |
 | unary recursive QF_DT construct + selector + model evaluation | ~2.75 us, 7,152 B, 18 allocs | ~1.06 ms, 544 B, 38 allocs | green | green (target ≤19 allocs) |
 | binary recursive QF_DT construct + two selectors + model evaluation | ~3.154–3.271 us, 7,296 B, 20 allocs | ~0.989–1.081 ms, 656 B, 43 allocs | green (>302x) | green (target ≤21 allocs) |
@@ -362,6 +364,14 @@ same-harness contradiction equates both arguments and disequates the two
 applications. Compact terms plus the polarity-bearing conjunction reduce the
 full public workload from 15 to 9 allocations versus the pinned binding's 30;
 both unary and binary EUF rows now clear their independent gates.
+
+Shared integer EUF/LIA uses a compact mixed conjunction for reciprocal
+difference bounds and application relations. The LIA graph proves argument
+equality and feeds it directly into congruence closure, reducing the cold
+public workload to 9 allocations versus Z3's 23 while remaining over 269x
+faster. Purified binary applications carry their arithmetic bounds without a
+general application AST; that workload uses 7 allocations versus 23 and is
+over 234x faster at the conservative endpoints.
 
 The finite QF_DT workload constrains a symbolic three-constructor enumeration
 with constructor disequality and a recognizer, then evaluates its exact model.

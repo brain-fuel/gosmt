@@ -18,11 +18,13 @@ selection from branch constraints—and typed field updates, plus Euclidean inte
 division/modulo by nonzero constants,
 plus bounded complete Boolean QF_DT branching and sound conjunctive
 combination while those signatures remain
-disjoint and fixed-point shared equality exchange for unary Real→Real EUF.
+disjoint and fixed-point shared equality exchange for unary/binary Real and
+integer EUF.
 Built-in integer EUF includes context-indexed unary `Int -> Int` and binary
-`Int × Int -> Int` declarations. Ground congruence works through both the typed
-API and SMT-LIB `QF_UFLIA`, including exact integer arguments, while the compact
-path avoids materializing application trees for direct integer symbols.
+`Int × Int -> Int` declarations. The typed API and SMT-LIB `QF_UFLIA` purify
+applications inside affine arithmetic and exchange implied equality between
+LIA and EUF to a fixed point, including affine arguments. Compact direct-symbol
+paths avoid materializing application trees.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive

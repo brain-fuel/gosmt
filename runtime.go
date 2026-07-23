@@ -106,6 +106,8 @@ const (
 	booleanFastRealSymbolEquality
 	booleanFastRealUnaryComparison
 	booleanFastRealBinaryComparison
+	booleanFastIntegerUnaryComparison
+	booleanFastIntegerBinaryComparison
 	booleanFastBitVectorRelation
 	booleanFastBitVectorEUFRelation
 	booleanFastIntegerDifference
@@ -144,6 +146,8 @@ type booleanFast struct {
 	symbolEquality               smt.RealSymbolEquality
 	unaryComparison              smt.RealUnaryComparison
 	binaryComparison             smt.RealBinaryComparison
+	integerUnaryComparison       smt.IntegerUnaryComparison
+	integerBinaryComparison      smt.IntegerBinaryComparison
 	bitVectorRelation            smt.BitVectorRelation
 	bitVectorEUFRelation         smt.BitVectorEUFRelation
 	integerDifference            smt.IntegerDifferenceConstraint
@@ -1733,6 +1737,35 @@ func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 			kind: booleanFastStringRelation, stringRelation: relation,
 		}}
 	}
+	application, constant, applicationOnLeft := left, right, true
+	if !application.fast.eufValid {
+		application, constant, applicationOnLeft = right, left, false
+	}
+	if application.fast.eufValid {
+		if bound, ok := fastIntegerConstant(constant); ok {
+			if application.fast.eufArity == 2 {
+				return boolExprValue{contextID: left.contextID, fast: booleanFast{
+					kind: booleanFastIntegerBinaryComparison,
+					integerBinaryComparison: smt.IntegerBinaryComparison{
+						FunctionID:       application.fast.functionID,
+						FirstArgumentID:  application.fast.argumentID,
+						SecondArgumentID: application.fast.secondArgumentID,
+						Bound:            bound, ApplicationOnLeft: applicationOnLeft,
+						Strict: strict,
+					},
+				}}
+			}
+			return boolExprValue{contextID: left.contextID, fast: booleanFast{
+				kind: booleanFastIntegerUnaryComparison,
+				integerUnaryComparison: smt.IntegerUnaryComparison{
+					FunctionID: application.fast.functionID,
+					ArgumentID: application.fast.argumentID,
+					Bound:      bound, ApplicationOnLeft: applicationOnLeft,
+					Strict: strict,
+				},
+			}}
+		}
+	}
 	leftTerm, rightTerm := materializeInteger(left.term, left.fast), materializeInteger(right.term, right.fast)
 	if constraint, ok := compactIntegerDifference(leftTerm, rightTerm, strict); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerDifference, integerDifference: constraint}}
@@ -1742,6 +1775,13 @@ func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 		term = smt.Less{Left: leftTerm, Right: rightTerm}
 	}
 	return boolExprValue{contextID: left.contextID, term: term}
+}
+
+func fastIntegerConstant(value IntExpr) (smt.IntegerValue, bool) {
+	if value.fast.kind != integerFastNone || value.fast.eufValid {
+		return smt.IntegerValue{}, false
+	}
+	return smt.ExactIntegerConstant(value.term)
 }
 
 func compactStringLengthComparison(left, right IntExpr, strict bool) (smt.CompactStringRelation, bool) {
@@ -2540,6 +2580,49 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		}
 		return boolExprValue{contextID: context, term: smt.CompactStringAssertions(system)}
 	}
+	differenceCount, relationCount := 0, 0
+	allCompactIntegerCongruence := len(values) > 0
+	for _, value := range values {
+		switch value.fast.kind {
+		case booleanFastIntegerDifference:
+			differenceCount++
+		case booleanFastUninterpretedEUFRelation:
+			relationCount++
+		default:
+			allCompactIntegerCongruence = false
+		}
+	}
+	if allCompactIntegerCongruence && differenceCount != 0 && relationCount != 0 {
+		system := smt.CompactIntegerEUFSystem{
+			DifferenceCount: differenceCount,
+			RelationCount:   relationCount,
+		}
+		if differenceCount > len(system.Differences) {
+			system.OverflowDifferences = make([]smt.IntegerDifferenceConstraint, differenceCount)
+		}
+		if relationCount > len(system.Relations) {
+			system.OverflowRelations = make([]smt.UninterpretedEUFRelation, relationCount)
+		}
+		differenceIndex, relationIndex := 0, 0
+		for _, value := range values {
+			if value.fast.kind == booleanFastIntegerDifference {
+				if system.OverflowDifferences != nil {
+					system.OverflowDifferences[differenceIndex] = value.fast.integerDifference
+				} else {
+					system.Differences[differenceIndex] = value.fast.integerDifference
+				}
+				differenceIndex++
+			} else {
+				if system.OverflowRelations != nil {
+					system.OverflowRelations[relationIndex] = value.fast.uninterpretedEUFRelation
+				} else {
+					system.Relations[relationIndex] = value.fast.uninterpretedEUFRelation
+				}
+				relationIndex++
+			}
+		}
+		return boolExprValue{contextID: context, term: system}
+	}
 	allUninterpretedEUF := len(values) > 0
 	for _, value := range values {
 		allUninterpretedEUF = allUninterpretedEUF && value.fast.kind == booleanFastUninterpretedEUFRelation
@@ -2787,6 +2870,73 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		}
 		return boolExprValue{contextID: context, term: conjunction}
 	}
+	allCompactIntegerTheory := len(values) > 0
+	integerEqualityCount, integerUnaryCount, integerBinaryCount := 0, 0, 0
+	for _, value := range values {
+		switch value.fast.kind {
+		case booleanFastIntegerSymbolEquality:
+			integerEqualityCount++
+		case booleanFastIntegerUnaryComparison:
+			integerUnaryCount++
+		case booleanFastIntegerBinaryComparison:
+			integerBinaryCount++
+		default:
+			allCompactIntegerTheory = false
+		}
+	}
+	if allCompactIntegerTheory && integerEqualityCount != 0 &&
+		integerUnaryCount+integerBinaryCount != 0 {
+		system := smt.CompactIntegerEUFSystem{
+			EqualityCount:         integerEqualityCount,
+			UnaryComparisonCount:  integerUnaryCount,
+			BinaryComparisonCount: integerBinaryCount,
+		}
+		if integerEqualityCount > len(system.EqualityLeft) {
+			system.OverflowEqualityLeft = make([]int, integerEqualityCount)
+			system.OverflowEqualityRight = make([]int, integerEqualityCount)
+		}
+		if integerUnaryCount > len(system.UnaryComparisons) {
+			system.OverflowUnaryComparisons = make([]smt.IntegerUnaryComparison, integerUnaryCount)
+		}
+		if integerBinaryCount > len(system.BinaryComparisons) {
+			system.OverflowBinaryComparisons = make([]smt.IntegerBinaryComparison, integerBinaryCount)
+		}
+		equality, unary, binary := 0, 0, 0
+		for _, value := range values {
+			switch value.fast.kind {
+			case booleanFastIntegerSymbolEquality:
+				if value.fast.integerSymbolNegated {
+					allCompactIntegerTheory = false
+					break
+				}
+				if system.OverflowEqualityLeft != nil {
+					system.OverflowEqualityLeft[equality] = value.fast.integerSymbolLeft
+					system.OverflowEqualityRight[equality] = value.fast.integerSymbolRight
+				} else {
+					system.EqualityLeft[equality] = value.fast.integerSymbolLeft
+					system.EqualityRight[equality] = value.fast.integerSymbolRight
+				}
+				equality++
+			case booleanFastIntegerUnaryComparison:
+				if system.OverflowUnaryComparisons != nil {
+					system.OverflowUnaryComparisons[unary] = value.fast.integerUnaryComparison
+				} else {
+					system.UnaryComparisons[unary] = value.fast.integerUnaryComparison
+				}
+				unary++
+			case booleanFastIntegerBinaryComparison:
+				if system.OverflowBinaryComparisons != nil {
+					system.OverflowBinaryComparisons[binary] = value.fast.integerBinaryComparison
+				} else {
+					system.BinaryComparisons[binary] = value.fast.integerBinaryComparison
+				}
+				binary++
+			}
+		}
+		if allCompactIntegerTheory {
+			return boolExprValue{contextID: context, term: system}
+		}
+	}
 	allRealConstraints := len(values) > 0
 	for _, value := range values {
 		allRealConstraints = allRealConstraints && value.fast.kind == booleanFastRealConstraint
@@ -3007,6 +3157,10 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.unaryComparison
 	case booleanFastRealBinaryComparison:
 		return fast.binaryComparison
+	case booleanFastIntegerUnaryComparison:
+		return fast.integerUnaryComparison
+	case booleanFastIntegerBinaryComparison:
+		return fast.integerBinaryComparison
 	case booleanFastBitVectorRelation:
 		return fast.bitVectorRelation
 	case booleanFastBitVectorEUFRelation:

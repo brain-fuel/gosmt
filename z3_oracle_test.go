@@ -4065,6 +4065,52 @@ func TestIntegerSortedFunctionCongruenceAgainstPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomPurifiedIntegerApplicationsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x55464c4941))
+	for example := 0; example < 64; example++ {
+		offset := random.Intn(11)
+		upper := 4 + random.Intn(11)
+		lower := upper - 1 - random.Intn(4)
+		if random.Intn(2) == 0 {
+			lower = upper + random.Intn(4)
+		}
+		equality := "(assert (= x y))"
+		if example&1 != 0 {
+			equality = "(assert (<= x y))\n(assert (<= y x))"
+		}
+		declaration := "(declare-fun f (Int) Int)"
+		left := fmt.Sprintf("(f (+ x %d))", offset)
+		right := fmt.Sprintf("(f (+ y %d))", offset)
+		if example&2 != 0 {
+			declaration = "(declare-fun f (Int Int) Int)"
+			left = fmt.Sprintf("(f (+ x %d) y)", offset)
+			right = fmt.Sprintf("(f (+ y %d) x)", offset)
+		}
+		script := fmt.Sprintf(`(set-logic QF_UFLIA)
+(declare-const x Int)
+(declare-const y Int)
+%s
+%s
+(assert (<= %s %d))
+(assert (< %d %s))
+(check-sat)`, declaration, equality, left, upper, lower, right)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestRandomPurifiedRealApplicationsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

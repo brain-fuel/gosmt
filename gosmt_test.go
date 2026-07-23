@@ -3076,6 +3076,41 @@ func TestIntegerFunctionCongruence(t *testing.T) {
 	}
 }
 
+func TestIntegerFunctionSharedArithmetic(t *testing.T) {
+	context := NewContext(117)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	zero := IntVal(context, 0)
+	unary := DeclareIntFunction(context, "f", 3)
+	shared := And(
+		Le(x, y),
+		Le(y, x),
+		Not(EqInt(ApplyIntFunction(unary, x), ApplyIntFunction(unary, y))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), shared)).(Unsat); !ok {
+		t.Fatal("LIA-implied equality should propagate into integer EUF")
+	}
+	purified := And(
+		EqInt(x, y),
+		Le(ApplyIntFunction(unary, x), zero),
+		Lt(zero, ApplyIntFunction(unary, y)),
+	)
+	if _, ok := Check(Assert(2, NewSolver(context), purified)).(Unsat); !ok {
+		t.Fatal("integer applications inside arithmetic should be purified")
+	}
+	binary := DeclareIntBinary(context, "combine", 4)
+	left := ApplyIntBinary(binary, Add(x, IntVal(context, 1)), y)
+	right := ApplyIntBinary(binary, Add(y, IntVal(context, 1)), x)
+	binaryFormula := And(
+		EqInt(x, y),
+		Le(left, zero),
+		Lt(zero, right),
+	)
+	if _, ok := Check(Assert(3, NewSolver(context), binaryFormula)).(Unsat); !ok {
+		t.Fatal("binary integer applications with affine arguments should be purified")
+	}
+}
+
 func TestRealFunctionApplicationsInsideArithmeticArePurified(t *testing.T) {
 	context := NewContext(17)
 	x := RealConst(context, "x", 1)
