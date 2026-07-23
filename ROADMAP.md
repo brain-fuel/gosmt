@@ -8,10 +8,10 @@
    foundations plus nonzero constant-divisor Euclidean div/mod are
    implemented; cutting planes and full shared-theory exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
-   Finite enumerations plus unary- and binary-self-recursive datatypes with
-   indexed Go+ constructor witnesses, field-indexed selectors, recognizers,
-   graph acyclicity, exact branching models, and SMT-LIB execution are
-   implemented. Mixed-field/arity-above-two, mutually recursive, and
+   Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
+   arity-indexed Go+ constructor vectors, bounded selector proofs,
+   recognizers, graph acyclicity, exact n-ary models, and SMT-LIB execution are
+   implemented. Mixed-sort fields, mutually recursive declarations, and
    parametric datatypes remain the next datatype layer.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.

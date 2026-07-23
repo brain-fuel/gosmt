@@ -1,6 +1,9 @@
 package compilefixture
 
-import "goforge.dev/gosmt"
+import (
+	"goforge.dev/gosmt"
+	"goforge.dev/goplus/std/vec"
+)
 
 func Accepted() {
 	context := gosmt.NewContext(7)
@@ -47,4 +50,10 @@ func Accepted() {
 	branch := gosmt.ApplyBinaryRecursiveDatatypeConstructor(node, leaf, leaf)
 	_ = gosmt.SelectBinaryRecursiveDatatypeConstructor(gosmt.FirstDatatypeField(), node, branch)
 	_ = gosmt.SelectBinaryRecursiveDatatypeConstructor(gosmt.SecondDatatypeField(), node, branch)
+	names := vec.Cons("first", vec.Cons("second", vec.Cons("third", vec.Nil[string]())))
+	nary := gosmt.DeclareNaryRecursiveDatatypeConstructor(3, 2, 1, 3, context, "branch", names)
+	naryLeaf := gosmt.DatatypeConstructor(3, 2, 0, context, "nary-leaf")
+	children := vec.Cons(naryLeaf, vec.Cons(naryLeaf, vec.Cons(naryLeaf, vec.Nil[gosmt.DatatypeExpr[7, 3, 2]]())))
+	naryBranch := gosmt.ApplyNaryRecursiveDatatypeConstructor(nary, children)
+	_ = gosmt.SelectNaryRecursiveDatatypeConstructor(vec.Succ(vec.Succ(vec.Zero())), nary, naryBranch)
 }

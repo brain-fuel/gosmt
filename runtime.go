@@ -1,8 +1,59 @@
 package gosmt
 
-import smt "goforge.dev/goplus/std/smt"
+import (
+	smt "goforge.dev/goplus/std/smt"
+	"goforge.dev/goplus/std/vec"
+)
 
 var resultViewKey byte
+
+func naryDatatypeSelectorNames(values vec.Vec[string]) smt.NaryDatatypeSelectors {
+	var result smt.NaryDatatypeSelectors
+	for {
+		switch current := values.(type) {
+		case vec.Nil[string]:
+			return result
+		case vec.Cons[string]:
+			result.Append(current.Head)
+			values = current.Tail
+		default:
+			panic("gosmt: invalid erased n-ary datatype selector vector")
+		}
+	}
+}
+
+func naryDatatypeTerms(contextID int, values vec.Vec[DatatypeExpr]) smt.NaryDatatypeTerms {
+	var result smt.NaryDatatypeTerms
+	for {
+		switch current := values.(type) {
+		case vec.Nil[DatatypeExpr]:
+			return result
+		case vec.Cons[DatatypeExpr]:
+			if current.Head.contextID != contextID {
+				panic("gosmt: erased n-ary recursive datatype constructor context mismatch")
+			}
+			result.Append(current.Head.term)
+			values = current.Tail
+		default:
+			panic("gosmt: invalid erased n-ary datatype argument vector")
+		}
+	}
+}
+
+func naryDatatypeFieldIndex(field vec.Fin) int {
+	index := 0
+	for {
+		switch current := field.(type) {
+		case vec.Zero:
+			return index
+		case vec.Succ:
+			index++
+			field = current.Prev
+		default:
+			panic("gosmt: invalid erased n-ary datatype field witness")
+		}
+	}
+}
 
 const (
 	integerFastNone = iota

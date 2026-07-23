@@ -5,7 +5,16 @@ import (
 
 	"goforge.dev/goplus/std/smt"
 	"goforge.dev/goplus/std/smtlib"
+	"goforge.dev/goplus/std/vec"
 )
+
+func narySelectorNames() vec.Vec[string] {
+	return vec.Cons[string]{Head: "first", Tail: vec.Cons[string]{Head: "second", Tail: vec.Cons[string]{Head: "third", Tail: vec.Nil[string]{}}}}
+}
+
+func naryDatatypeExpressions(first, second, third DatatypeExpr) vec.Vec[DatatypeExpr] {
+	return vec.Cons[DatatypeExpr]{Head: first, Tail: vec.Cons[DatatypeExpr]{Head: second, Tail: vec.Cons[DatatypeExpr]{Head: third, Tail: vec.Nil[DatatypeExpr]{}}}}
+}
 
 func TestContextIndexedBooleanSolve(t *testing.T) {
 	context := NewContext(7)
@@ -341,6 +350,48 @@ func TestBinaryRecursiveDatatypeInjectivityAndAcyclicity(t *testing.T) {
 	cycle := EqDatatype(x, ApplyBinaryRecursiveDatatypeConstructor(node, leaf, x))
 	if result := Check(Assert(3, NewSolver(context), cycle)); func() bool { _, ok := result.(Unsat); return ok }() == false {
 		t.Fatalf("acyclicity result=%#v", result)
+	}
+}
+
+func TestNaryRecursiveDatatypeConstructorSelectorsAndModel(t *testing.T) {
+	context := NewContext(86)
+	leaf := DatatypeConstructor(86, 2, 0, context, "leaf")
+	branch := DeclareNaryRecursiveDatatypeConstructor(86, 2, 1, 3, context, "branch", narySelectorNames())
+	nested := ApplyNaryRecursiveDatatypeConstructor(branch, naryDatatypeExpressions(leaf, leaf, leaf))
+	tree := ApplyNaryRecursiveDatatypeConstructor(branch, naryDatatypeExpressions(leaf, nested, leaf))
+	x := DatatypeConst(86, 2, context, "x", 1)
+	formula := And(
+		EqDatatype(x, tree),
+		EqDatatype(SelectNaryRecursiveDatatypeConstructor(vec.Zero{}, branch, x), leaf),
+		EqDatatype(SelectNaryRecursiveDatatypeConstructor(vec.Succ{Prev: vec.Zero{}}, branch, x), nested),
+		EqDatatype(SelectNaryRecursiveDatatypeConstructor(vec.Succ{Prev: vec.Succ{Prev: vec.Zero{}}}, branch, x), leaf),
+		IsNaryRecursiveDatatypeConstructor(branch, x),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	value, found := EvalDatatype(86, 2, result.Value, x)
+	second, secondOK := value.Children.At(1)
+	if !found || value.ConstructorID != 1 || value.Children.Len() != 3 || !secondOK || second.ConstructorID != 1 || second.Children.Len() != 3 {
+		t.Fatalf("model=%#v/%v", value, found)
+	}
+}
+
+func TestNaryRecursiveDatatypeInjectivityAndAcyclicity(t *testing.T) {
+	context := NewContext(87)
+	leaf := DatatypeConstructor(87, 2, 0, context, "leaf")
+	branch := DeclareNaryRecursiveDatatypeConstructor(87, 2, 1, 3, context, "branch", narySelectorNames())
+	x := DatatypeConst(87, 2, context, "x", 1)
+	y := DatatypeConst(87, 2, context, "y", 2)
+	first := ApplyNaryRecursiveDatatypeConstructor(branch, naryDatatypeExpressions(leaf, leaf, x))
+	second := ApplyNaryRecursiveDatatypeConstructor(branch, naryDatatypeExpressions(leaf, leaf, y))
+	if _, ok := Check(Assert(1, NewSolver(context), And(EqDatatype(first, second), Not(EqDatatype(x, y))))).(Unsat); !ok {
+		t.Fatal("n-ary constructor must be injective in every field")
+	}
+	cycle := EqDatatype(x, ApplyNaryRecursiveDatatypeConstructor(branch, naryDatatypeExpressions(leaf, leaf, x)))
+	if _, ok := Check(Assert(2, NewSolver(context), cycle)).(Unsat); !ok {
+		t.Fatal("n-ary recursive cycle must be unsatisfiable")
 	}
 }
 

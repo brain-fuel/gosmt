@@ -12,6 +12,7 @@ import (
 
 	smt "goforge.dev/goplus/std/smt"
 	"goforge.dev/goplus/std/smtlib"
+	"goforge.dev/goplus/std/vec"
 )
 
 func TestBooleanResultsAgreeWithPinnedZ3(t *testing.T) {
@@ -1833,6 +1834,87 @@ func TestBinaryRecursiveDatatypesAgreeWithPinnedZ3(t *testing.T) {
 			value, found := EvalDatatype(79, 2, sat.Value, x)
 			if !found || value.ConstructorID != 1 || value.Child == nil || value.SecondChild == nil {
 				t.Fatalf("example %d: invalid binary model %#v/%v", example, value, found)
+			}
+		}
+	}
+}
+
+func TestNaryRecursiveDatatypesAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	fieldWitness := func(field int) vec.Fin {
+		var result vec.Fin = vec.Zero{}
+		for index := 0; index < field; index++ {
+			result = vec.Succ{Prev: result}
+		}
+		return result
+	}
+	for example := 0; example < 64; example++ {
+		depths := [3]int{1 + example%5, (example * 3) % 5, (example * 7) % 5}
+		field := example % 3
+		forcedDepth := depths[field]
+		comparedDepth := (example*5 + 2) % 5
+		equality := example%4 < 2
+		context := NewContext(157)
+		leaf := DatatypeConstructor(80, 2, 0, context, "leaf")
+		branch := DeclareNaryRecursiveDatatypeConstructor(80, 2, 1, 3, context, "branch", narySelectorNames())
+		chain := func(depth int) DatatypeExpr {
+			value := leaf
+			for step := 0; step < depth; step++ {
+				value = ApplyNaryRecursiveDatatypeConstructor(branch, naryDatatypeExpressions(value, leaf, leaf))
+			}
+			return value
+		}
+		x := DatatypeConst(80, 2, context, "x", 1)
+		tree := ApplyNaryRecursiveDatatypeConstructor(branch, naryDatatypeExpressions(chain(depths[0]), chain(depths[1]), chain(depths[2])))
+		comparison := EqDatatype(SelectNaryRecursiveDatatypeConstructor(fieldWitness(field), branch, x), chain(comparedDepth))
+		if !equality {
+			comparison = Not(comparison)
+		}
+		formula := And(EqDatatype(x, tree), IsNaryRecursiveDatatypeConstructor(branch, x), comparison)
+		result := Check(Assert(example+1, NewSolver(context), formula))
+		ours := "sat"
+		if _, ok := result.(Unsat); ok {
+			ours = "unsat"
+		} else if _, ok := result.(Unknown); ok {
+			ours = "unknown"
+		}
+
+		z3Chain := func(depth int) string {
+			value := "leaf"
+			for step := 0; step < depth; step++ {
+				value = "(branch " + value + " leaf leaf)"
+			}
+			return value
+		}
+		selectors := [3]string{"first", "second", "third"}
+		comparisonOperator := "="
+		if !equality {
+			comparisonOperator = "distinct"
+		}
+		script := fmt.Sprintf(`(set-logic QF_DT)
+(declare-datatype Tree ((leaf) (branch (first Tree) (second Tree) (third Tree))))
+(declare-const x Tree)
+(assert (= x (branch %s %s %s)))
+(assert (is-branch x))
+(assert (%s (%s x) %s))
+(check-sat)
+`, z3Chain(depths[0]), z3Chain(depths[1]), z3Chain(depths[2]), comparisonOperator, selectors[field], z3Chain(comparedDepth))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s", example, err, output)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s (%#v) z3=%s forced=%d compared=%d\n%s", example, ours, result, want, forcedDepth, comparedDepth, script)
+		}
+		if sat, ok := result.(Sat); ok {
+			value, found := EvalDatatype(80, 2, sat.Value, x)
+			if !found || value.ConstructorID != 1 || value.Children.Len() != 3 {
+				t.Fatalf("example %d: invalid n-ary model %#v/%v", example, value, found)
 			}
 		}
 	}

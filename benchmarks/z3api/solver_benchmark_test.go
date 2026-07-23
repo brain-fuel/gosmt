@@ -5,6 +5,7 @@ import (
 
 	z3 "github.com/Z3Prover/z3/src/api/go"
 	"goforge.dev/goplus/std/smt"
+	"goforge.dev/goplus/std/vec"
 	"goforge.dev/gosmt"
 )
 
@@ -459,6 +460,61 @@ func BenchmarkBinaryRecursiveDatatypeCold(b *testing.B) {
 			branch := context.MkApp(node, leaf, leaf)
 			tree := context.MkApp(node, branch, leaf)
 			formula := context.MkAnd(context.MkEq(x, tree), context.MkEq(context.MkApp(left, x), branch), context.MkEq(context.MkApp(right, x), leaf), context.MkApp(isNode, x))
+			solver := context.NewSolverForLogic("QF_DT")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, ok := solver.Model().Eval(x, true); !ok {
+				b.Fatal("invalid datatype model")
+			}
+		}
+	})
+}
+
+func BenchmarkNaryRecursiveDatatypeCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(42)
+			leaf := gosmt.DatatypeConstructor(4, 2, 0, context, "leaf")
+			names := vec.Cons[string]{Head: "first", Tail: vec.Cons[string]{Head: "second", Tail: vec.Cons[string]{Head: "third", Tail: vec.Nil[string]{}}}}
+			branch := gosmt.DeclareNaryRecursiveDatatypeConstructor(4, 2, 1, 3, context, "branch", names)
+			values := func(first, second, third gosmt.DatatypeExpr) vec.Vec[gosmt.DatatypeExpr] {
+				return vec.Cons[gosmt.DatatypeExpr]{Head: first, Tail: vec.Cons[gosmt.DatatypeExpr]{Head: second, Tail: vec.Cons[gosmt.DatatypeExpr]{Head: third, Tail: vec.Nil[gosmt.DatatypeExpr]{}}}}
+			}
+			x := gosmt.DatatypeConst(4, 2, context, "x", 1)
+			nested := gosmt.ApplyNaryRecursiveDatatypeConstructor(branch, values(leaf, leaf, leaf))
+			tree := gosmt.ApplyNaryRecursiveDatatypeConstructor(branch, values(leaf, nested, leaf))
+			formula := gosmt.And(
+				gosmt.EqDatatype(x, tree),
+				gosmt.EqDatatype(gosmt.SelectNaryRecursiveDatatypeConstructor(vec.Succ{Prev: vec.Zero{}}, branch, x), nested),
+				gosmt.IsNaryRecursiveDatatypeConstructor(branch, x),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalDatatype(4, 2, result.Value, x); !found || value.Children.Len() != 3 {
+				b.Fatal("invalid datatype model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			leafDeclaration := context.MkConstructor("leaf", "is-leaf", nil, nil, nil)
+			branchDeclaration := context.MkConstructor("branch", "is-branch", []string{"first", "second", "third"}, []*z3.Sort{nil, nil, nil}, []uint{0, 0, 0})
+			treeSort := context.MkDatatypeSort("Tree", []*z3.Constructor{leafDeclaration, branchDeclaration})
+			leaf := context.MkApp(context.GetDatatypeSortConstructor(treeSort, 0))
+			branch := context.GetDatatypeSortConstructor(treeSort, 1)
+			second := context.GetDatatypeSortConstructorAccessor(treeSort, 1, 1)
+			isBranch := context.GetDatatypeSortRecognizer(treeSort, 1)
+			x := context.MkConst(context.MkStringSymbol("x"), treeSort)
+			nested := context.MkApp(branch, leaf, leaf, leaf)
+			tree := context.MkApp(branch, leaf, nested, leaf)
+			formula := context.MkAnd(context.MkEq(x, tree), context.MkEq(context.MkApp(second, x), nested), context.MkApp(isBranch, x))
 			solver := context.NewSolverForLogic("QF_DT")
 			solver.Assert(formula)
 			if solver.Check() != z3.Satisfiable {

@@ -5,6 +5,7 @@ package gosmt
 import (
 	smt "goforge.dev/goplus/std/smt"
 	"goforge.dev/goplus/std/smtlib"
+	"goforge.dev/goplus/std/vec"
 )
 
 //goplus:derive off
@@ -38,6 +39,9 @@ type DatatypeRecursiveConstructor[c nat, d nat, n nat, k nat] enum { datatypeRec
 //goplus:derive off
 //goplus:repr transparent
 type DatatypeBinaryRecursiveConstructor[c nat, d nat, n nat, k nat] enum { datatypeBinaryRecursiveConstructorValue(ContextID int, Core smt.BinaryRecursiveDatatypeConstructor[d, n, k]) DatatypeBinaryRecursiveConstructor[c, d, n, k] }
+//goplus:derive off
+//goplus:repr transparent
+type DatatypeNaryRecursiveConstructor[c nat, d nat, n nat, k nat, a nat] enum { datatypeNaryRecursiveConstructorValue(ContextID int, Core smt.NaryRecursiveDatatypeConstructor[d, n, k, a]) DatatypeNaryRecursiveConstructor[c, d, n, k, a] }
 //goplus:derive off
 //goplus:repr transparent
 type UninterpretedExpr[c nat, s nat] enum { uninterpretedExprValue(ContextID int, Term smt.Term[smt.UninterpretedSort[s]], Fast uninterpretedFast) UninterpretedExpr[c, s] }
@@ -157,6 +161,30 @@ func IsBinaryRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructor
 	match declaration { case datatypeBinaryRecursiveConstructorValue(contextID, core): match value { case datatypeExprValue(valueContext, term):
 		if contextID != valueContext { panic("gosmt: erased binary recursive datatype recognizer context mismatch") }
 		return fastBooleanAtom(contextID, smt.IsBinaryRecursiveDatatypeConstructor(core, term))
+	} }
+}
+
+func DeclareNaryRecursiveDatatypeConstructor(datatype nat, constructors nat, constructor nat, arity nat, 0 c nat, context Context[c], name string, selectorNames vec.Vec[string, arity]) DatatypeNaryRecursiveConstructor[c, datatype, constructors, constructor, arity] {
+	match context { case contextValue(contextID): return datatypeNaryRecursiveConstructorValue(contextID, smt.DeclareNaryRecursiveDatatypeConstructorCompact(int(datatype), int(constructors), int(constructor), name, naryDatatypeSelectorNames(selectorNames))) }
+}
+
+func ApplyNaryRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, 0 arity nat, declaration DatatypeNaryRecursiveConstructor[c, datatype, constructors, constructor, arity], values vec.Vec[DatatypeExpr[c, datatype, constructors], arity]) DatatypeExpr[c, datatype, constructors] {
+	match declaration { case datatypeNaryRecursiveConstructorValue(contextID, core):
+		return datatypeExprValue(contextID, smt.ApplyNaryRecursiveDatatypeConstructorCompact(core, naryDatatypeTerms(contextID, values)))
+	}
+}
+
+func SelectNaryRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, 0 arity nat, field vec.Fin[arity], declaration DatatypeNaryRecursiveConstructor[c, datatype, constructors, constructor, arity], value DatatypeExpr[c, datatype, constructors]) DatatypeExpr[c, datatype, constructors] {
+	match declaration { case datatypeNaryRecursiveConstructorValue(contextID, core): match value { case datatypeExprValue(valueContext, term):
+		if contextID != valueContext { panic("gosmt: erased n-ary recursive datatype selector context mismatch") }
+		return datatypeExprValue(contextID, smt.SelectNaryRecursiveDatatypeConstructorDynamic(naryDatatypeFieldIndex(field), core, term))
+	} }
+}
+
+func IsNaryRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, 0 arity nat, declaration DatatypeNaryRecursiveConstructor[c, datatype, constructors, constructor, arity], value DatatypeExpr[c, datatype, constructors]) BoolExpr[c] {
+	match declaration { case datatypeNaryRecursiveConstructorValue(contextID, core): match value { case datatypeExprValue(valueContext, term):
+		if contextID != valueContext { panic("gosmt: erased n-ary recursive datatype recognizer context mismatch") }
+		return fastBooleanAtom(contextID, smt.IsNaryRecursiveDatatypeConstructor(core, term))
 	} }
 }
 
