@@ -83,6 +83,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | word equation + regular-language candidate selection | ~4.177–4.193 us, 8,552 B, 9 allocs | ~1.270–1.360 ms, 432 B, 29 allocs | green (>302x) | green (target ≤14 allocs) |
 | word equation + general Boolean-regex split selection | ~5.504–5.516 us, 9,144 B, 13 allocs | ~1.423–1.496 ms, 480 B, 32 allocs | green (>257x) | green (target ≤16 allocs) |
 | word equation + string disequality split selection | ~4.513–4.560 us, 10,576 B, 9 allocs | ~1.289–1.354 ms, 368 B, 25 allocs | green (>282x) | green (target ≤12 allocs) |
+| word equation + contains/prefix split selection | ~6.425–6.457 us, 15,696 B, 13 allocs | ~1.852–1.916 ms, 392 B, 26 allocs | green (>286x) | green (target ≤13 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -566,6 +567,13 @@ continues to `x = "a"`, `y = "b"`. It uses 9 allocations and
 4.513–4.560 us versus pinned Z3's 25 visible Go allocations and
 1.289–1.354 ms. This is 64.0% fewer allocations and over 282x
 conservative-endpoint throughput.
+
+The string-predicate workload solves `x ++ y = "abc"` while requiring
+`contains(x,"b")` and `prefixof("a",x)`, forcing `x = "ab"` and `y = "c"`.
+Compact public relations remain value-resident and participate in terminal
+global-model validation. It uses 13 allocations and 6.425–6.457 us versus
+pinned Z3's 26 visible Go allocations and 1.852–1.916 ms. This is exactly
+50.0% fewer allocations and over 286x conservative-endpoint throughput.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph

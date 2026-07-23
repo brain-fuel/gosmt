@@ -645,6 +645,41 @@ func TestContextIndexedWordEquationStringDisequalityInteraction(t *testing.T) {
 	}
 }
 
+func TestContextIndexedWordEquationStringPredicateInteraction(t *testing.T) {
+	context := NewContext(25)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	equation := EqString(ConcatString(x, y), StringVal(context, "abc"))
+	formula := And(
+		equation,
+		ContainsString(x, StringVal(context, "b")),
+		HasPrefixString(x, StringVal(context, "a")),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "ab" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "c" {
+		t.Fatalf("y=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	impossible := And(
+		equation,
+		ContainsString(x, StringVal(context, "z")),
+	)
+	checked = Check(Assert(2, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
