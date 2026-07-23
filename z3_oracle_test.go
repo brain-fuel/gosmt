@@ -1107,6 +1107,92 @@ func TestPositiveSymbolicIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestExactLengthIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(700 + example)
+		unit := func(value int64) IntSequenceExpr {
+			return UnitIntSequence(IntVal(context, value))
+		}
+		x := IntSequenceConst(context, "x", 1)
+		length := int64(1 + example%7)
+		formula := EqInt(LengthIntSequence(x), IntVal(context, length))
+		assertions := fmt.Sprintf("(assert (= (seq.len x) %d))", length)
+		switch example % 8 {
+		case 1:
+			formula = And(
+				HasPrefixIntSequence(x, unit(1)),
+				EqInt(LengthIntSequence(x), IntVal(context, 3)),
+			)
+			assertions = `(assert (seq.prefixof (seq.unit 1) x))
+(assert (= (seq.len x) 3))`
+		case 2:
+			formula = And(
+				HasSuffixIntSequence(x, unit(3)),
+				EqInt(LengthIntSequence(x), IntVal(context, 3)),
+			)
+			assertions = `(assert (seq.suffixof (seq.unit 3) x))
+(assert (= (seq.len x) 3))`
+		case 3:
+			formula = And(
+				ContainsIntSequence(x, ConcatIntSequence(unit(2), unit(3))),
+				EqInt(LengthIntSequence(x), IntVal(context, 4)),
+			)
+			assertions = `(assert (seq.contains x (seq.++ (seq.unit 2) (seq.unit 3))))
+(assert (= (seq.len x) 4))`
+		case 4:
+			formula = And(
+				HasPrefixIntSequence(x, ConcatIntSequence(unit(1), unit(2))),
+				HasSuffixIntSequence(x, ConcatIntSequence(unit(2), unit(3))),
+				EqInt(LengthIntSequence(x), IntVal(context, 3)),
+			)
+			assertions = `(assert (seq.prefixof (seq.++ (seq.unit 1) (seq.unit 2)) x))
+(assert (seq.suffixof (seq.++ (seq.unit 2) (seq.unit 3)) x))
+(assert (= (seq.len x) 3))`
+		case 5:
+			formula = And(
+				EqInt(LengthIntSequence(x), IntVal(context, 2)),
+				EqInt(LengthIntSequence(x), IntVal(context, 3)),
+			)
+			assertions = `(assert (= (seq.len x) 2))
+(assert (= (seq.len x) 3))`
+		case 6:
+			formula = And(
+				ContainsIntSequence(x, ConcatIntSequence(unit(1), unit(2), unit(3))),
+				EqInt(LengthIntSequence(x), IntVal(context, 2)),
+			)
+			assertions = `(assert (seq.contains x (seq.++ (seq.unit 1) (seq.unit 2) (seq.unit 3))))
+(assert (= (seq.len x) 2))`
+		case 7:
+			formula = EqInt(LengthIntSequence(x), IntVal(context, -1))
+			assertions = "(assert (= (seq.len x) (- 1)))"
+		}
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+(declare-const x (Seq Int))
+` + assertions + `
+(check-sat)`
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)

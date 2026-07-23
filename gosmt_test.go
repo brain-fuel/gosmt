@@ -940,6 +940,65 @@ func TestContextIndexedPositiveSymbolicIntegerSequence(t *testing.T) {
 	}
 }
 
+func TestContextIndexedExactLengthIntegerSequence(t *testing.T) {
+	context := NewContext(38)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	formula := And(
+		HasPrefixIntSequence(x, ConcatIntSequence(unit(1), unit(2))),
+		ContainsIntSequence(x, unit(3)),
+		HasSuffixIntSequence(x, ConcatIntSequence(unit(5), unit(6))),
+		EqInt(LengthIntSequence(x), IntVal(context, 6)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+	if value, found := EvalIntSequence(result.Value, x); !found || value.Len() != 6 {
+		t.Fatalf("x len=(%d,%v)", value.Len(), found)
+	}
+
+	overlap := And(
+		HasPrefixIntSequence(x, ConcatIntSequence(unit(1), unit(2))),
+		HasSuffixIntSequence(x, ConcatIntSequence(unit(2), unit(3))),
+		EqInt(LengthIntSequence(x), IntVal(context, 3)),
+	)
+	if checked := Check(Assert(2, NewSolver(context), overlap)); func() bool {
+		_, ok := checked.(Sat)
+		return ok
+	}() == false {
+		t.Fatalf("overlap result=%T", checked)
+	}
+
+	conflicting := And(
+		EqInt(LengthIntSequence(x), IntVal(context, 2)),
+		EqInt(LengthIntSequence(x), IntVal(context, 3)),
+	)
+	if checked := Check(Assert(3, NewSolver(context), conflicting)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("conflicting result=%T", checked)
+	}
+
+	tooShort := And(
+		ContainsIntSequence(x, ConcatIntSequence(unit(1), unit(2), unit(3))),
+		EqInt(LengthIntSequence(x), IntVal(context, 2)),
+	)
+	if checked := Check(Assert(4, NewSolver(context), tooShort)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("too-short result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

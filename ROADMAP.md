@@ -92,8 +92,10 @@
    assumptions. Positive conjunctive contains/prefix/suffix requirements now
    construct deterministic witnesses for multiple symbols, merge compatible
    boundaries, and prove incompatible boundaries unsatisfiable.
-   Non-conjunctive, length-coupled, relational, and non-integer symbolic
-   sequence solving remain.
+   Exact ground lengths now use bounded complete containment placement,
+   prefix/suffix overlap, deterministic zero filling, and exact
+   negative/conflicting/too-short proofs. Non-conjunctive, relational-length,
+   and non-integer symbolic sequence solving remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.
