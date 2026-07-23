@@ -544,6 +544,15 @@ terminal backtracking. It uses 9 allocations and 5.142–5.167 us versus pinned
 Z3's 24 visible Go allocations and 2.325–2.436 ms. This is 62.5% fewer
 allocations and over 449x conservative-endpoint throughput.
 
+The affine-length workload solves `x ++ y = "abc"` together with
+`str.len(y) - str.len(x) = 1`, selecting `x = "a"` and `y = "bc"`.
+The same exact evaluator covers n-ary addition and arbitrary-precision
+constant scaling, with a separate corpus exercising all three forms and
+Boolean combinations. The cold workload uses 14 allocations and
+4.720–4.738 us versus pinned Z3's 28 visible Go allocations and
+2.452–2.498 ms. This is exactly 50.0% fewer allocations and over 517x
+conservative-endpoint throughput.
+
 The multiple-equation workload solves `x ++ y = "abc"` together with
 `x ++ "-" ++ z = "a-tail"`. The second equation forces global backtracking
 from the first equation's initial empty split to `x = "a"`, after which the

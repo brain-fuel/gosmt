@@ -520,6 +520,59 @@ func TestContextIndexedWordEquationRelationalLengthInteraction(t *testing.T) {
 	}
 }
 
+func TestContextIndexedWordEquationAffineLengthInteraction(t *testing.T) {
+	context := NewContext(31)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	weighted := Add(
+		ScaleInt64(2, LengthString(x)),
+		LengthString(y),
+	)
+	formula := And(
+		EqString(ConcatString(x, y), StringVal(context, "abcd")),
+		EqInt(weighted, IntVal(context, 6)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "ab" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "cd" {
+		t.Fatalf("y=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	ordered := And(
+		EqString(ConcatString(x, y), StringVal(context, "abc")),
+		Lt(
+			IntVal(context, 0),
+			Sub(LengthString(x), LengthString(y)),
+		),
+	)
+	checked = Check(Assert(2, NewSolver(context), ordered))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("ordered result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "ab" {
+		t.Fatalf("ordered x=(%q,%v)", actual, found)
+	}
+
+	impossible := And(
+		EqString(ConcatString(x, y), StringVal(context, "abc")),
+		EqInt(Add(LengthString(x), LengthString(y)), IntVal(context, 4)),
+	)
+	checked = Check(Assert(3, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

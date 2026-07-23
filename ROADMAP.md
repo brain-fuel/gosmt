@@ -63,7 +63,9 @@
    One-symbol prefix/suffix concatenations lower directly into shared word
    equations in the GoSMT façade. Relational string lengths (`=`, `<`, `<=`)
    now compare bound string expressions exactly, including within Boolean
-   choices, using compact std terms. Unbounded-target or unbounded Boolean-regex
+   choices, using compact std terms. Affine length arithmetic now covers exact
+   addition, subtraction, and arbitrary-precision constant scaling against
+   affine or constant bounds. Unbounded-target or unbounded Boolean-regex
    equation systems remain. Positive and negative
    regular-language memberships now prune bounded equation candidates and
    participate in final global-model validation; bounded `or`, nested `not`,
