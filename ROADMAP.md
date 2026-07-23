@@ -102,6 +102,9 @@
    Single-symbol affine length expressions now normalize exact addition,
    subtraction, and arbitrary-precision constant scaling with divisibility,
    sign reversal, integer rounding, and cancellation.
+   Positive sequence-symbol equalities now canonicalize compact equality
+   classes, merge constructive and length requirements, propagate exact models
+   to every alias, and prove conflicting assignments unsatisfiable.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

@@ -1348,6 +1348,83 @@ func BenchmarkAffineLengthIntegerSequenceQFSeq(b *testing.B) {
 	})
 }
 
+func BenchmarkIntegerSequenceEqualityClassQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(41)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			x := gosmt.IntSequenceConst(context, "x", 1)
+			y := gosmt.IntSequenceConst(context, "y", 2)
+			z := gosmt.IntSequenceConst(context, "z", 3)
+			formula := gosmt.And(
+				gosmt.EqIntSequence(x, y),
+				gosmt.EqIntSequence(y, z),
+				gosmt.HasPrefixIntSequence(x, gosmt.ConcatIntSequence(unit(1), unit(2), unit(7))),
+				gosmt.ContainsIntSequence(y, gosmt.ConcatIntSequence(unit(3), unit(4))),
+				gosmt.HasSuffixIntSequence(z, gosmt.ConcatIntSequence(unit(8), unit(5), unit(6))),
+				gosmt.ContainsIntSequence(x, unit(1)),
+				gosmt.HasPrefixIntSequence(y, unit(1)),
+				gosmt.HasSuffixIntSequence(x, unit(6)),
+				gosmt.EqInt(gosmt.LengthIntSequence(y), gosmt.IntVal(context, 8)),
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			for _, expression := range []gosmt.IntSequenceExpr{x, y, z} {
+				if value, found := gosmt.EvalIntSequence(result.Value, expression); !found ||
+					value.Len() != 8 {
+					b.Fatal("invalid aliased sequence model")
+				}
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			x := context.MkConst(context.MkStringSymbol("x"), sequenceSort)
+			y := context.MkConst(context.MkStringSymbol("y"), sequenceSort)
+			z := context.MkConst(context.MkStringSymbol("z"), sequenceSort)
+			unit := func(value int) *z3.Expr {
+				return context.MkSeqUnit(context.MkInt(value, intSort))
+			}
+			prefix := context.MkSeqConcat(unit(1), unit(2), unit(7))
+			part := context.MkSeqConcat(unit(3), unit(4))
+			suffix := context.MkSeqConcat(unit(8), unit(5), unit(6))
+			formula := context.MkAnd(
+				context.MkEq(x, y),
+				context.MkEq(y, z),
+				context.MkSeqPrefix(prefix, x),
+				context.MkSeqContains(y, part),
+				context.MkSeqSuffix(suffix, z),
+				context.MkSeqContains(x, unit(1)),
+				context.MkSeqPrefix(unit(1), y),
+				context.MkSeqSuffix(unit(6), x),
+				context.MkEq(context.MkSeqLength(y), context.MkInt(8, intSort)),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, y, z, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid aliased sequence model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

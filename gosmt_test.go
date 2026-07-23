@@ -1084,6 +1084,64 @@ func TestContextIndexedAffineLengthIntegerSequence(t *testing.T) {
 	}
 }
 
+func TestContextIndexedIntegerSequenceEqualityClasses(t *testing.T) {
+	context := NewContext(41)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	y := IntSequenceConst(context, "y", 2)
+	z := IntSequenceConst(context, "z", 3)
+	formula := And(
+		EqIntSequence(x, y),
+		EqIntSequence(y, z),
+		HasPrefixIntSequence(x, unit(1)),
+		ContainsIntSequence(y, unit(2)),
+		HasSuffixIntSequence(z, unit(3)),
+		EqInt(LengthIntSequence(y), IntVal(context, 3)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	for name, expression := range map[string]IntSequenceExpr{
+		"x": x,
+		"y": y,
+		"z": z,
+	} {
+		value, found := EvalIntSequence(result.Value, expression)
+		if !found || value.Len() != 3 {
+			t.Fatalf("%s len=(%d,%v)", name, value.Len(), found)
+		}
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	ground := ConcatIntSequence(unit(4), unit(5))
+	assigned := And(EqIntSequence(x, y), EqIntSequence(y, ground))
+	assignedResult, ok := Check(Assert(2, NewSolver(context), assigned)).(Sat)
+	if !ok {
+		t.Fatalf("assigned result=%T", Check(Assert(2, NewSolver(context), assigned)))
+	}
+	if value, found := EvalIntSequence(assignedResult.Value, x); !found || value.Len() != 2 {
+		t.Fatalf("assigned x len=(%d,%v)", value.Len(), found)
+	}
+
+	conflicting := And(
+		EqIntSequence(x, y),
+		EqIntSequence(x, unit(1)),
+		EqIntSequence(y, unit(2)),
+	)
+	if checked := Check(Assert(3, NewSolver(context), conflicting)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("conflicting result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

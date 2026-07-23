@@ -62,6 +62,10 @@ order-independent bound conflicts.
 Single-symbol affine length expressions support exact addition, subtraction,
 and arbitrary-precision constant scaling, including divisibility proofs,
 coefficient-sign reversal, integer floor/ceiling bounds, and cancellation.
+Positive sequence-symbol equalities now form compact equality classes.
+Assignments, constructive constraints, lengths, assumptions, derived
+evaluation, and exact models propagate across every alias; conflicting alias
+assignments are unsatisfiable.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,
