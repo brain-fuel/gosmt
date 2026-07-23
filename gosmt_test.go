@@ -1326,6 +1326,57 @@ func TestContextIndexedMultiSymbolAffineIntegerSequenceLengthInequalities(t *tes
 	}
 }
 
+func TestContextIndexedFourSymbolAffineIntegerSequenceLengthSystems(t *testing.T) {
+	context := NewContext(45)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	pair := func(left, right int64) IntSequenceExpr {
+		return ConcatIntSequence(unit(left), unit(right))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	y := IntSequenceConst(context, "y", 2)
+	z := IntSequenceConst(context, "z", 3)
+	w := IntSequenceConst(context, "w", 4)
+	sum := Add(
+		LengthIntSequence(x),
+		LengthIntSequence(y),
+		LengthIntSequence(z),
+		LengthIntSequence(w),
+	)
+	weighted := Add(
+		ScaleInt64(2, LengthIntSequence(x)),
+		LengthIntSequence(y),
+		LengthIntSequence(z),
+		LengthIntSequence(w),
+	)
+	formula := And(
+		Le(IntVal(context, 8), sum),
+		Le(weighted, IntVal(context, 10)),
+		HasPrefixIntSequence(x, pair(1, 2)),
+		HasPrefixIntSequence(y, pair(3, 4)),
+		HasPrefixIntSequence(z, pair(5, 6)),
+		HasSuffixIntSequence(w, pair(7, 8)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	var lengths [4]int
+	for index, expression := range []IntSequenceExpr{x, y, z, w} {
+		value, found := EvalIntSequence(result.Value, expression)
+		if !found {
+			t.Fatalf("missing model index=%d", index)
+		}
+		lengths[index] = value.Len()
+	}
+	total := lengths[0] + lengths[1] + lengths[2] + lengths[3]
+	if total < 8 || 2*lengths[0]+lengths[1]+lengths[2]+lengths[3] > 10 {
+		t.Fatalf("lengths=%v", lengths)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

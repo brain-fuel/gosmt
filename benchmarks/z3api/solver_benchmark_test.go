@@ -1860,6 +1860,121 @@ func BenchmarkInteractingAffineIntegerSequenceLengthRelationsQFSeq(b *testing.B)
 	})
 }
 
+func BenchmarkFourSymbolAffineIntegerSequenceLengthRelationsQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(46)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			block := func(offset int64) gosmt.IntSequenceExpr {
+				return gosmt.ConcatIntSequence(
+					unit(offset),
+					unit(offset+1),
+					unit(offset+2),
+					unit(offset+3),
+				)
+			}
+			x := gosmt.IntSequenceConst(context, "x", 1)
+			y := gosmt.IntSequenceConst(context, "y", 2)
+			z := gosmt.IntSequenceConst(context, "z", 3)
+			w := gosmt.IntSequenceConst(context, "w", 4)
+			sum := gosmt.Add(
+				gosmt.LengthIntSequence(x),
+				gosmt.LengthIntSequence(y),
+				gosmt.LengthIntSequence(z),
+				gosmt.LengthIntSequence(w),
+			)
+			weighted := gosmt.Add(
+				gosmt.ScaleInt64(2, gosmt.LengthIntSequence(x)),
+				gosmt.LengthIntSequence(y),
+				gosmt.LengthIntSequence(z),
+				gosmt.LengthIntSequence(w),
+			)
+			formula := gosmt.And(
+				gosmt.Le(gosmt.IntVal(context, 16), sum),
+				gosmt.Le(weighted, gosmt.IntVal(context, 20)),
+				gosmt.HasPrefixIntSequence(x, block(1)),
+				gosmt.HasPrefixIntSequence(y, block(5)),
+				gosmt.HasPrefixIntSequence(z, block(9)),
+				gosmt.HasSuffixIntSequence(w, block(13)),
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			var lengths [4]int
+			for modelIndex, expression := range []gosmt.IntSequenceExpr{x, y, z, w} {
+				value, found := gosmt.EvalIntSequence(result.Value, expression)
+				if !found {
+					b.Fatal("missing four-symbol model")
+				}
+				lengths[modelIndex] = value.Len()
+			}
+			total := lengths[0] + lengths[1] + lengths[2] + lengths[3]
+			if total < 16 ||
+				2*lengths[0]+lengths[1]+lengths[2]+lengths[3] > 20 {
+				b.Fatal("invalid four-symbol models")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			x := context.MkConst(context.MkStringSymbol("x"), sequenceSort)
+			y := context.MkConst(context.MkStringSymbol("y"), sequenceSort)
+			z := context.MkConst(context.MkStringSymbol("z"), sequenceSort)
+			w := context.MkConst(context.MkStringSymbol("w"), sequenceSort)
+			xLength := context.MkSeqLength(x)
+			yLength := context.MkSeqLength(y)
+			zLength := context.MkSeqLength(z)
+			wLength := context.MkSeqLength(w)
+			sum := context.MkAdd(xLength, yLength, zLength, wLength)
+			weighted := context.MkAdd(
+				context.MkMul(context.MkInt(2, intSort), xLength),
+				yLength,
+				zLength,
+				wLength,
+			)
+			block := func(offset int) *z3.Expr {
+				return context.MkSeqConcat(
+					context.MkSeqUnit(context.MkInt(offset, intSort)),
+					context.MkSeqUnit(context.MkInt(offset+1, intSort)),
+					context.MkSeqUnit(context.MkInt(offset+2, intSort)),
+					context.MkSeqUnit(context.MkInt(offset+3, intSort)),
+				)
+			}
+			formula := context.MkAnd(
+				context.MkLe(context.MkInt(16, intSort), sum),
+				context.MkLe(weighted, context.MkInt(20, intSort)),
+				context.MkSeqPrefix(block(1), x),
+				context.MkSeqPrefix(block(5), y),
+				context.MkSeqPrefix(block(9), z),
+				context.MkSeqSuffix(block(13), w),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{
+				x, y, z, w, xLength, yLength, zLength, wLength,
+			} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid four-symbol models")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
