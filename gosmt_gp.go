@@ -631,6 +631,9 @@ func RangeRegexString(low StringExpr, high StringExpr) RegexExpr {
 			if contextID != highContext {
 				panic("gosmt: erased regex range context mismatch")
 			}
+			if lowFast.kind == stringFastLiteral && highFast.kind == stringFastLiteral {
+				return regexExprValue{contextID: contextID, core: smt.StringValueRangeRegex(lowFast.value, highFast.value), fast: regexFast{}}
+			}
 			return regexExprValue{contextID: contextID, core: smt.StringRangeRegex(
 				materializeString(stringExprValue{contextID: contextID, term: lowTerm, fast: lowFast}),
 				materializeString(stringExprValue{contextID: highContext, term: highTerm, fast: highFast})), fast: regexFast{}}

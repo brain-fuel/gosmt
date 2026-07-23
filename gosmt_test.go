@@ -157,6 +157,32 @@ func TestContextIndexedStringRegularExpressions(t *testing.T) {
 	}
 }
 
+func TestContextIndexedSymbolicStringRegularExpressions(t *testing.T) {
+	context := NewContext(13)
+	x := StringConst(context, "x", 1)
+	language := ConcatRegexExpr(
+		ToRegexString(StringVal(context, "go-")),
+		LoopRegexExpr(2, 4, RangeRegexString(StringVal(context, "a"), StringVal(context, "z"))),
+	)
+	result := Check(Assert(1, NewSolver(context), InRegexString(x, language)))
+	sat, ok := result.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", result)
+	}
+	if actual, found := EvalString(sat.Value, x); !found || actual != "go-aa" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+
+	contradiction := And(
+		EqString(x, StringVal(context, "a")),
+		InRegexString(x, ToRegexString(StringVal(context, "b"))),
+	)
+	checked := Check(Assert(2, NewSolver(context), contradiction))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("contradiction=%T", checked)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

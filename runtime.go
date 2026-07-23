@@ -165,7 +165,7 @@ type regexFast struct {
 func materializeRegex(core smt.Regex[smt.StringSort], fast regexFast) smt.Regex[smt.StringSort] {
 	switch fast.kind {
 	case regexFastLiteral:
-		return smt.StringToRegex(smt.StringVal(fast.value))
+		return smt.StringLiteralRegex(fast.value)
 	case regexFastEmpty:
 		return smt.EmptyRegex[smt.StringSort]()
 	case regexFastFull:

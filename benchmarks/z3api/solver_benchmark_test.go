@@ -218,6 +218,55 @@ func BenchmarkStringRegexQFS(b *testing.B) {
 	})
 }
 
+func BenchmarkStringRegexSymbolicQFS(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(12)
+			x := gosmt.StringConst(context, "x", 1)
+			language := gosmt.ConcatRegexExpr(
+				gosmt.ToRegexString(gosmt.StringVal(context, "go-")),
+				gosmt.LoopRegexExpr(2, 4, gosmt.RangeRegexString(gosmt.StringVal(context, "a"), gosmt.StringVal(context, "z"))),
+			)
+			formula := gosmt.InRegexString(x, language)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "go-aa" {
+				b.Fatal("invalid symbolic regex model")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid symbolic regex formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			x := context.MkConst(context.MkStringSymbol("x"), context.MkStringSort())
+			language := context.MkReConcat(
+				context.MkToRe(context.MkString("go-")),
+				context.MkReLoop(context.MkReRange(context.MkString("a"), context.MkString("z")), 2, 4),
+			)
+			formula := context.MkInRe(x, language)
+			solver := context.NewSolverForLogic("QF_S")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid symbolic regex model")
+			}
+			if _, found := model.Eval(formula, true); !found {
+				b.Fatal("invalid symbolic regex formula")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanWarm(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		context := gosmt.NewContext(1)

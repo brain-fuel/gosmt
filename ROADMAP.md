@@ -33,7 +33,10 @@
    Strings now include exact ground regular-language membership with
    literal/range/empty/full/all-character languages, Boolean language
    operations, closure, optionality, and indexed exact/bounded repetition.
-   General symbolic language synthesis and word equations remain.
+   Constructive symbolic membership now synthesizes shortest witnesses for
+   the literal/range/concat/union/closure/bounded-loop fragment, and
+   equality-forced symbols produce exact contradiction proofs. Complete
+   interacting symbolic language constraints and word equations remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

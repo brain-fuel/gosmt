@@ -204,6 +204,9 @@ func ToRegexString(0 c nat, value StringExpr[c]) RegexExpr[c] {
 func RangeRegexString(0 c nat, low StringExpr[c], high StringExpr[c]) RegexExpr[c] {
 	match low { case stringExprValue(contextID, lowTerm, lowFast): match high { case stringExprValue(highContext, highTerm, highFast):
 		if contextID != highContext { panic("gosmt: erased regex range context mismatch") }
+		if lowFast.kind == stringFastLiteral && highFast.kind == stringFastLiteral {
+			return regexExprValue(contextID, smt.StringValueRangeRegex(lowFast.value, highFast.value), regexFast{})
+		}
 		return regexExprValue(contextID, smt.StringRangeRegex(
 			materializeString(stringExprValue(contextID, lowTerm, lowFast)),
 			materializeString(stringExprValue(highContext, highTerm, highFast))), regexFast{})

@@ -437,6 +437,14 @@ uses 10 visible Go allocations and 0.809–1.023 ms. This is exactly 50.0% fewer
 allocations and about 900x faster at the median; Z3's native C heap is not
 included.
 
+The symbolic QF_S cold workload constructs a literal-prefix plus bounded
+character-range language, constrains an otherwise free string, synthesizes its
+shortest witness, solves, extracts that string, and validates the authored
+membership formula. An inline postfix regex program lowers five Apple M5 Max
+samples to 9 allocations and 1.897–1.938 us. Pinned Z3 uses 20 visible Go
+allocations and 2.807–2.903 ms. This is 55.0% fewer allocations and about
+1,480x faster at the median.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids
