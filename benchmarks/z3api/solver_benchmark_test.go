@@ -132,6 +132,55 @@ func BenchmarkStringIndexedQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringConversionQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(10)
+			parsed := gosmt.ToIntString(gosmt.StringVal(context, "1234567890"))
+			rendered := gosmt.FromIntString(parsed)
+			formula := gosmt.And(
+				gosmt.EqInt(parsed, gosmt.IntVal(context, 1234567890)),
+				gosmt.EqString(rendered, gosmt.StringVal(context, "1234567890")),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if _, found := gosmt.EvalInt(result.Value, parsed); !found {
+				b.Fatal("missing integer model")
+			}
+			if _, found := gosmt.EvalString(result.Value, rendered); !found {
+				b.Fatal("missing string model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			parsed := context.MkStrToInt(context.MkString("1234567890"))
+			rendered := context.MkIntToStr(parsed)
+			formula := context.MkAnd(
+				context.MkEq(parsed, context.MkInt(1234567890, context.MkIntSort())),
+				context.MkEq(rendered, context.MkString("1234567890")),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(parsed, true); !found {
+				b.Fatal("missing integer model")
+			}
+			if _, found := model.Eval(rendered, true); !found {
+				b.Fatal("missing string model")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanWarm(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		context := gosmt.NewContext(1)

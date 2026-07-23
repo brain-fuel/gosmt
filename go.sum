@@ -8,3 +8,5 @@ goforge.dev/goplus/std v0.52.0 h1:7mMIirFMyOxbUuXFcyUu1qqSD488WVQWUzSbl8t4014=
 goforge.dev/goplus/std v0.52.0/go.mod h1:kr7uOTXhg4p16dGLzGTBnVBsteQnUo3e/5XU055m1PM=
 goforge.dev/goplus/std v0.53.0 h1:NRzlvLjmy7BfBaV2kpkZuMvQTm4SHaXIRhDWZfBhi7c=
 goforge.dev/goplus/std v0.53.0/go.mod h1:kr7uOTXhg4p16dGLzGTBnVBsteQnUo3e/5XU055m1PM=
+goforge.dev/goplus/std v0.54.0 h1:qemLE7QD9if8JOPvVyWQ0jRLwVk3dL4kqTeKS7SiD9Y=
+goforge.dev/goplus/std v0.54.0/go.mod h1:kr7uOTXhg4p16dGLzGTBnVBsteQnUo3e/5XU055m1PM=

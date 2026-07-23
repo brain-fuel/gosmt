@@ -422,6 +422,13 @@ samples to 11 allocations and 3.575–3.605 us versus pinned Z3's 39 visible Go
 allocations and 0.983–1.049 ms. This is 71.8% fewer allocations and about 285x
 faster at the median.
 
+The conversion QF_SLIA cold workload constructs and validates string-to-int
+and int-to-string round trips. Small-decimal parsing and known equality
+propagation reduce the initial 13-allocation path to 8 allocations and
+1.224–1.233 us across three Apple M5 Max samples. Pinned Z3 uses 18 visible Go
+allocations and 0.978–1.061 ms. This is 55.6% fewer allocations and about 800x
+faster at the median.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids

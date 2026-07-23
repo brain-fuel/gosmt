@@ -3,6 +3,7 @@ package gosmt
 import (
 	smt "goforge.dev/goplus/std/smt"
 	"goforge.dev/goplus/std/vec"
+	"strconv"
 	"strings"
 )
 
@@ -223,6 +224,20 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 	leftCompact, leftOK := compactString(left)
 	rightCompact, rightOK := compactString(right)
 	if leftOK && rightOK {
+		if leftCompact.Kind == 0 && rightCompact.Kind == 0 {
+			result := false
+			switch kind {
+			case smt.CompactStringEqual:
+				result = leftCompact.Value == rightCompact.Value
+			case smt.CompactStringContains:
+				result = strings.Contains(leftCompact.Value, rightCompact.Value)
+			case smt.CompactStringPrefix:
+				result = strings.HasPrefix(leftCompact.Value, rightCompact.Value)
+			case smt.CompactStringSuffix:
+				result = strings.HasSuffix(leftCompact.Value, rightCompact.Value)
+			}
+			return boolExprValue{contextID: left.contextID, term: smt.Bool{Value: result}}
+		}
 		relation := smt.CompactStringRelation{Kind: kind, Left: leftCompact, Right: rightCompact}
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastStringRelation, stringRelation: relation}}
 	}
@@ -310,6 +325,85 @@ func fastReplaceString(value, source, replacement StringExpr) StringExpr {
 		return fastStringValue(value.contextID, strings.Replace(value.fast.value, source.fast.value, replacement.fast.value, 1))
 	}
 	return stringExprValue{contextID: value.contextID, term: smt.StringReplace(materializeString(value), materializeString(source), materializeString(replacement))}
+}
+
+func fastReplaceAllString(value, source, replacement StringExpr) StringExpr {
+	if value.contextID != source.contextID || value.contextID != replacement.contextID {
+		panic("gosmt: erased string replacement context mismatch")
+	}
+	if value.fast.kind == stringFastLiteral && source.fast.kind == stringFastLiteral && replacement.fast.kind == stringFastLiteral {
+		if source.fast.value == "" {
+			return value
+		}
+		return fastStringValue(value.contextID, strings.ReplaceAll(value.fast.value, source.fast.value, replacement.fast.value))
+	}
+	return stringExprValue{contextID: value.contextID, term: smt.StringReplaceAll(materializeString(value), materializeString(source), materializeString(replacement))}
+}
+
+func fastStringToInt(value StringExpr) IntExpr {
+	if value.fast.kind == stringFastLiteral {
+		text := value.fast.value
+		valid := text != ""
+		for index := 0; index < len(text); index++ {
+			valid = valid && text[index] >= '0' && text[index] <= '9'
+		}
+		if valid {
+			if small, err := strconv.ParseInt(text, 10, 64); err == nil {
+				return intExprValue{contextID: value.contextID, term: smt.Integer{Value: small}}
+			}
+			if integer, err := smt.ParseIntegerValue(text); err == nil {
+				return intExprValue{contextID: value.contextID, term: smt.IntegerTerm(integer)}
+			}
+		}
+		return intExprValue{contextID: value.contextID, term: smt.Integer{Value: -1}}
+	}
+	return intExprValue{contextID: value.contextID, term: smt.StringToInt(materializeString(value))}
+}
+
+func fastIntToString(value IntExpr) StringExpr {
+	if value.fast.kind == integerFastNone {
+		if integer, ok := smt.ExactIntegerConstant(value.term); ok {
+			if smt.CompareIntegerValue(integer, smt.NewIntegerValue(0)) < 0 {
+				return fastStringValue(value.contextID, "")
+			}
+			return fastStringValue(value.contextID, integer.String())
+		}
+	}
+	return stringExprValue{contextID: value.contextID, term: smt.IntToString(materializeInteger(value.term, value.fast))}
+}
+
+func fastStringToCode(value StringExpr) IntExpr {
+	if value.fast.kind == stringFastLiteral {
+		codes := smt.DecodeStringCodePoints(value.fast.value)
+		code := int64(-1)
+		if len(codes) == 1 {
+			code = int64(codes[0])
+		}
+		return intExprValue{contextID: value.contextID, term: smt.Integer{Value: code}}
+	}
+	return intExprValue{contextID: value.contextID, term: smt.StringToCode(materializeString(value))}
+}
+
+func fastCodeToString(value IntExpr) StringExpr {
+	if value.fast.kind == integerFastNone {
+		if integer, ok := smt.ExactIntegerConstant(value.term); ok {
+			if code, fits := integer.Int64(); fits {
+				if encoded, valid := smt.EncodeStringCodePoint(code); valid {
+					return fastStringValue(value.contextID, encoded)
+				}
+			}
+			return fastStringValue(value.contextID, "")
+		}
+	}
+	return stringExprValue{contextID: value.contextID, term: smt.StringFromCode(materializeInteger(value.term, value.fast))}
+}
+
+func fastStringIsDigit(value StringExpr) BoolExpr {
+	if value.fast.kind == stringFastLiteral {
+		text := value.fast.value
+		return boolExprValue{contextID: value.contextID, term: smt.Bool{Value: len(text) == 1 && text[0] >= '0' && text[0] <= '9'}}
+	}
+	return fastBooleanAtom(value.contextID, smt.StringIsDigit(materializeString(value)))
 }
 
 func indexOfRunes(value, substring string, offset int64) int64 {
@@ -1596,6 +1690,18 @@ func fastOr(values []BoolExpr) BoolExpr {
 
 func fastAnd(values []BoolExpr) BoolExpr {
 	context := booleanContext(values)
+	allConstants, result := len(values) > 0, true
+	for _, value := range values {
+		constant, ok := value.term.(smt.Bool)
+		if !ok || value.fast.kind != booleanFastNone {
+			allConstants = false
+			break
+		}
+		result = result && constant.Value
+	}
+	if allConstants {
+		return boolExprValue{contextID: context, term: smt.Bool{Value: result}}
+	}
 	if cnf, ok := compactBooleanCNF(values); ok {
 		return boolExprValue{contextID: context, term: cnf}
 	}
@@ -2099,6 +2205,13 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 func fastEqInteger(left, right IntExpr) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
+	}
+	if left.fast.kind == integerFastNone && right.fast.kind == integerFastNone {
+		leftValue, leftOK := smt.ExactIntegerConstant(left.term)
+		rightValue, rightOK := smt.ExactIntegerConstant(right.term)
+		if leftOK && rightOK {
+			return boolExprValue{contextID: left.contextID, term: smt.Bool{Value: smt.CompareIntegerValue(leftValue, rightValue) == 0}}
+		}
 	}
 	length, constant := left, right
 	if length.fast.kind != integerFastStringLength {

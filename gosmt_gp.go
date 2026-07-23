@@ -554,6 +554,36 @@ func ReplaceString(value StringExpr, source StringExpr, replacement StringExpr) 
 	return fastReplaceString(value, source, replacement)
 }
 
+//goplus:dep ReplaceAllString(0 c nat, value StringExpr[c], source StringExpr[c], replacement StringExpr[c]) StringExpr[c]
+func ReplaceAllString(value StringExpr, source StringExpr, replacement StringExpr) StringExpr {
+	return fastReplaceAllString(value, source, replacement)
+}
+
+//goplus:dep ToIntString(0 c nat, value StringExpr[c]) IntExpr[c]
+func ToIntString(value StringExpr) IntExpr {
+	return fastStringToInt(value)
+}
+
+//goplus:dep FromIntString(0 c nat, value IntExpr[c]) StringExpr[c]
+func FromIntString(value IntExpr) StringExpr {
+	return fastIntToString(value)
+}
+
+//goplus:dep ToCodeString(0 c nat, value StringExpr[c]) IntExpr[c]
+func ToCodeString(value StringExpr) IntExpr {
+	return fastStringToCode(value)
+}
+
+//goplus:dep FromCodeString(0 c nat, value IntExpr[c]) StringExpr[c]
+func FromCodeString(value IntExpr) StringExpr {
+	return fastCodeToString(value)
+}
+
+//goplus:dep IsDigitString(0 c nat, value StringExpr[c]) BoolExpr[c]
+func IsDigitString(value StringExpr) BoolExpr {
+	return fastStringIsDigit(value)
+}
+
 //goplus:dep DatatypeConst(datatype nat, constructors nat, 0 c nat, context Context[c], name string, id int) DatatypeExpr[c, datatype, constructors]
 func DatatypeConst(datatype int, constructors int, context Context, name string, id int) DatatypeExpr {
 	switch __gp_m5 := any(context).(type) {
@@ -2331,7 +2361,12 @@ func EvalIntExact(model Model, expression IntExpr) (smt.IntegerValue, bool) {
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
 			}
-			return smt.IntegerModelValue(core, materializeInteger(term, fast))
+			materialized := materializeInteger(term, fast)
+			value, found := smt.IntegerModelValue(core, materialized)
+			if found {
+				return value, true
+			}
+			return smt.ExactStringIntegerModelValue(core, materialized)
 		default:
 			panic("goplus: impossible enum value in match")
 		}

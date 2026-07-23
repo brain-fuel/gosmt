@@ -103,6 +103,39 @@ func TestContextIndexedStringOperations(t *testing.T) {
 	}
 }
 
+func TestContextIndexedStringConversions(t *testing.T) {
+	context := NewContext(11)
+	huge, err := smt.ParseIntegerValue("123456789012345678901234567890")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replaced := ReplaceAllString(StringVal(context, "aaaa"), StringVal(context, "aa"), StringVal(context, "b"))
+	parsed := ToIntString(StringVal(context, huge.String()))
+	rendered := FromIntString(IntValExact(context, huge))
+	surrogate := FromCodeString(IntVal(context, 0xd800))
+	formula := And(
+		EqString(replaced, StringVal(context, "bb")),
+		EqInt(parsed, IntValExact(context, huge)),
+		EqString(rendered, StringVal(context, huge.String())),
+		EqInt(ToCodeString(surrogate), IntVal(context, 0xd800)),
+		IsDigitString(StringVal(context, "7")),
+		Not(IsDigitString(StringVal(context, "٧"))),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	if actual, found := EvalIntExact(result.Value, parsed); !found || smt.CompareIntegerValue(actual, huge) != 0 {
+		t.Fatalf("parsed=(%v,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, rendered); !found || actual != huge.String() {
+		t.Fatalf("rendered=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, surrogate); !found || actual != string([]byte{0xed, 0xa0, 0x80}) {
+		t.Fatalf("surrogate=(%q,%v)", actual, found)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

@@ -167,6 +167,30 @@ func ReplaceString(0 c nat, value StringExpr[c], source StringExpr[c], replaceme
 	return fastReplaceString(value, source, replacement)
 }
 
+func ReplaceAllString(0 c nat, value StringExpr[c], source StringExpr[c], replacement StringExpr[c]) StringExpr[c] {
+	return fastReplaceAllString(value, source, replacement)
+}
+
+func ToIntString(0 c nat, value StringExpr[c]) IntExpr[c] {
+	return fastStringToInt(value)
+}
+
+func FromIntString(0 c nat, value IntExpr[c]) StringExpr[c] {
+	return fastIntToString(value)
+}
+
+func ToCodeString(0 c nat, value StringExpr[c]) IntExpr[c] {
+	return fastStringToCode(value)
+}
+
+func FromCodeString(0 c nat, value IntExpr[c]) StringExpr[c] {
+	return fastCodeToString(value)
+}
+
+func IsDigitString(0 c nat, value StringExpr[c]) BoolExpr[c] {
+	return fastStringIsDigit(value)
+}
+
 func DatatypeConst(datatype nat, constructors nat, 0 c nat, context Context[c], name string, id int) DatatypeExpr[c, datatype, constructors] {
 	match context { case contextValue(contextID): return datatypeExprValue(contextID, smt.DatatypeConst(datatype, constructors, id, name)) }
 }
@@ -884,7 +908,10 @@ func EvalIntExact(0 c nat, 0 a nat, model Model[c, a], expression IntExpr[c]) (s
 		match expression {
 		case intExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
-			return smt.IntegerModelValue(core, materializeInteger(term, fast))
+			materialized := materializeInteger(term, fast)
+			value, found := smt.IntegerModelValue(core, materialized)
+			if found { return value, true }
+			return smt.ExactStringIntegerModelValue(core, materialized)
 		}
 	}
 }
