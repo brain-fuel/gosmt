@@ -509,6 +509,45 @@ func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	}
 }
 
+func TestContextIndexedEightWordEquationInteraction(t *testing.T) {
+	context := NewContext(27)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	z := StringConst(context, "z", 3)
+	w := StringConst(context, "w", 4)
+	formula := And(
+		EqString(ConcatString(x, y), StringVal(context, "abc")),
+		EqString(ConcatString(x, StringVal(context, "-"), z), StringVal(context, "a-tail")),
+		EqString(ConcatString(y, w), StringVal(context, "bc!")),
+		EqString(ConcatString(z, w), StringVal(context, "tail!")),
+		EqString(ConcatString(StringVal(context, "<"), x, y), StringVal(context, "<abc")),
+		EqString(ConcatString(x, y, StringVal(context, ">")), StringVal(context, "abc>")),
+		EqString(ConcatString(StringVal(context, "["), z, w), StringVal(context, "[tail!")),
+		EqString(ConcatString(z, w, StringVal(context, "]")), StringVal(context, "tail!]")),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	for _, item := range []struct {
+		expression StringExpr
+		expected   string
+	}{
+		{x, "a"},
+		{y, "bc"},
+		{z, "tail"},
+		{w, "!"},
+	} {
+		if actual, found := EvalString(result.Value, item.expression); !found || actual != item.expected {
+			t.Fatalf("value=(%q,%v), want=%q", actual, found, item.expected)
+		}
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+}
+
 func TestContextIndexedWordEquationRegexInteraction(t *testing.T) {
 	context := NewContext(22)
 	x := StringConst(context, "x", 1)

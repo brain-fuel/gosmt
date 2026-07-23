@@ -54,7 +54,7 @@
    lengths contradictory. Unbounded/general Boolean regex constraints and
    lower/upper string-length inequalities now merge independently of assertion
    order and prune the same Unicode-boundary search. Unbounded/general Boolean
-   regex constraints remain. As many as four bounded ground-target equations
+   regex constraints remain. As many as eight bounded ground-target equations
    now share one globally backtracked model and resource limit, including
    alternative splits forced by later equations. Larger/unbounded or
    larger unbounded Boolean-regex equation systems remain. Positive and negative

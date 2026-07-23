@@ -545,6 +545,15 @@ assignments and the 4,096-state limit across both equations. It uses
 and 1.710–1.763 ms. This is 75.0% fewer allocations and over 458x
 conservative-endpoint throughput.
 
+The eight-equation workload globally couples four symbols across eight
+ground-target equations, including prefix/suffix-wrapped repetitions. A later
+equation forces `x = "a"`, after which the exact shared model is `y = "bc"`,
+`z = "tail"`, and `w = "!"`. Sixteen fixed conjunct slots and eight fixed
+equation slots avoid heap-backed search metadata while preserving the shared
+4,096-state limit. It uses 15 allocations and 12.196–12.216 us versus pinned
+Z3's 62 visible Go allocations and 2.992–3.069 ms. This is 75.8% fewer
+allocations and over 244x conservative-endpoint throughput.
+
 The regex-coupled workload solves `x ++ y = "abc"` while requiring
 `x` to belong to the union of the singleton languages `"a"` and `"ab"`.
 Membership is checked while assigning candidate splits, so the initial empty

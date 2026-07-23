@@ -625,6 +625,85 @@ func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringEightWordEquationQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(27)
+			x := gosmt.StringConst(context, "x", 1)
+			y := gosmt.StringConst(context, "y", 2)
+			z := gosmt.StringConst(context, "z", 3)
+			w := gosmt.StringConst(context, "w", 4)
+			stringValue := func(value string) gosmt.StringExpr {
+				return gosmt.StringVal(context, value)
+			}
+			formula := gosmt.And(
+				gosmt.EqString(gosmt.ConcatString(x, y), stringValue("abc")),
+				gosmt.EqString(gosmt.ConcatString(x, stringValue("-"), z), stringValue("a-tail")),
+				gosmt.EqString(gosmt.ConcatString(y, w), stringValue("bc!")),
+				gosmt.EqString(gosmt.ConcatString(z, w), stringValue("tail!")),
+				gosmt.EqString(gosmt.ConcatString(stringValue("<"), x, y), stringValue("<abc")),
+				gosmt.EqString(gosmt.ConcatString(x, y, stringValue(">")), stringValue("abc>")),
+				gosmt.EqString(gosmt.ConcatString(stringValue("["), z, w), stringValue("[tail!")),
+				gosmt.EqString(gosmt.ConcatString(z, w, stringValue("]")), stringValue("tail!]")),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			for _, item := range []struct {
+				expression gosmt.StringExpr
+				expected   string
+			}{
+				{x, "a"},
+				{y, "bc"},
+				{z, "tail"},
+				{w, "!"},
+			} {
+				if value, found := gosmt.EvalString(result.Value, item.expression); !found || value != item.expected {
+					b.Fatal("invalid eight-equation model")
+				}
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid eight-equation formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			y := context.MkConst(context.MkStringSymbol("y"), stringSort)
+			z := context.MkConst(context.MkStringSymbol("z"), stringSort)
+			w := context.MkConst(context.MkStringSymbol("w"), stringSort)
+			stringValue := context.MkString
+			formula := context.MkAnd(
+				context.MkEq(context.MkSeqConcat(x, y), stringValue("abc")),
+				context.MkEq(context.MkSeqConcat(x, stringValue("-"), z), stringValue("a-tail")),
+				context.MkEq(context.MkSeqConcat(y, w), stringValue("bc!")),
+				context.MkEq(context.MkSeqConcat(z, w), stringValue("tail!")),
+				context.MkEq(context.MkSeqConcat(stringValue("<"), x, y), stringValue("<abc")),
+				context.MkEq(context.MkSeqConcat(x, y, stringValue(">")), stringValue("abc>")),
+				context.MkEq(context.MkSeqConcat(stringValue("["), z, w), stringValue("[tail!")),
+				context.MkEq(context.MkSeqConcat(z, w, stringValue("]")), stringValue("tail!]")),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, y, z, w, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid eight-equation model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringWordEquationRegexQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -677,6 +677,48 @@ func TestMultipleWordEquationCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestEightWordEquationCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		left := fmt.Sprintf("left%02d", example)
+		right := "right"
+		if example%4 >= 2 {
+			left, right = `\u{1f642}`, "a"
+		}
+		last := fmt.Sprintf(`(= (str.++ z w "]") "%s!]")`, "tail")
+		if example%2 != 0 {
+			last = `(= (str.++ z w "]") "wrong]")`
+		}
+		script := fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+(declare-const y String)
+(declare-const z String)
+(declare-const w String)
+(assert (= (str.++ x y) "%s%s"))
+(assert (= (str.++ x "-" z) "%s-tail"))
+(assert (= (str.++ y w) "%s!"))
+(assert (= (str.++ z w) "tail!"))
+(assert (= (str.++ "<" x y) "<%s%s"))
+(assert (= (str.++ x y ">") "%s%s>"))
+(assert (= (str.++ "[" z w) "[tail!"))
+(assert %s)
+(check-sat)`, left, right, left, right, left, right, left, right, last)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestWordEquationRegexCorpusAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {
