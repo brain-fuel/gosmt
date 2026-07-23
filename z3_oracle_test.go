@@ -1782,6 +1782,135 @@ func TestMultiSymbolAffineIntegerSequenceLengthInequalityCorpusAgreesWithPinnedZ
 	}
 }
 
+func TestInteractingAffineIntegerSequenceLengthRelationCorpusAgreesWithPinnedZ3(
+	t *testing.T,
+) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(1300 + example)
+		x := IntSequenceConst(context, "x", 1)
+		y := IntSequenceConst(context, "y", 2)
+		z := IntSequenceConst(context, "z", 3)
+		xLength := LengthIntSequence(x)
+		yLength := LengthIntSequence(y)
+		zLength := LengthIntSequence(z)
+		sum := Add(xLength, yLength, zLength)
+		target := int64(example % 6)
+		formula := And(
+			Le(IntVal(context, target), sum),
+			Le(sum, IntVal(context, target+2)),
+		)
+		assertions := fmt.Sprintf(
+			"(assert (<= %d (+ (seq.len x) (seq.len y) (seq.len z))))\n"+
+				"(assert (<= (+ (seq.len x) (seq.len y) (seq.len z)) %d))",
+			target,
+			target+2,
+		)
+		switch example % 8 {
+		case 1:
+			formula = And(
+				Le(IntVal(context, 6), sum),
+				Le(
+					Add(ScaleInt64(2, xLength), yLength, zLength),
+					IntVal(context, 8),
+				),
+			)
+			assertions = `(assert (<= 6 (+ (seq.len x) (seq.len y) (seq.len z))))
+(assert (<= (+ (* 2 (seq.len x)) (seq.len y) (seq.len z)) 8))`
+		case 2:
+			pair := Add(xLength, yLength)
+			formula = And(
+				Le(pair, IntVal(context, 2)),
+				Le(IntVal(context, 3), pair),
+			)
+			assertions = `(assert (<= (+ (seq.len x) (seq.len y)) 2))
+(assert (<= 3 (+ (seq.len x) (seq.len y))))`
+		case 3:
+			formula = And(
+				EqInt(sum, IntVal(context, 6)),
+				Le(
+					Add(ScaleInt64(2, xLength), yLength, zLength),
+					IntVal(context, 8),
+				),
+			)
+			assertions = `(assert (= (+ (seq.len x) (seq.len y) (seq.len z)) 6))
+(assert (<= (+ (* 2 (seq.len x)) (seq.len y) (seq.len z)) 8))`
+		case 4:
+			formula = And(
+				Le(IntVal(context, 6), sum),
+				Le(
+					Add(ScaleInt64(2, xLength), yLength, zLength),
+					IntVal(context, 8),
+				),
+				EqInt(xLength, IntVal(context, 2)),
+				EqInt(yLength, IntVal(context, 1)),
+				EqInt(zLength, IntVal(context, 3)),
+			)
+			assertions = `(assert (<= 6 (+ (seq.len x) (seq.len y) (seq.len z))))
+(assert (<= (+ (* 2 (seq.len x)) (seq.len y) (seq.len z)) 8))
+(assert (= (seq.len x) 2))
+(assert (= (seq.len y) 1))
+(assert (= (seq.len z) 3))`
+		case 5:
+			formula = And(
+				Le(
+					Add(ScaleInt64(2, xLength), yLength, zLength),
+					IntVal(context, 7),
+				),
+				EqInt(xLength, IntVal(context, 2)),
+				EqInt(yLength, IntVal(context, 1)),
+				EqInt(zLength, IntVal(context, 3)),
+			)
+			assertions = `(assert (<= (+ (* 2 (seq.len x)) (seq.len y) (seq.len z)) 7))
+(assert (= (seq.len x) 2))
+(assert (= (seq.len y) 1))
+(assert (= (seq.len z) 3))`
+		case 6:
+			formula = And(
+				Le(
+					Add(xLength, yLength, ScaleInt64(-2, zLength)),
+					IntVal(context, -3),
+				),
+				Le(sum, IntVal(context, 4)),
+			)
+			assertions = `(assert (<= (+ (seq.len x) (seq.len y) (* (- 2) (seq.len z))) (- 3)))
+(assert (<= (+ (seq.len x) (seq.len y) (seq.len z)) 4))`
+		case 7:
+			formula = And(
+				Lt(sum, IntVal(context, 4)),
+				Lt(IntVal(context, 4), sum),
+			)
+			assertions = `(assert (< (+ (seq.len x) (seq.len y) (seq.len z)) 4))
+(assert (< 4 (+ (seq.len x) (seq.len y) (seq.len z))))`
+		}
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+(declare-const x (Seq Int))
+(declare-const y (Seq Int))
+(declare-const z (Seq Int))
+` + assertions + `
+(check-sat)`
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)

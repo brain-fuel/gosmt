@@ -1180,6 +1180,7 @@ func TestContextIndexedTwoSymbolAffineIntegerSequenceLengths(t *testing.T) {
 	}() == false {
 		t.Fatalf("conflicting result=%T", checked)
 	}
+
 }
 
 func TestContextIndexedThreeSymbolAffineIntegerSequenceLengths(t *testing.T) {
@@ -1231,6 +1232,43 @@ func TestContextIndexedThreeSymbolAffineIntegerSequenceLengths(t *testing.T) {
 		return ok
 	}() == false {
 		t.Fatalf("conflicting result=%T", checked)
+	}
+
+	system := And(
+		Le(
+			IntVal(context, 6),
+			Add(
+				LengthIntSequence(x),
+				LengthIntSequence(y),
+				LengthIntSequence(z),
+			),
+		),
+		Le(
+			Add(
+				ScaleInt64(2, LengthIntSequence(x)),
+				LengthIntSequence(y),
+				LengthIntSequence(z),
+			),
+			IntVal(context, 8),
+		),
+		HasPrefixIntSequence(x, unit(1)),
+		HasPrefixIntSequence(y, unit(2)),
+		HasPrefixIntSequence(z, unit(3)),
+	)
+	systemResult, ok := Check(Assert(3, NewSolver(context), system)).(Sat)
+	if !ok {
+		t.Fatal("interacting inequalities must be satisfiable")
+	}
+	xValue, xFound = EvalIntSequence(systemResult.Value, x)
+	yValue, yFound = EvalIntSequence(systemResult.Value, y)
+	zValue, zFound = EvalIntSequence(systemResult.Value, z)
+	total := xValue.Len() + yValue.Len() + zValue.Len()
+	if !xFound || !yFound || !zFound || total < 6 ||
+		2*xValue.Len()+yValue.Len()+zValue.Len() > 8 {
+		t.Fatalf(
+			"system lengths=(%d,%v)/(%d,%v)/(%d,%v)",
+			xValue.Len(), xFound, yValue.Len(), yFound, zValue.Len(), zFound,
+		)
 	}
 }
 

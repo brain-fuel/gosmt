@@ -95,8 +95,7 @@
    Exact ground lengths now use bounded complete containment placement,
    prefix/suffix overlap, deterministic zero filling, and exact
    negative/conflicting/too-short proofs. Non-conjunctive,
-   four-or-more-symbol length systems, simultaneous multi-symbol inequality
-   systems, and
+   affine systems spanning four or more canonical sequence symbols, and
    non-integer symbolic sequence solving remain. Ground strict/non-strict
    lower and upper length bounds now search admissible lengths with shared
    placement resources and prove contradictory bounds independently of
@@ -116,8 +115,10 @@
    and atomically commit all three witnesses.
    One strict or non-strict affine inequality across two or three canonical
    lengths now uses sign-correct integer bounds, minimum-feasibility pruning,
-   and exact witness construction after equality relations. Conjunctions of
-   multiple multi-symbol inequalities remain explicitly unsupported.
+   and exact witness construction after equality relations.
+   Multiple affine equalities and inequalities over up to three canonical
+   roots now use one bounded global search, interval feasibility pruning,
+   final-bound intersection, and atomic witness commitment.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.
