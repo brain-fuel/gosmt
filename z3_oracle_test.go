@@ -2930,6 +2930,126 @@ func TestNineSymbolAffineIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSeventeenSymbolAffineIntegerSequenceCorpusAgreesWithPinnedZ3(
+	t *testing.T,
+) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(2400 + example)
+		expressions := make([]IntSequenceExpr, 17)
+		lengths := make([]IntExpr, len(expressions))
+		constraints := make([]BoolExpr, 0, len(expressions)+1)
+		var declarations strings.Builder
+		var requirements strings.Builder
+		for index := range expressions {
+			name := fmt.Sprintf("x%d", index)
+			expressions[index] = IntSequenceConst(context, name, index+1)
+			lengths[index] = LengthIntSequence(expressions[index])
+			fmt.Fprintf(&declarations, "(declare-const %s (Seq Int))\n", name)
+			value := int64(index + 1)
+			if example%8 == 7 {
+				constraints = append(
+					constraints,
+					HasSuffixIntSequence(
+						expressions[index],
+						UnitIntSequence(IntVal(context, value)),
+					),
+				)
+				fmt.Fprintf(
+					&requirements,
+					"(seq.suffixof (seq.unit %d) x%d) ",
+					value,
+					index,
+				)
+				continue
+			}
+			prefix := UnitIntSequence(IntVal(context, value))
+			if index == 0 && (example%8 == 3 || example%8 == 4) {
+				prefix = ConcatIntSequence(
+					prefix, UnitIntSequence(IntVal(context, 99)),
+				)
+			}
+			constraints = append(
+				constraints,
+				HasPrefixIntSequence(expressions[index], prefix),
+			)
+			if index == 0 && (example%8 == 3 || example%8 == 4) {
+				fmt.Fprintf(
+					&requirements,
+					"(seq.prefixof (seq.++ (seq.unit %d) (seq.unit 99)) x0) ",
+					value,
+				)
+			} else {
+				fmt.Fprintf(
+					&requirements,
+					"(seq.prefixof (seq.unit %d) x%d) ",
+					value,
+					index,
+				)
+			}
+		}
+		target := int64(17)
+		sum := Add(lengths...)
+		sumSMT := "(+"
+		for index := range expressions {
+			sumSMT += fmt.Sprintf(" (seq.len x%d)", index)
+		}
+		sumSMT += ")"
+		switch example % 8 {
+		case 1:
+			target = 16
+		case 2:
+			target = 18
+		case 3:
+			target = 17
+		case 4:
+			target = 18
+		case 5:
+			for index, length := range lengths {
+				constraints = append(
+					constraints, EqInt(length, IntVal(context, 1)),
+				)
+				fmt.Fprintf(&requirements, "(= (seq.len x%d) 1) ", index)
+			}
+		case 6:
+			sum = Add(ScaleInt64(2, lengths[0]), Add(lengths[1:]...))
+			sumSMT = "(+ (* 2 (seq.len x0))"
+			for index := 1; index < len(expressions); index++ {
+				sumSMT += fmt.Sprintf(" (seq.len x%d)", index)
+			}
+			sumSMT += ")"
+			target = 18
+		}
+		constraints = append(constraints, EqInt(sum, IntVal(context, target)))
+		formula := And(constraints...)
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+` + declarations.String() + `(assert (and ` + requirements.String() +
+			fmt.Sprintf("(= %s %d)))\n(check-sat)", sumSMT, target)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf(
+				"seventeen-root example %d: gosmt=%s (%#v) z3=%s\n%s",
+				example, oursStatus, ours, want, script,
+			)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)

@@ -114,9 +114,10 @@
    and affine construction, support assigned targets with exact pattern-side
    requirements, and validate final models. Cyclic dependency graphs are exact:
    whichever root is built later receives both value-side and pattern-side
-   constraints against earlier models. Affine systems spanning seventeen or more
-   canonical sequence symbols and non-integer symbolic sequence solving remain.
-   Ground strict/non-strict
+   constraints against earlier models. Affine systems retain sixteen roots
+   inline, then continue through exact overflow normalization, dynamic global
+   search, and atomic models under the 4,096-resource contract. Non-integer
+   symbolic sequence solving remains. Ground strict/non-strict
    lower and upper length bounds now search admissible lengths with shared
    placement resources and prove contradictory bounds independently of
    assertion order.
@@ -140,7 +141,9 @@
    roots now use one bounded global search, interval feasibility pruning,
    equality interval contradiction proofs, final-bound intersection, and
    atomic witness commitment. Normalization, aliases, requirements, candidates,
-   and exact models share the sixteen-root inline capacity.
+   and exact models share the sixteen-root inline capacity. Larger systems use
+   exact overflow relations and dynamically sized global-search vectors under
+   the same 4,096-resource boundary.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

@@ -76,9 +76,10 @@ pattern root. Patterns are nonempty, affine candidates prefer dependency
 order, and the later root receives both value-side and pattern-side exact
 constraints against every earlier model. This also closes cyclic dependency
 graphs without approximating them; assigned targets and final model validation
-use the same bidirectional representation. Affine systems spanning seventeen
-or more canonical sequence symbols and symbolic-element sequence search remain
-explicit future work.
+use the same bidirectional representation. Affine systems keep sixteen roots
+inline and continue through exact overflow storage and dynamic global search
+under the shared 4,096-resource contract. Symbolic-element sequence search
+remains explicit future work.
 Ground strict
 and non-strict length bounds now normalize into exact lower/upper requirements,
 search admissible lengths with the same placement engine, and prove
@@ -108,7 +109,9 @@ prune infeasible branches, final exact values and inequality bounds intersect,
 and all local witnesses commit atomically. Normalization, aliases,
 requirements, candidate search, and exact models share the sixteen-root
 capacity; equality interval pruning proves impossible totals before bounded
-enumeration.
+enumeration. Larger root sets retain those sixteen inline entries and continue
+through exact overflow relations, requirements, candidates, and atomic models
+up to the shared 4,096-resource boundary.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,

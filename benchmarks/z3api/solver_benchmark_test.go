@@ -2206,6 +2206,121 @@ func BenchmarkNineSymbolAffineIntegerSequenceLengthRelationQFSeq(b *testing.B) {
 	})
 }
 
+func BenchmarkSeventeenSymbolAffineIntegerSequenceLengthRelationQFSeq(
+	b *testing.B,
+) {
+	names := [17]string{
+		"a", "b", "c", "d", "e", "f", "g", "h", "i",
+		"j", "k", "l", "m", "n", "o", "p", "q",
+	}
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(58)
+			expressions := make([]gosmt.IntSequenceExpr, len(names))
+			lengths := make([]gosmt.IntExpr, len(names))
+			constraints := make([]gosmt.BoolExpr, 0, len(names)+1)
+			for root := range names {
+				expressions[root] = gosmt.IntSequenceConst(
+					context, names[root], root+1,
+				)
+				lengths[root] = gosmt.LengthIntSequence(expressions[root])
+				constraints = append(
+					constraints,
+					gosmt.HasPrefixIntSequence(
+						expressions[root],
+						gosmt.ConcatIntSequence(
+							gosmt.UnitIntSequence(
+								gosmt.IntVal(context, int64(root*4+1)),
+							),
+							gosmt.UnitIntSequence(
+								gosmt.IntVal(context, int64(root*4+2)),
+							),
+							gosmt.UnitIntSequence(
+								gosmt.IntVal(context, int64(root*4+3)),
+							),
+							gosmt.UnitIntSequence(
+								gosmt.IntVal(context, int64(root*4+4)),
+							),
+						),
+					),
+				)
+			}
+			constraints = append(
+				constraints,
+				gosmt.EqInt(
+					gosmt.Add(lengths...),
+					gosmt.IntVal(context, int64(len(names)*4)),
+				),
+			)
+			formula := gosmt.And(constraints...)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			for _, expression := range expressions {
+				value, found := gosmt.EvalIntSequence(result.Value, expression)
+				if !found || value.Len() != 4 {
+					b.Fatal("invalid seventeen-symbol model")
+				}
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			expressions := make([]*z3.Expr, len(names))
+			lengths := make([]*z3.Expr, len(names))
+			constraints := make([]*z3.Expr, 0, len(names)+1)
+			for root := range names {
+				expressions[root] = context.MkConst(
+					context.MkStringSymbol(names[root]), sequenceSort,
+				)
+				lengths[root] = context.MkSeqLength(expressions[root])
+				constraints = append(
+					constraints,
+					context.MkSeqPrefix(
+						context.MkSeqConcat(
+							context.MkSeqUnit(context.MkInt(root*4+1, intSort)),
+							context.MkSeqUnit(context.MkInt(root*4+2, intSort)),
+							context.MkSeqUnit(context.MkInt(root*4+3, intSort)),
+							context.MkSeqUnit(context.MkInt(root*4+4, intSort)),
+						),
+						expressions[root],
+					),
+				)
+			}
+			constraints = append(
+				constraints,
+				context.MkEq(
+					context.MkAdd(lengths...),
+					context.MkInt(len(names)*4, intSort),
+				),
+			)
+			formula := context.MkAnd(constraints...)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for root := range expressions {
+				if _, found := model.Eval(expressions[root], true); !found {
+					b.Fatal("invalid seventeen-symbol sequence model")
+				}
+				if _, found := model.Eval(lengths[root], true); !found {
+					b.Fatal("invalid seventeen-symbol length model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkDisjunctiveSymbolicIntegerSequenceQFSeq(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
