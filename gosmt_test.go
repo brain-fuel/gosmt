@@ -340,6 +340,35 @@ func TestContextIndexedCanonicalBoundedWordEquation(t *testing.T) {
 	}
 }
 
+func TestContextIndexedRepeatedSymbolWordEquation(t *testing.T) {
+	context := NewContext(18)
+	x := StringConst(context, "x", 1)
+	formula := EqString(
+		ConcatString(x, StringVal(context, "-"), x),
+		StringVal(context, "go-go"),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "go" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	impossible := EqString(
+		ConcatString(x, StringVal(context, "-"), x),
+		StringVal(context, "go-rust"),
+	)
+	checked = Check(Assert(2, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

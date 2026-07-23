@@ -44,10 +44,11 @@
    nonempty literal delimiters also receive exact constructive models,
    including interaction with additional equalities. Standalone bounded
    equations with adjacent symbols or multiply occurring delimiters select a
-   deterministic leftmost canonical model without treating that choice as
-   forced during conjunction propagation. Unbounded/general Boolean regex
-   constraints and repeated-symbol, larger, or generally interacting ambiguous
-   word equations remain.
+   deterministic shortest-first canonical model without treating that choice
+   as forced during conjunction propagation. Bounded exhaustive search now
+   covers repeated symbols and every Unicode-boundary split under an explicit
+   4,096-state limit. Unbounded/general Boolean regex constraints and larger or
+   generally interacting ambiguous word equations remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

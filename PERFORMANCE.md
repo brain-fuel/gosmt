@@ -75,6 +75,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | single-unknown QF_SLIA word equation + evaluation | ~1.575–1.586 us, 8,192 B, 6 allocs | ~0.979–1.059 ms, 256 B, 17 allocs | green (>617x) | green (target ≤8 allocs) |
 | two-symbol uniquely delimited QF_SLIA word equation + evaluation | ~1.728–1.755 us, 7,888 B, 6 allocs | ~1.951–2.042 ms, 368 B, 23 allocs | green (>1,111x) | green (target ≤11 allocs) |
 | two-adjacent-symbol canonical QF_SLIA word equation + evaluation | ~1.698–1.714 us, 7,888 B, 6 allocs | ~1.195–1.264 ms, 288 B, 20 allocs | green (>697x) | green (target ≤10 allocs) |
+| repeated-symbol QF_SLIA word equation + evaluation | ~1.711–1.740 us, 7,888 B, 6 allocs | ~2.711–2.820 ms, 240 B, 16 allocs | green (>1,558x) | green (target ≤8 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -493,6 +494,14 @@ propagation still requires a unique forced split. It uses 6 allocations and
 1.698–1.714 us versus pinned Z3's 20 visible Go allocations and
 1.195–1.264 ms. This is 70.0% fewer allocations and over 697x
 conservative-endpoint throughput.
+
+The repeated-symbol workload solves `x ++ "-" ++ x = "go-go"`, extracts
+`x = "go"`, and validates the complete equation. Bounded exhaustive search
+tries every valid Unicode byte boundary in deterministic shortest-first order,
+reuses assignments at repeated occurrences, and returns `unknown` after 4,096
+states rather than approximating. It uses 6 allocations and 1.711–1.740 us
+versus pinned Z3's 16 visible Go allocations and 2.711–2.820 ms. This is 62.5%
+fewer allocations and over 1,558x conservative-endpoint throughput.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph

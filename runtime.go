@@ -341,11 +341,6 @@ func compactStringPattern(values []StringExpr) (smt.CompactStringPattern, bool) 
 			if pattern.Count == len(pattern.SymbolIDs) {
 				return smt.CompactStringPattern{}, false
 			}
-			for index := 0; index < pattern.Count; index++ {
-				if pattern.SymbolIDs[index] == value.fast.id {
-					return smt.CompactStringPattern{}, false
-				}
-			}
 			pattern.Delimiters[pattern.Count] = literal
 			pattern.SymbolIDs[pattern.Count] = value.fast.id
 			pattern.SymbolNames[pattern.Count] = value.fast.name
