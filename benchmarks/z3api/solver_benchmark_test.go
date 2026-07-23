@@ -2552,6 +2552,89 @@ func BenchmarkPairDisequalitySymbolicIntegerSequenceQFSeq(b *testing.B) {
 	})
 }
 
+func BenchmarkNegatedSymbolicPatternIntegerSequenceQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(53)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			x := gosmt.IntSequenceConst(context, "x", 1)
+			y := gosmt.IntSequenceConst(context, "y", 2)
+			prefix := gosmt.ConcatIntSequence(
+				unit(1), unit(2), unit(3), unit(4),
+				unit(5), unit(6), unit(7),
+			)
+			formula := gosmt.And(
+				gosmt.EqInt(
+					gosmt.LengthIntSequence(x),
+					gosmt.LengthIntSequence(y),
+				),
+				gosmt.HasPrefixIntSequence(x, prefix),
+				gosmt.HasPrefixIntSequence(y, prefix),
+				gosmt.Not(gosmt.HasPrefixIntSequence(x, y)),
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			xValue, xFound := gosmt.EvalIntSequence(result.Value, x)
+			yValue, yFound := gosmt.EvalIntSequence(result.Value, y)
+			if !xFound || !yFound || xValue.Len() != 8 || yValue.Len() != 8 {
+				b.Fatal("invalid symbolic-pattern sequence models")
+			}
+			if valid, found := gosmt.EvalBool(
+				result.Value, formula,
+			); !found || !valid {
+				b.Fatal("invalid symbolic-pattern sequence formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			x := context.MkConst(context.MkStringSymbol("x"), sequenceSort)
+			y := context.MkConst(context.MkStringSymbol("y"), sequenceSort)
+			prefix := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(1, intSort)),
+				context.MkSeqUnit(context.MkInt(2, intSort)),
+				context.MkSeqUnit(context.MkInt(3, intSort)),
+				context.MkSeqUnit(context.MkInt(4, intSort)),
+				context.MkSeqUnit(context.MkInt(5, intSort)),
+				context.MkSeqUnit(context.MkInt(6, intSort)),
+				context.MkSeqUnit(context.MkInt(7, intSort)),
+			)
+			xLength := context.MkSeqLength(x)
+			yLength := context.MkSeqLength(y)
+			formula := context.MkAnd(
+				context.MkEq(xLength, yLength),
+				context.MkSeqPrefix(prefix, x),
+				context.MkSeqPrefix(prefix, y),
+				context.MkNot(context.MkSeqPrefix(y, x)),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{
+				x, y, xLength, yLength, formula,
+			} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid symbolic-pattern sequence model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

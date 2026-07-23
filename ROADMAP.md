@@ -109,9 +109,13 @@
    contradictions. Pairwise symbolic sequence disequality now orders candidate
    roots, excludes prior neighbor models inside single/global affine search,
    and backtracks coupled lengths when a current assignment cannot be made
-   distinct. Symbolic-pattern negative predicates, affine systems spanning nine
-   or more canonical sequence symbols, and non-integer symbolic sequence
-   solving remain. Ground strict/non-strict
+   distinct. Negated contains/prefix/suffix predicates with a symbolic pattern
+   now require a nonempty pattern, topologically order acyclic pattern
+   dependencies through independent and affine construction, support assigned
+   targets with exact pattern-side requirements, and validate final models.
+   Cyclic symbolic-pattern dependencies, affine systems spanning nine or more
+   canonical sequence symbols, and non-integer symbolic sequence solving
+   remain. Ground strict/non-strict
    lower and upper length bounds now search admissible lengths with shared
    placement resources and prove contradictory bounds independently of
    assertion order.

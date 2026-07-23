@@ -71,9 +71,14 @@ choices, while empty-pattern contradictions are exact. Disequality between two
 symbolic sequence roots is also constructive: ordered candidate building
 excludes every earlier neighbor model inside single- and multi-relation affine
 search, so fully constrained equality backtracks to another length assignment.
-Symbolic-pattern negative predicates, affine systems spanning nine or more
-canonical sequence symbols, and symbolic-element sequence search remain
-explicit future work. Ground strict
+Negated `contains`, `prefix`, and `suffix` also accept a distinct symbolic
+pattern root when the resulting pattern-dependency graph is acyclic. Patterns
+are constructed nonempty before dependent values, affine candidates follow
+the same dependency order, assigned targets add exact pattern-side
+requirements, and final models are validated. Cyclic symbolic-pattern
+dependencies, affine systems spanning nine or more canonical sequence
+symbols, and symbolic-element sequence search remain explicit future work.
+Ground strict
 and non-strict length bounds now normalize into exact lower/upper requirements,
 search admissible lengths with the same placement engine, and prove
 order-independent bound conflicts.
