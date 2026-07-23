@@ -106,10 +106,12 @@
    Negated ground contains/prefix/suffix constraints now fill free positions
    with an integer absent from every forbidden pattern, backtrack fixed
    violations through positive placements and lengths, and prove empty-pattern
-   contradictions. Disequality between two unassigned sequence symbols,
-   symbolic-pattern negative predicates, affine systems spanning nine or more
-   canonical sequence symbols, and non-integer symbolic sequence solving
-   remain. Ground strict/non-strict
+   contradictions. Pairwise symbolic sequence disequality now orders candidate
+   roots, excludes prior neighbor models inside single/global affine search,
+   and backtracks coupled lengths when a current assignment cannot be made
+   distinct. Symbolic-pattern negative predicates, affine systems spanning nine
+   or more canonical sequence symbols, and non-integer symbolic sequence
+   solving remain. Ground strict/non-strict
    lower and upper length bounds now search admissible lengths with shared
    placement resources and prove contradictory bounds independently of
    assertion order.

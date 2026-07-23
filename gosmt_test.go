@@ -1538,6 +1538,47 @@ func TestContextIndexedSymbolicIntegerSequenceGroundDisequality(t *testing.T) {
 	}
 }
 
+func TestContextIndexedSymbolicIntegerSequencePairDisequality(t *testing.T) {
+	context := NewContext(52)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	y := IntSequenceConst(context, "y", 2)
+	disequal := Not(EqIntSequence(x, y))
+	formula := And(
+		EqInt(LengthIntSequence(x), LengthIntSequence(y)),
+		HasPrefixIntSequence(x, unit(1)),
+		HasPrefixIntSequence(y, unit(1)),
+		disequal,
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	xValue, xFound := EvalIntSequence(result.Value, x)
+	yValue, yFound := EvalIntSequence(result.Value, y)
+	if !xFound || !yFound || xValue.Len() != 2 || yValue.Len() != 2 {
+		t.Fatalf("models=(%d,%v)/(%d,%v)", xValue.Len(), xFound, yValue.Len(), yFound)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	fixed := And(
+		EqIntSequence(x, unit(2)),
+		EqIntSequence(y, unit(2)),
+		disequal,
+	)
+	if checked := Check(Assert(2, NewSolver(context), fixed)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("fixed result=%T", checked)
+	}
+}
+
 func TestContextIndexedNegatedGroundSymbolicIntegerSequencePredicates(t *testing.T) {
 	context := NewContext(51)
 	unit := func(value int64) IntSequenceExpr {

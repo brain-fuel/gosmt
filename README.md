@@ -68,9 +68,12 @@ contract. Negated ground `contains`, `prefix`, and `suffix` constraints use a
 fresh integer absent from every forbidden pattern for unconstrained positions;
 fixed violations backtrack through positive containment placements and length
 choices, while empty-pattern contradictions are exact. Disequality between two
-unassigned sequence symbols, symbolic-pattern negative predicates, affine
-systems spanning nine or more canonical sequence symbols, and symbolic-element
-sequence search remain explicit future work. Ground strict
+symbolic sequence roots is also constructive: ordered candidate building
+excludes every earlier neighbor model inside single- and multi-relation affine
+search, so fully constrained equality backtracks to another length assignment.
+Symbolic-pattern negative predicates, affine systems spanning nine or more
+canonical sequence symbols, and symbolic-element sequence search remain
+explicit future work. Ground strict
 and non-strict length bounds now normalize into exact lower/upper requirements,
 search admissible lengths with the same placement engine, and prove
 order-independent bound conflicts.

@@ -2521,6 +2521,98 @@ func TestNegatedGroundSymbolicIntegerSequencePredicateCorpusAgreesWithPinnedZ3(t
 	}
 }
 
+func TestSymbolicIntegerSequencePairDisequalityCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(2000 + example)
+		x := IntSequenceConst(context, "x", 1)
+		y := IntSequenceConst(context, "y", 2)
+		unit := func(value int64) IntSequenceExpr {
+			return UnitIntSequence(IntVal(context, value))
+		}
+		xLength := LengthIntSequence(x)
+		yLength := LengthIntSequence(y)
+		disequal := Not(EqIntSequence(x, y))
+		formula := disequal
+		assertions := "(assert (not (= x y)))"
+		switch example % 8 {
+		case 1:
+			formula = And(
+				EqInt(xLength, IntVal(context, 0)),
+				EqInt(yLength, IntVal(context, 0)),
+				disequal,
+			)
+			assertions = "(assert (and (= (seq.len x) 0) (= (seq.len y) 0) (not (= x y))))"
+		case 2:
+			formula = And(
+				EqInt(xLength, IntVal(context, 1)),
+				EqInt(yLength, IntVal(context, 1)),
+				disequal,
+			)
+			assertions = "(assert (and (= (seq.len x) 1) (= (seq.len y) 1) (not (= x y))))"
+		case 3:
+			formula = And(
+				EqInt(xLength, yLength),
+				HasPrefixIntSequence(x, unit(1)),
+				HasPrefixIntSequence(y, unit(1)),
+				disequal,
+			)
+			assertions = "(assert (and (= (seq.len x) (seq.len y)) (seq.prefixof (seq.unit 1) x) (seq.prefixof (seq.unit 1) y) (not (= x y))))"
+		case 4:
+			formula = And(
+				EqIntSequence(x, unit(2)),
+				EqIntSequence(y, unit(2)),
+				disequal,
+			)
+			assertions = "(assert (and (= x (seq.unit 2)) (= y (seq.unit 2)) (not (= x y))))"
+		case 5:
+			formula = And(EqIntSequence(x, y), disequal)
+			assertions = "(assert (and (= x y) (not (= x y))))"
+		case 6:
+			formula = And(EqIntSequence(x, unit(3)), disequal)
+			assertions = "(assert (and (= x (seq.unit 3)) (not (= x y))))"
+		case 7:
+			formula = And(
+				EqInt(
+					Add(
+						ScaleInt64(2, xLength),
+						ScaleInt64(-2, yLength),
+					),
+					IntVal(context, 0),
+				),
+				HasSuffixIntSequence(x, unit(4)),
+				HasSuffixIntSequence(y, unit(4)),
+				disequal,
+			)
+			assertions = "(assert (and (= (+ (* 2 (seq.len x)) (* (- 2) (seq.len y))) 0) (seq.suffixof (seq.unit 4) x) (seq.suffixof (seq.unit 4) y) (not (= x y))))"
+		}
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+(declare-const x (Seq Int))
+(declare-const y (Seq Int))
+` + assertions + `
+(check-sat)`
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)
