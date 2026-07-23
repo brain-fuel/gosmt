@@ -1215,6 +1215,11 @@ func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
 	}
+	if relation, ok := compactStringLengthComparison(left, right, strict); ok {
+		return boolExprValue{contextID: left.contextID, fast: booleanFast{
+			kind: booleanFastStringRelation, stringRelation: relation,
+		}}
+	}
 	leftTerm, rightTerm := materializeInteger(left.term, left.fast), materializeInteger(right.term, right.fast)
 	if constraint, ok := compactIntegerDifference(leftTerm, rightTerm, strict); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerDifference, integerDifference: constraint}}
@@ -1224,6 +1229,41 @@ func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 		term = smt.Less{Left: leftTerm, Right: rightTerm}
 	}
 	return boolExprValue{contextID: left.contextID, term: term}
+}
+
+func compactStringLengthComparison(left, right IntExpr, strict bool) (smt.CompactStringRelation, bool) {
+	length, constant, lengthOnLeft := left, right, true
+	if length.fast.kind != integerFastStringLength {
+		length, constant, lengthOnLeft = right, left, false
+	}
+	if length.fast.kind != integerFastStringLength || constant.fast.kind != integerFastNone {
+		return smt.CompactStringRelation{}, false
+	}
+	value, ok := smt.ExactIntegerConstant(constant.term)
+	if !ok {
+		return smt.CompactStringRelation{}, false
+	}
+	integer, fits := value.Int64()
+	if !fits {
+		return smt.CompactStringRelation{}, false
+	}
+	relation := smt.CompactStringRelation{
+		Kind:    smt.CompactStringLengthLessEqual,
+		Left:    length.fast.string,
+		Integer: integer,
+	}
+	if strict {
+		relation.Kind = smt.CompactStringLengthLess
+	}
+	if !lengthOnLeft {
+		relation.Negated = true
+		if strict {
+			relation.Kind = smt.CompactStringLengthLessEqual
+		} else {
+			relation.Kind = smt.CompactStringLengthLess
+		}
+	}
+	return relation, true
 }
 
 func compactIntegerDifference(left, right smt.Term[smt.IntSort], strict bool) (smt.IntegerDifferenceConstraint, bool) {

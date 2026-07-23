@@ -601,6 +601,44 @@ func TestWordEquationLengthCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestWordEquationLengthInequalityCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		target := fmt.Sprintf("left%02dright", example)
+		lower, upper := 1, 6
+		if example%2 != 0 {
+			lower, upper = 14, 20
+		}
+		if example%4 >= 2 {
+			target = `\u{1f642}a`
+			lower, upper = 0, 1
+			if example%2 != 0 {
+				lower, upper = 2, 3
+			}
+		}
+		script := fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+(declare-const y String)
+(assert (= (str.++ x y) "%s"))
+(assert (< %d (str.len x)))
+(assert (<= (str.len x) %d))
+(check-sat)`, target, lower, upper)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestBooleanPigeonholeAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

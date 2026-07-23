@@ -52,7 +52,10 @@
    proofs. Exact symbol-length equalities now prune that search by Unicode
    code-point length, construct satisfying splits, and prove impossible
    lengths contradictory. Unbounded/general Boolean regex constraints and
-   larger or regex/inequality/multi-equation word-equation interactions remain.
+   lower/upper string-length inequalities now merge independently of assertion
+   order and prune the same Unicode-boundary search. Unbounded/general Boolean
+   regex constraints and larger or regex/multi-equation word-equation
+   interactions remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

@@ -78,6 +78,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | repeated-symbol QF_SLIA word equation + evaluation | ~1.711–1.740 us, 7,888 B, 6 allocs | ~2.711–2.820 ms, 240 B, 16 allocs | green (>1,558x) | green (target ≤8 allocs) |
 | ambiguous word equation + ground equality interaction | ~3.354–3.359 us, 9,296 B, 8 allocs | ~0.987–1.084 ms, 432 B, 27 allocs | green (>293x) | green (target ≤13 allocs) |
 | word equation + exact code-point length interaction | ~3.351–3.366 us, 9,328 B, 10 allocs | ~1.518–1.584 ms, 384 B, 26 allocs | green (>450x) | green (target ≤13 allocs) |
+| word equation + code-point length bounds | ~4.395–4.413 us, 10,608 B, 13 allocs | ~1.673–1.752 ms, 440 B, 29 allocs | green (>379x) | green (target ≤14 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -520,6 +521,14 @@ conjunction. Exact length metadata prunes the Unicode-boundary search by SMT
 code-point count and also proves out-of-range lengths unsatisfiable. It uses
 10 allocations and 3.351–3.366 us versus pinned Z3's 26 visible Go allocations
 and 1.518–1.584 ms. This is 61.5% fewer allocations and over 450x
+conservative-endpoint throughput.
+
+The length-bound workload solves the same equation with
+`1 < str.len(x) <= 3`, selects the shortest satisfying split `x = "fo"`, and
+validates both bounds. Compact order relations avoid materializing generic
+integer ASTs, reducing the first public implementation from 18 allocations to
+13. Pinned Z3 uses 29 visible Go allocations and 1.673–1.752 ms versus
+GoSMT's 4.395–4.413 us. This is 55.2% fewer allocations and over 379x
 conservative-endpoint throughput.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only
