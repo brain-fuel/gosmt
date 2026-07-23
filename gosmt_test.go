@@ -205,6 +205,7 @@ func TestContextIndexedInteractingStringRegularExpressions(t *testing.T) {
 	if valid, found := EvalBool(result.Value, formula); !found || !valid {
 		t.Fatalf("formula=(%v,%v)", valid, found)
 	}
+
 }
 
 func TestContextIndexedBooleanStringRegularExpressions(t *testing.T) {
@@ -249,6 +250,45 @@ func TestContextIndexedSingleUnknownWordEquation(t *testing.T) {
 	}
 	if valid, found := EvalBool(result.Value, equation); !found || !valid {
 		t.Fatalf("equation=(%v,%v)", valid, found)
+	}
+}
+
+func TestContextIndexedUniquelyDelimitedWordEquation(t *testing.T) {
+	context := NewContext(16)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	formula := EqString(
+		ConcatString(
+			StringVal(context, "["), x, StringVal(context, "]"),
+			y, StringVal(context, "!"),
+		),
+		StringVal(context, "[go]forge!"),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "go" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "forge" {
+		t.Fatalf("y=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	interacting := And(formula, EqString(x, StringVal(context, "go")))
+	checked = Check(Assert(2, NewSolver(context), interacting))
+	if _, ok := checked.(Sat); !ok {
+		t.Fatalf("interacting result=%T", checked)
+	}
+
+	conflict := And(formula, EqString(x, StringVal(context, "not-go")))
+	checked = Check(Assert(3, NewSolver(context), conflict))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("conflict result=%T", checked)
 	}
 }
 

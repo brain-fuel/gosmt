@@ -102,6 +102,7 @@ const (
 	booleanFastUninterpretedEUFRelation
 	booleanFastStringRelation
 	booleanFastStringBooleanFormula
+	booleanFastStringWordEquation
 )
 
 type booleanFast struct {
@@ -135,6 +136,7 @@ type booleanFast struct {
 	uninterpretedEUFRelation     smt.UninterpretedEUFRelation
 	stringRelation               smt.CompactStringRelation
 	stringBooleanFormula         smt.CompactStringBooleanFormula
+	stringWordEquation           smt.CompactStringWordEquation
 	negated                      bool
 }
 
@@ -143,14 +145,16 @@ const (
 	stringFastLiteral
 	stringFastSymbol
 	stringFastSingleSymbolConcat
+	stringFastPattern
 )
 
 type stringFast struct {
-	kind   uint8
-	id     int
-	name   string
-	value  string
-	suffix string
+	kind    uint8
+	id      int
+	name    string
+	value   string
+	suffix  string
+	pattern smt.CompactStringPattern
 }
 
 const (
@@ -211,6 +215,17 @@ func materializeString(value StringExpr) smt.Term[smt.StringSort] {
 			smt.StringConst(value.fast.id, value.fast.name),
 			smt.StringVal(value.fast.suffix),
 		)
+	case stringFastPattern:
+		pattern := value.fast.pattern
+		terms := make([]smt.Term[smt.StringSort], 0, pattern.Count*2+1)
+		for index := 0; index < pattern.Count; index++ {
+			terms = append(terms,
+				smt.StringVal(pattern.Delimiters[index]),
+				smt.StringConst(pattern.SymbolIDs[index], pattern.SymbolNames[index]),
+			)
+		}
+		terms = append(terms, smt.StringVal(pattern.Delimiters[pattern.Count]))
+		return smt.StringConcat(terms...)
 	default:
 		panic("gosmt: invalid erased string expression")
 	}
@@ -233,6 +248,9 @@ func fastEvaluateBoolean(model smt.Model, term smt.Term[smt.BoolSort], fast bool
 	}
 	if fast.kind == booleanFastStringBooleanFormula {
 		return smt.CompactStringBooleanValue(model, fast.stringBooleanFormula)
+	}
+	if fast.kind == booleanFastStringWordEquation {
+		return smt.CompactStringWordEquationValue(model, fast.stringWordEquation)
 	}
 	return smt.BoolValue(model, materializeBoolean(term, fast))
 }
@@ -265,6 +283,12 @@ func fastConcatString(values []StringExpr) StringExpr {
 			result.WriteString(value.fast.value)
 		}
 		return fastStringValue(context, result.String())
+	}
+	if pattern, ok := compactStringPattern(values); ok && pattern.Count > 1 {
+		return stringExprValue{
+			contextID: context,
+			fast:      stringFast{kind: stringFastPattern, pattern: pattern},
+		}
 	}
 	prefix, suffix := "", ""
 	symbolID, symbolName := 0, ""
@@ -306,9 +330,49 @@ func fastConcatString(values []StringExpr) StringExpr {
 	return stringExprValue{contextID: context, term: smt.StringConcat(terms...)}
 }
 
+func compactStringPattern(values []StringExpr) (smt.CompactStringPattern, bool) {
+	var pattern smt.CompactStringPattern
+	literal := ""
+	for _, value := range values {
+		switch value.fast.kind {
+		case stringFastLiteral:
+			literal += value.fast.value
+		case stringFastSymbol:
+			if pattern.Count == len(pattern.SymbolIDs) {
+				return smt.CompactStringPattern{}, false
+			}
+			for index := 0; index < pattern.Count; index++ {
+				if pattern.SymbolIDs[index] == value.fast.id {
+					return smt.CompactStringPattern{}, false
+				}
+			}
+			pattern.Delimiters[pattern.Count] = literal
+			pattern.SymbolIDs[pattern.Count] = value.fast.id
+			pattern.SymbolNames[pattern.Count] = value.fast.name
+			pattern.Count++
+			literal = ""
+		default:
+			return smt.CompactStringPattern{}, false
+		}
+	}
+	if pattern.Count == 0 {
+		return smt.CompactStringPattern{}, false
+	}
+	pattern.Delimiters[pattern.Count] = literal
+	return pattern, true
+}
+
 func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased string context mismatch")
+	}
+	if kind == smt.CompactStringEqual {
+		if left.fast.kind == stringFastPattern && right.fast.kind == stringFastLiteral {
+			return fastStringWordEquation(left.contextID, left.fast.pattern, right.fast.value)
+		}
+		if right.fast.kind == stringFastPattern && left.fast.kind == stringFastLiteral {
+			return fastStringWordEquation(left.contextID, right.fast.pattern, left.fast.value)
+		}
 	}
 	leftCompact, leftOK := compactString(left)
 	rightCompact, rightOK := compactString(right)
@@ -343,6 +407,19 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 		term = smt.StringHasSuffix(leftTerm, rightTerm)
 	}
 	return fastBooleanAtom(left.contextID, term)
+}
+
+func fastStringWordEquation(context int, pattern smt.CompactStringPattern, target string) BoolExpr {
+	return boolExprValue{
+		contextID: context,
+		fast: booleanFast{
+			kind: booleanFastStringWordEquation,
+			stringWordEquation: smt.CompactStringWordEquation{
+				Pattern: pattern,
+				Target:  target,
+			},
+		},
+	}
 }
 
 func constantIntExpr(value IntExpr) (int64, bool) {
@@ -2336,6 +2413,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return smt.CompactStringAssertions(system)
 	case booleanFastStringBooleanFormula:
 		return fast.stringBooleanFormula
+	case booleanFastStringWordEquation:
+		return fast.stringWordEquation
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}

@@ -73,6 +73,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | ground QF_AUFBV two-store extensionality | ~769–770 ns, 2,088 B, 4 allocs | ~1.01–1.12 ms, 344 B, 22 allocs | green | green (target ≤11 allocs) |
 | Boolean QF_S model selection + evaluation | ~3.902–3.910 us, 7,120 B, 6 allocs | ~1.018–1.072 ms, 464 B, 30 allocs | green (>260x) | green (target ≤15 allocs) |
 | single-unknown QF_SLIA word equation + evaluation | ~1.575–1.586 us, 8,192 B, 6 allocs | ~0.979–1.059 ms, 256 B, 17 allocs | green (>617x) | green (target ≤8 allocs) |
+| two-symbol uniquely delimited QF_SLIA word equation + evaluation | ~1.728–1.755 us, 7,888 B, 6 allocs | ~1.951–2.042 ms, 368 B, 23 allocs | green (>1,111x) | green (target ≤11 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -469,6 +470,17 @@ authored equality. A compact prefix/symbol/suffix term plus allocation-free
 matching reduces the initial generic path from 25 allocations to 6 and
 1.575–1.586 us. Pinned Z3 uses 17 visible Go allocations and
 0.979–1.059 ms. This is 64.7% fewer allocations and over 617x
+conservative-endpoint throughput.
+
+The uniquely delimited word-equation workload solves
+`"[" ++ x ++ "]" ++ y ++ "!" = "[go]forge!"`, extracts both exact values,
+and validates the complete equality. The standard library represents up to
+four distinct symbols and their five literal delimiters in a fixed value;
+ambiguous, empty, or repeated delimiters remain on the general representation
+and return `unknown` unless another exact solver path decides them. This
+reduces the initial generic façade from 29 allocations and roughly 2.35 us to
+6 allocations and 1.728–1.755 us. Pinned Z3 uses 23 visible Go allocations
+and 1.951–2.042 ms. This is 73.9% fewer allocations and over 1,111x
 conservative-endpoint throughput.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only
