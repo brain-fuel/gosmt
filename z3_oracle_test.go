@@ -97,6 +97,50 @@ func TestParametricDatatypeCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestMultiParameterDatatypeCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		value := example*19 - 307
+		valueTerm := fmt.Sprint(value)
+		if value < 0 {
+			valueTerm = fmt.Sprintf("(- %d)", -value)
+		}
+		boolean := "false"
+		if example%2 == 0 {
+			boolean = "true"
+		}
+		assertion := fmt.Sprintf("(assert (= (left xs) %s))", valueTerm)
+		if example%3 == 0 {
+			assertion = fmt.Sprintf("(assert (not (= (left xs) %s)))", valueTerm)
+		}
+		script := fmt.Sprintf(`(declare-datatypes ((Pair 2))
+  ((par (A B) ((pair (first A) (second B))))))
+(declare-datatypes ((DuoList 2))
+  ((par (A B) ((dnil) (dcons (left A) (right B) (rest (DuoList A B)))))))
+(declare-const p (Pair Int Bool))
+(declare-const xs (DuoList Int Bool))
+(assert (= p (pair %s %s)))
+(assert (= xs (dcons %s %s (as dnil (DuoList Int Bool)))))
+(assert (= (first p) %s))
+(assert (= (second p) %s))
+%s
+(check-sat)`, valueTerm, boolean, valueTerm, boolean, valueTerm, boolean, assertion)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestBooleanPigeonholeAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

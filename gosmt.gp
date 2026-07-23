@@ -682,6 +682,15 @@ func IffBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c] {
 	return And(ImpliesBool(left, right), ImpliesBool(right, left))
 }
 
+func EqBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c] {
+	match left { case boolExprValue(leftContext, leftTerm, leftFast):
+		match right { case boolExprValue(rightContext, rightTerm, rightFast):
+			if leftContext != rightContext { panic("gosmt: erased Boolean equality context mismatch") }
+			return boolExprValue(leftContext, smt.Equal{Left: materializeBoolean(leftTerm, leftFast), Right: materializeBoolean(rightTerm, rightFast)}, booleanFast{})
+		}
+	}
+}
+
 func Add(0 c nat, values ...IntExpr[c]) IntExpr[c] {
 	context, terms := integerTerms(values)
 	return intExprValue(context, smt.Add(terms), integerFast{})

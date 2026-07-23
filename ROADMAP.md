@@ -24,7 +24,8 @@
    typed/SMT-LIB `update-field` agree with pinned Z3. Updates rebuild the
    selector's owning constructor, preserve every other constructor, work from
    symbolic recognizer evidence, and retain exact models. Multi-parameter
-   families and mutually parametric groups remain.
+   families support identity-distinct instantiations, regular recursion, and
+   nested substituted fields. Mutually parametric groups remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

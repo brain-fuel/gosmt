@@ -60,6 +60,18 @@ func TestUnsatIsExhaustive(t *testing.T) {
 	}
 }
 
+func TestBooleanEquality(t *testing.T) {
+	context := NewContext(91)
+	value := BoolConst(context, "value", 1)
+	result, ok := Check(Assert(1, NewSolver(context), EqBool(value, BoolValue(context, true)))).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", result)
+	}
+	if evaluated, found := EvalBool(result.Value, value); !found || !evaluated {
+		t.Fatalf("value=(%v,%v)", evaluated, found)
+	}
+}
+
 func TestAssumptionUnsatCore(t *testing.T) {
 	context := NewContext(3)
 	a := BoolConst(context, "a", 1)

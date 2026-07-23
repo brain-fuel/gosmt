@@ -381,6 +381,13 @@ allocations and about 300x faster at the median. The pinned Go binding omits
 the ITE constructor, so its side uses the logically equivalent guarded
 disjunction through the public API.
 
+The multi-parameter datatype cold workload constructs a monomorphized
+`Pair Int Bool`, solves its two-field value, and extracts the complete value
+and both fields. Three 500-iteration Apple M5 Max samples use 14 allocations
+and 3.172–3.642 us for GoSMT versus 37 allocations and 0.872–1.053 ms for
+pinned Z3. This is 62.2% fewer allocations and about 300x faster at the
+median.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids

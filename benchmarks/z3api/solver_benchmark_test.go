@@ -680,6 +680,64 @@ func BenchmarkParametricDatatypeInstantiationCold(b *testing.B) {
 	})
 }
 
+func BenchmarkMultiParameterDatatypeCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(855)
+			signature := gosmt.IntDatatypeMixedField("first", gosmt.BoolDatatypeMixedField("second", gosmt.EmptyDatatypeMixedSignature()))
+			pair := gosmt.DeclareMixedDatatypeConstructor(8550, 1, 0, context, "pair", signature)
+			arguments := gosmt.IntDatatypeMixedArgument(
+				gosmt.IntVal(context, 42),
+				gosmt.BoolDatatypeMixedArgument(gosmt.BoolValue(context, true), gosmt.EmptyDatatypeMixedArguments(context)),
+			)
+			value := gosmt.DatatypeConst(8550, 1, context, "value", 1)
+			formula := gosmt.EqDatatype(value, gosmt.ApplyMixedDatatypeConstructor(pair, arguments))
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			exact, found := gosmt.EvalDatatype(8550, 1, result.Value, value)
+			if !found || exact.Fields.Len() != 2 {
+				b.Fatal("missing model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			pairDecl := context.MkConstructor(
+				"pair", "is-pair",
+				[]string{"first", "second"},
+				[]*z3.Sort{context.MkIntSort(), context.MkBoolSort()},
+				[]uint{0, 0},
+			)
+			pairSort := context.MkDatatypeSort("PairIntBool", []*z3.Constructor{pairDecl})
+			value := context.MkConst(context.MkStringSymbol("value"), pairSort)
+			pair := context.MkApp(
+				context.GetDatatypeSortConstructor(pairSort, 0),
+				context.MkInt(42, context.MkIntSort()),
+				context.MkTrue(),
+			)
+			first := context.MkApp(context.GetDatatypeSortConstructorAccessor(pairSort, 0, 0), value)
+			second := context.MkApp(context.GetDatatypeSortConstructorAccessor(pairSort, 0, 1), value)
+			solver := context.NewSolver()
+			solver.Assert(context.MkEq(value, pair))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			_, valueFound := model.Eval(value, true)
+			_, firstFound := model.Eval(first, true)
+			_, secondFound := model.Eval(second, true)
+			if !valueFound || !firstFound || !secondFound {
+				b.Fatal("missing model")
+			}
+		}
+	})
+}
+
 func BenchmarkDatatypeUpdateFieldCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
