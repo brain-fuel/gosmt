@@ -1461,6 +1461,38 @@ func TestContextIndexedDisjunctiveSymbolicIntegerSequences(t *testing.T) {
 	}
 }
 
+func TestContextIndexedNegatedBooleanSymbolicIntegerSequenceLengths(t *testing.T) {
+	context := NewContext(49)
+	x := IntSequenceConst(context, "x", 1)
+	lengthOne := EqInt(LengthIntSequence(x), IntVal(context, 1))
+	prefix := HasPrefixIntSequence(
+		x, UnitIntSequence(IntVal(context, 7)),
+	)
+	formula := And(
+		lengthOne,
+		ImpliesBool(lengthOne, prefix),
+		IffBool(lengthOne, prefix),
+		IfBool(lengthOne, prefix, Not(prefix)),
+		Not(Le(LengthIntSequence(x), IntVal(context, 0))),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	value, found := EvalIntSequence(result.Value, x)
+	if !found || value.Len() != 1 {
+		t.Fatalf("model=(%d,%v)", value.Len(), found)
+	}
+	first, _ := value.At(0)
+	if actual, fits := first.Int64(); !fits || actual != 7 {
+		t.Fatalf("first=(%d,%v)", actual, fits)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

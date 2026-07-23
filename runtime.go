@@ -1897,6 +1897,25 @@ func fastNot(value BoolExpr) BoolExpr {
 	if constant, ok := value.term.(smt.Bool); ok && value.fast.kind == booleanFastNone {
 		return boolExprValue{contextID: value.contextID, term: smt.Bool{Value: !constant.Value}}
 	}
+	if _, ok := value.term.(smt.Less); ok &&
+		value.fast.kind == booleanFastNone {
+		value.fast.kind = booleanFastAtom
+		value.fast.negated = true
+		return value
+	}
+	if _, ok := value.term.(smt.LessEqual); ok &&
+		value.fast.kind == booleanFastNone {
+		value.fast.kind = booleanFastAtom
+		value.fast.negated = true
+		return value
+	}
+	if negation, ok := value.term.(smt.Not); ok &&
+		value.fast.kind == booleanFastNone {
+		return boolExprValue{
+			contextID: value.contextID,
+			term:      negation.Value,
+		}
+	}
 	if value.fast.kind == booleanFastLiteral {
 		value.fast.inline[0] = -value.fast.inline[0]
 		return value

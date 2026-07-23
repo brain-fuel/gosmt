@@ -57,9 +57,13 @@ prefix/suffix models, zero-filled unconstrained positions, and exact
 negative/conflicting/too-short proofs. Bounded positive Boolean `and`/`or`
 formulas over symbolic integer-sequence constraints expand nested disjunctions
 under a 4,096-branch limit, try alternatives left to right, validate exact
-models, and prove all-unsatisfiable alternatives. Negated sequence formulas,
-affine systems spanning nine or more canonical sequence symbols, and
-symbolic-element sequence search remain explicit future work. Ground strict
+models, and prove all-unsatisfiable alternatives. Polarity-aware normalization
+extends that bounded fragment through nested negation, implication,
+equivalence, and Boolean `if`; negated affine length equality and order become
+exact positive relations before constructive solving. Negated sequence
+equality/content predicates, affine systems spanning nine or more canonical
+sequence symbols, and symbolic-element sequence search remain explicit future
+work. Ground strict
 and non-strict length bounds now normalize into exact lower/upper requirements,
 search admissible lengths with the same placement engine, and prove
 order-independent bound conflicts.

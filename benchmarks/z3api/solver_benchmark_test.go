@@ -2191,6 +2191,112 @@ func BenchmarkDisjunctiveSymbolicIntegerSequenceQFSeq(b *testing.B) {
 	})
 }
 
+func BenchmarkNegatedAffineSymbolicIntegerSequenceQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(49)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			x := gosmt.IntSequenceConst(context, "x", 1)
+			length := gosmt.LengthIntSequence(x)
+			prefixConstraint := gosmt.HasPrefixIntSequence(
+				x, gosmt.ConcatIntSequence(unit(1), unit(2)),
+			)
+			containsConstraint := gosmt.ContainsIntSequence(
+				x, gosmt.ConcatIntSequence(unit(3), unit(4)),
+			)
+			secondContainsConstraint := gosmt.ContainsIntSequence(
+				x, gosmt.ConcatIntSequence(unit(7), unit(8)),
+			)
+			suffixConstraint := gosmt.HasSuffixIntSequence(
+				x, gosmt.ConcatIntSequence(unit(5), unit(6)),
+			)
+			lower := gosmt.Not(gosmt.Le(length, gosmt.IntVal(context, 5)))
+			upper := gosmt.Le(length, gosmt.IntVal(context, 8))
+			formula := gosmt.And(
+				prefixConstraint,
+				containsConstraint,
+				secondContainsConstraint,
+				suffixConstraint,
+				lower,
+				upper,
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			value, found := gosmt.EvalIntSequence(result.Value, x)
+			if !found || value.Len() < 6 || value.Len() > 8 {
+				b.Fatal("invalid negated affine sequence model")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid negated affine sequence formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			x := context.MkConst(context.MkStringSymbol("x"), sequenceSort)
+			prefix := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(1, intSort)),
+				context.MkSeqUnit(context.MkInt(2, intSort)),
+			)
+			part := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(3, intSort)),
+				context.MkSeqUnit(context.MkInt(4, intSort)),
+			)
+			secondPart := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(7, intSort)),
+				context.MkSeqUnit(context.MkInt(8, intSort)),
+			)
+			suffix := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(5, intSort)),
+				context.MkSeqUnit(context.MkInt(6, intSort)),
+			)
+			length := context.MkSeqLength(x)
+			prefixConstraint := context.MkSeqPrefix(prefix, x)
+			containsConstraint := context.MkSeqContains(x, part)
+			secondContainsConstraint := context.MkSeqContains(x, secondPart)
+			suffixConstraint := context.MkSeqSuffix(suffix, x)
+			lower := context.MkNot(
+				context.MkLe(length, context.MkInt(5, intSort)),
+			)
+			upper := context.MkLe(length, context.MkInt(8, intSort))
+			formula := context.MkAnd(
+				prefixConstraint,
+				containsConstraint,
+				secondContainsConstraint,
+				suffixConstraint,
+				lower,
+				upper,
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid negated affine sequence model")
+			}
+			if _, found := model.Eval(length, true); !found {
+				b.Fatal("invalid negated affine sequence length")
+			}
+			if _, found := model.Eval(formula, true); !found {
+				b.Fatal("invalid negated affine sequence formula")
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
