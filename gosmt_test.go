@@ -183,6 +183,30 @@ func TestContextIndexedSymbolicStringRegularExpressions(t *testing.T) {
 	}
 }
 
+func TestContextIndexedInteractingStringRegularExpressions(t *testing.T) {
+	context := NewContext(14)
+	x := StringConst(context, "x", 1)
+	a := ToRegexString(StringVal(context, "a"))
+	b := ToRegexString(StringVal(context, "b"))
+	c := ToRegexString(StringVal(context, "c"))
+	formula := And(
+		InRegexString(x, UnionRegexExpr(a, b)),
+		InRegexString(x, UnionRegexExpr(b, c)),
+		Not(InRegexString(x, a)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "b" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

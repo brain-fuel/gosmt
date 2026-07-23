@@ -445,6 +445,14 @@ samples to 9 allocations and 1.897–1.938 us. Pinned Z3 uses 20 visible Go
 allocations and 2.807–2.903 ms. This is 55.0% fewer allocations and about
 1,480x faster at the median.
 
+The interacting QF_S cold workload constrains one symbolic string by two
+overlapping unions and one negative membership, synthesizes their shared
+witness, solves, extracts the string, and validates the full conjunction.
+Direct fixed-bitset evaluation plus single-pass inline constraint collection
+uses 13 allocations and 4.658–4.701 us across five Apple M5 Max samples.
+Pinned Z3 uses 27 visible Go allocations and 1.239–1.353 ms. This is 51.9%
+fewer allocations and about 275x faster at the median.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids

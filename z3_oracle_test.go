@@ -326,6 +326,43 @@ func TestSymbolicStringRegexCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestInteractingStringRegexCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		first := string(rune('a' + example%20))
+		middle := string(rune('b' + example%20))
+		last := string(rune('c' + example%20))
+		var script string
+		if example%2 == 0 {
+			script = fmt.Sprintf(`(set-logic ALL)
+(declare-const x String)
+(assert (str.in_re x (re.union (str.to_re "%s") (str.to_re "%s"))))
+(assert (str.in_re x (re.union (str.to_re "%s") (str.to_re "%s"))))
+(assert (not (str.in_re x (str.to_re "%s"))))
+(check-sat)`, first, middle, middle, last, first)
+		} else {
+			script = fmt.Sprintf(`(set-logic ALL)
+(declare-const x String)
+(assert (str.in_re x (str.to_re "%s")))
+(assert (str.in_re x (str.to_re "%s")))
+(check-sat)`, first, middle)
+		}
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestBooleanPigeonholeAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

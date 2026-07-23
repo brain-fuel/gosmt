@@ -267,6 +267,61 @@ func BenchmarkStringRegexSymbolicQFS(b *testing.B) {
 	})
 }
 
+func BenchmarkStringRegexInteractingQFS(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(13)
+			x := gosmt.StringConst(context, "x", 1)
+			a := gosmt.ToRegexString(gosmt.StringVal(context, "a"))
+			middle := gosmt.ToRegexString(gosmt.StringVal(context, "b"))
+			c := gosmt.ToRegexString(gosmt.StringVal(context, "c"))
+			formula := gosmt.And(
+				gosmt.InRegexString(x, gosmt.UnionRegexExpr(a, middle)),
+				gosmt.InRegexString(x, gosmt.UnionRegexExpr(middle, c)),
+				gosmt.Not(gosmt.InRegexString(x, a)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "b" {
+				b.Fatal("invalid interacting regex model")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid interacting regex formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			x := context.MkConst(context.MkStringSymbol("x"), context.MkStringSort())
+			a := context.MkToRe(context.MkString("a"))
+			middle := context.MkToRe(context.MkString("b"))
+			c := context.MkToRe(context.MkString("c"))
+			formula := context.MkAnd(
+				context.MkInRe(x, context.MkReUnion(a, middle)),
+				context.MkInRe(x, context.MkReUnion(middle, c)),
+				context.MkNot(context.MkInRe(x, a)),
+			)
+			solver := context.NewSolverForLogic("QF_S")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid interacting regex model")
+			}
+			if _, found := model.Eval(formula, true); !found {
+				b.Fatal("invalid interacting regex formula")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanWarm(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		context := gosmt.NewContext(1)
