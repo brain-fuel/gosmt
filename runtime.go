@@ -111,6 +111,7 @@ const (
 	booleanFastStringBooleanFormula
 	booleanFastStringWordEquation
 	booleanFastStringIndexedEquality
+	booleanFastStringReplaceEquality
 )
 
 type booleanFast struct {
@@ -146,6 +147,7 @@ type booleanFast struct {
 	stringBooleanFormula         smt.CompactStringBooleanFormula
 	stringWordEquation           smt.CompactStringWordEquation
 	stringIndexedEquality        smt.CompactStringIndexedEquality
+	stringReplaceEquality        smt.CompactStringReplaceEquality
 	negated                      bool
 }
 
@@ -157,6 +159,7 @@ const (
 	stringFastPattern
 	stringFastAt
 	stringFastSubstring
+	stringFastReplace
 )
 
 type stringFast struct {
@@ -249,6 +252,12 @@ func materializeString(value StringExpr) smt.Term[smt.StringSort] {
 			smt.StringConst(value.fast.id, value.fast.name),
 			smt.Integer{Value: value.fast.offset},
 			smt.Integer{Value: value.fast.length},
+		)
+	case stringFastReplace:
+		return smt.StringReplace(
+			smt.StringConst(value.fast.id, value.fast.name),
+			smt.StringVal(value.fast.value),
+			smt.StringVal(value.fast.suffix),
 		)
 	default:
 		panic("gosmt: invalid erased string expression")
@@ -367,6 +376,9 @@ func fastEvaluateBoolean(model smt.Model, term smt.Term[smt.BoolSort], fast bool
 	if fast.kind == booleanFastStringIndexedEquality {
 		return smt.BoolValue(model, fast.stringIndexedEquality)
 	}
+	if fast.kind == booleanFastStringReplaceEquality {
+		return smt.BoolValue(model, fast.stringReplaceEquality)
+	}
 	return smt.BoolValue(model, materializeBoolean(term, fast))
 }
 
@@ -477,6 +489,24 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 		panic("gosmt: erased string context mismatch")
 	}
 	if kind == smt.CompactStringEqual {
+		if replacement, ok := compactStringReplaceEquality(left, right); ok {
+			return boolExprValue{
+				contextID: left.contextID,
+				fast: booleanFast{
+					kind:                  booleanFastStringReplaceEquality,
+					stringReplaceEquality: replacement,
+				},
+			}
+		}
+		if replacement, ok := compactStringReplaceEquality(right, left); ok {
+			return boolExprValue{
+				contextID: left.contextID,
+				fast: booleanFast{
+					kind:                  booleanFastStringReplaceEquality,
+					stringReplaceEquality: replacement,
+				},
+			}
+		}
 		if indexed, ok := compactIndexedStringEquality(left, right); ok {
 			return boolExprValue{
 				contextID: left.contextID,
@@ -549,6 +579,19 @@ func fastStringRelation(kind uint8, left, right StringExpr) BoolExpr {
 		term = smt.StringHasSuffix(leftTerm, rightTerm)
 	}
 	return fastBooleanAtom(left.contextID, term)
+}
+
+func compactStringReplaceEquality(derived, target StringExpr) (smt.CompactStringReplaceEquality, bool) {
+	if derived.fast.kind != stringFastReplace || target.fast.kind != stringFastLiteral {
+		return smt.CompactStringReplaceEquality{}, false
+	}
+	return smt.CompactStringReplaceEquality{
+		SymbolID:    derived.fast.id,
+		SymbolName:  derived.fast.name,
+		Source:      derived.fast.value,
+		Replacement: derived.fast.suffix,
+		Target:      target.fast.value,
+	}, true
 }
 
 func compactIndexedStringEquality(derived, target StringExpr) (smt.CompactStringIndexedEquality, bool) {
@@ -696,6 +739,20 @@ func fastReplaceString(value, source, replacement StringExpr) StringExpr {
 	}
 	if value.fast.kind == stringFastLiteral && source.fast.kind == stringFastLiteral && replacement.fast.kind == stringFastLiteral {
 		return fastStringValue(value.contextID, strings.Replace(value.fast.value, source.fast.value, replacement.fast.value, 1))
+	}
+	if value.fast.kind == stringFastSymbol &&
+		source.fast.kind == stringFastLiteral &&
+		replacement.fast.kind == stringFastLiteral {
+		return stringExprValue{
+			contextID: value.contextID,
+			fast: stringFast{
+				kind:   stringFastReplace,
+				id:     value.fast.id,
+				name:   value.fast.name,
+				value:  source.fast.value,
+				suffix: replacement.fast.value,
+			},
+		}
 	}
 	return stringExprValue{contextID: value.contextID, term: smt.StringReplace(materializeString(value), materializeString(source), materializeString(replacement))}
 }
@@ -2697,6 +2754,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.stringWordEquation
 	case booleanFastStringIndexedEquality:
 		return fast.stringIndexedEquality
+	case booleanFastStringReplaceEquality:
+		return fast.stringReplaceEquality
 	case booleanFastAtom:
 		if fast.negated {
 			return smt.Not{Value: term}

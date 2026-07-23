@@ -81,6 +81,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | word equation + code-point length bounds | ~4.395–4.413 us, 10,608 B, 13 allocs | ~1.673–1.752 ms, 440 B, 29 allocs | green (>379x) | green (target ≤14 allocs) |
 | word equation + derived substring equality | ~5.879–5.897 us, 8,168 B, 12 allocs | ~1.813–1.866 ms, 424 B, 29 allocs | green (>307x) | green (target ≤14 allocs) |
 | standalone derived substring equality + symbolic model | ~3.424–3.467 us, 17,224 B, 7 allocs | ~1.820–1.970 ms, 224 B, 15 allocs | green (>524x) | green (target ≤7 allocs) |
+| standalone first-replacement equality + symbolic model | ~3.389–3.432 us, 17,234 B, 7 allocs | ~1.204–1.305 ms, 208 B, 14 allocs | green (>350x) | green (target ≤7 allocs) |
 | ground `Seq Int` construction + equality/length/model evaluation | ~3.176–3.193 us, 8,368 B, 12 allocs | ~0.955–1.039 ms, 456 B, 30 allocs | green (>299x) | green (target ≤15 allocs) |
 | ground `Seq Int` extract/contains/index/replace + model evaluation | ~5.969–5.978 us, 9,680 B, 23 allocs | ~0.927–1.061 ms, 848 B, 53 allocs | green (>155x) | green (target ≤26 allocs) |
 | ground-assigned symbolic `Seq Int` + derived model evaluation | ~6.247–6.337 us, 16,760 B, 22 allocs | ~1.049–1.109 ms, 768 B, 48 allocs | green (>165x) | green (target ≤24 allocs) |
@@ -810,6 +811,18 @@ and inline std placement storage reduced the cold official path from 26 to 7
 allocations. Pinned Z3 uses 15 visible Go allocations and
 1.820–1.970 ms versus GoSMT's 3.424–3.467 us. This is 53.3% fewer allocations
 and over 524x conservative-endpoint throughput.
+
+The standalone first-replacement workload solves
+`str.replace(x,"a","z") = "za"` and extracts the canonical model `x = "aa"`.
+For nonempty source, std exhausts the unchanged target and every
+replacement-aligned prefix/source/suffix preimage whose prefix has no earlier
+source occurrence. Empty source has a unique prefix-removal inverse; empty
+replacement enumerates code-point boundaries. Multiple constraints intersect
+candidate sets under the shared 4,096-resource contract. Compact GoSMT
+replacement equalities and inline std constraint storage keep the cold path
+at 7 allocations and 3.389–3.432 us versus pinned Z3's 14 allocations and
+1.204–1.305 ms. This is exactly 50.0% fewer allocations and over 350x
+conservative-endpoint throughput.
 
 The ground integer-sequence workload constructs `[7, 11]` through typed
 `empty`, `unit`, and `concat`, proves equality with a separately constructed

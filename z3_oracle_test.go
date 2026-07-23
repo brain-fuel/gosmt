@@ -831,6 +831,38 @@ func TestStandaloneDerivedStringEqualityCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestStandaloneStringReplaceEqualityCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	assertions := []string{
+		`(assert (= (str.replace x "a" "z") "z"))`,
+		`(assert (= (str.replace x "a" "z") "za"))`,
+		`(assert (= (str.replace x "" "!") "!ab"))`,
+		`(assert (= (str.replace x "a" "") "bc"))`,
+		`(assert (= "go!\u{1f642}" (str.replace x "\u{1f642}" "!")))`,
+		`(assert (and (= (str.replace x "a" "z") "z") (= (str.replace x "b" "y") "a")))`,
+		`(assert (and (= (str.replace x "a" "z") "z") (= (str.replace x "a" "z") "q")))`,
+	}
+	for example, assertion := range assertions {
+		script := fmt.Sprintf(`(set-logic QF_SLIA)
+(declare-const x String)
+%s
+(check-sat)`, assertion)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestGroundIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

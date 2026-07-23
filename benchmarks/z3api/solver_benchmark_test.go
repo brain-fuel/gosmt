@@ -833,6 +833,52 @@ func BenchmarkStandaloneDerivedStringQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStandaloneStringReplaceQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(35)
+			x := gosmt.StringConst(context, "x", 1)
+			replaced := gosmt.ReplaceString(
+				x,
+				gosmt.StringVal(context, "a"),
+				gosmt.StringVal(context, "z"),
+			)
+			formula := gosmt.EqString(replaced, gosmt.StringVal(context, "za"))
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "aa" {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			replaced := context.MkSeqReplace(
+				x,
+				context.MkString("a"),
+				context.MkString("z"),
+			)
+			formula := context.MkEq(replaced, context.MkString("za"))
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+}
+
 func BenchmarkGroundIntegerSequenceQFSeq(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -34,8 +34,12 @@ The string foundation also includes exact standalone positive equalities for
 `str.at(x,k)` and `str.substr(x,o,n)` when `x` is a direct symbolic string and
 the indices and result are ground. Overlapping constraints share positional
 code-point requirements and length bounds; they no longer require a bounding
-word equation. Symbolic indices, derived operands, negative equalities, and
-standalone replacement inversion remain outside this completed fragment.
+word equation. It also includes exact finite inversion of
+`str.replace(x,source,replacement) = target` when all operands except direct
+symbol `x` are ground, including intersection of multiple constraints.
+Symbolic indices/replace operands, derived roots, negative equalities,
+standalone `str.replace_all` inversion, and cross-operator standalone
+conjunctions remain outside these completed fragments.
 
 “Foundation” means implemented and tested, not Z3-complete. A theory advances
 only with syntax, sort checking, model validation, differential outcomes, fuzz

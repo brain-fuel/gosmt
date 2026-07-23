@@ -42,7 +42,12 @@ Direct-symbol `str.at` and `str.substr` equalities with ground indices and
 results additionally solve without a bounding word equation: overlapping
 requirements reduce exactly to code-point placements and lower/upper length
 bounds, with canonical models and contradiction proofs. The GoSMT façade
-retains these as compact indexed equalities until std solving. Regex-coupled
+retains these as compact indexed equalities until std solving. Direct-symbol
+first-replacement equalities with ground source, replacement, and target also
+solve standalone. Std enumerates the complete finite preimage, including
+unchanged, empty-source, empty-replacement, ambiguous, Unicode, and
+multi-constraint intersection cases; the façade retains a compact replacement
+equality. Regex-coupled
 candidate selection includes bounded Boolean predicates and string
 disequalities, the core SMT-LIB regex, globally backtracked
 contains/prefix/suffix constraints, and context-indexed GoSMT construction.
