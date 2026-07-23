@@ -47,8 +47,9 @@ inverse parse when its ground replacement is nonempty, including overlapping
 replacement text, identity empty-source semantics, constraint intersection,
 and the same indexed/predicate filtering. Empty replacement uses a finite-state
 leftmost non-overlapping deletion transducer for complete standalone witnesses
-and contradiction proofs. A secondary constraint that rejects the shortest
-witness of a cyclic deletion inverse remains explicit `unknown`.
+and contradiction proofs. Direct ground assignments validate once; other
+secondary constraints breadth-first enumerate longer cyclic preimages under
+the shared resource limit and preserve `unknown` only when paths remain.
 Symbolic indices/replace operands, derived roots, negative equalities,
 and other cross-operator standalone conjunctions remain outside these
 completed fragments.

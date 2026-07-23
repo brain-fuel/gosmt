@@ -980,6 +980,69 @@ func BenchmarkStandaloneStringReplaceAllDeletionQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkFilteredStringReplaceAllDeletionQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(40)
+			x := gosmt.StringConst(context, "x", 1)
+			formula := gosmt.And(
+				gosmt.EqString(
+					gosmt.ReplaceAllString(
+						x,
+						gosmt.StringVal(context, "ab"),
+						gosmt.StringVal(context, ""),
+					),
+					gosmt.StringVal(context, "ab"),
+				),
+				gosmt.EqInt(
+					gosmt.LengthString(x),
+					gosmt.IntVal(context, 6),
+				),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalString(result.Value, x); !found || value != "aababb" {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			stringSort := context.MkStringSort()
+			intSort := context.MkIntSort()
+			x := context.MkConst(context.MkStringSymbol("x"), stringSort)
+			source := context.MkString("ab")
+			empty := context.MkString("")
+			// Two direct first replacements are equivalent to replace-all on
+			// the selected two-occurrence model. The pinned binding omits the
+			// literal replace-all constructor.
+			replaced := context.MkSeqReplace(
+				context.MkSeqReplace(x, source, empty),
+				source,
+				empty,
+			)
+			formula := context.MkAnd(
+				context.MkEq(replaced, source),
+				context.MkEq(context.MkSeqLength(x), context.MkInt(6, intSort)),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(x, true); !found {
+				b.Fatal("invalid string model")
+			}
+		}
+	})
+}
+
 func BenchmarkStringReplaceIndexedInteractionQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

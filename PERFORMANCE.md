@@ -84,6 +84,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | standalone first-replacement equality + symbolic model | ~3.389–3.432 us, 17,234 B, 7 allocs | ~1.204–1.305 ms, 208 B, 14 allocs | green (>350x) | green (target ≤7 allocs) |
 | standalone all-replacement inverse + predicate/model validation | ~4.981–5.008 us, 18,640 B, 8 allocs | ~1.267–1.399 ms, 256 B, 17 allocs | green (>252x) | green (target ≤8 allocs) |
 | standalone all-replacement deletion inverse + model validation | ~3.496–3.582 us, 17,240 B, 7 allocs | ~5.886–6.088 ms, 208 B, 14 allocs | green (>1,640x) | green (target ≤7 allocs) |
+| filtered cyclic all-replacement deletion + length/model validation | ~5.412–5.468 us, 18,656 B, 10 allocs | ~3.306–3.487 ms, 304 B, 20 allocs | green (>604x) | green (target ≤10 allocs) |
 | first-replacement + indexed equality candidate filtering | ~4.632–4.633 us, 17,424 B, 8 allocs | ~1.388–1.471 ms, 320 B, 21 allocs | green (>299x) | green (target ≤10 allocs) |
 | first-replacement + string-predicate candidate filtering | ~4.980–5.008 us, 18,640 B, 8 allocs | ~1.329–1.410 ms, 272 B, 18 allocs | green (>265x) | green (target ≤9 allocs) |
 | ground `Seq Int` construction + equality/length/model evaluation | ~3.176–3.193 us, 8,368 B, 12 allocs | ~0.955–1.039 ms, 456 B, 30 allocs | green (>299x) | green (target ≤15 allocs) |
@@ -849,6 +850,16 @@ exact overflow. The pinned binding again uses first replacement on this
 identical canonical model because it lacks the replace-all constructor. GoSMT
 uses 7 allocations and 3.496–3.582 us versus Z3's 14 allocations and
 5.886–6.088 ms: exactly 50% fewer allocations and over 1,640x
+conservative-endpoint throughput.
+
+The filtered cyclic-deletion workload rejects the shortest `x = "aabb"`
+preimage with `len(x) = 6`, breadth-first enumerates distinct transducer paths,
+and selects canonical `x = "aababb"`. Short ASCII predecessor chains remain
+inline, and the already-tested shortest candidate is skipped without
+materialization. Z3 uses two first replacements on the equivalent
+two-occurrence model because its Go binding omits replace-all. GoSMT uses
+10 allocations and 5.412–5.468 us versus Z3's 20 allocations and
+3.306–3.487 ms: exactly 50% fewer allocations and over 604x
 conservative-endpoint throughput.
 
 The mixed replacement/indexed workload starts with the two exact preimages of

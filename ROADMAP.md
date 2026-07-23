@@ -126,7 +126,9 @@
    same-symbol indexed and general string predicates, and preserve explicit
    resource-limit outcomes. Empty replacement now uses a finite-state
    leftmost deletion transducer for complete standalone shortest witnesses and
-   impossibility proofs; filtered cyclic deletion languages remain bounded.
+   impossibility proofs. Forced ground values validate directly, and bounded
+   breadth-first cyclic-path enumeration lets length and general predicates
+   select longer deletion preimages.
    Single-symbol affine length expressions now normalize exact addition,
    subtraction, and arbitrary-precision constant scaling with divisibility,
    sign reversal, integer rounding, and cancellation.

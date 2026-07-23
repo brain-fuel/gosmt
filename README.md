@@ -60,9 +60,10 @@ source occurrences, validates candidates without allocating replacement
 strings, and shares the same indexed/predicate filtering and 4,096-state
 contract. Empty source retains SMT-LIB identity semantics. Empty replacement
 uses an exact finite-state deletion transducer to construct the shortest
-standalone preimage or prove that none exists; if a secondary predicate rejects
-that witness and the inverse language contains cycles, the broader search
-remains explicit `unknown`. Regex-coupled
+standalone preimage or prove that none exists. Direct ground equalities force
+one candidate immediately, while other secondary predicates breadth-first
+enumerate distinct cyclic transducer paths under the shared 4,096-node limit;
+unexplored paths remain explicit `unknown`. Regex-coupled
 candidate selection includes bounded Boolean predicates and string
 disequalities, the core SMT-LIB regex, globally backtracked
 contains/prefix/suffix constraints, and context-indexed GoSMT construction.

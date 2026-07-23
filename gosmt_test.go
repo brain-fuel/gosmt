@@ -865,11 +865,43 @@ func TestContextIndexedStandaloneStringReplaceAllEqualities(t *testing.T) {
 		t.Fatalf("deletion formula=(%v,%v)", valid, found)
 	}
 
+	filteredDeletion := And(
+		deletion,
+		EqString(x, StringVal(context, "abaabb")),
+	)
+	checked = Check(Assert(4, NewSolver(context), filteredDeletion))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("filtered deletion result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "abaabb" {
+		t.Fatalf("filtered deletion x=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, filteredDeletion); !found || !valid {
+		t.Fatalf("filtered deletion formula=(%v,%v)", valid, found)
+	}
+
+	boundedDeletion := And(
+		deletion,
+		EqInt(LengthString(x), IntVal(context, 6)),
+	)
+	checked = Check(Assert(5, NewSolver(context), boundedDeletion))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("bounded deletion result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "aababb" {
+		t.Fatalf("bounded deletion x=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, boundedDeletion); !found || !valid {
+		t.Fatalf("bounded deletion formula=(%v,%v)", valid, found)
+	}
+
 	noDeletionPreimage := EqString(
 		ReplaceAllString(x, StringVal(context, "a"), StringVal(context, "")),
 		StringVal(context, "a"),
 	)
-	checked = Check(Assert(4, NewSolver(context), noDeletionPreimage))
+	checked = Check(Assert(6, NewSolver(context), noDeletionPreimage))
 	if _, ok := checked.(Unsat); !ok {
 		t.Fatalf("no-deletion-preimage result=%T", checked)
 	}

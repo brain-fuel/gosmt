@@ -875,6 +875,8 @@ func TestStandaloneStringReplaceAllEqualityCorpusAgreesWithPinnedZ3(t *testing.T
 		`(assert (and (= (str.replace_all x "a" "z") "zz") (= x "q")))`,
 		`(assert (and (= (str.replace_all x "\u{1f642}" "!") "!!") (= x "\u{1f642}\u{1f642}")))`,
 		`(assert (and (= (str.replace_all x "ab" "") "ab") (= x "aabb")))`,
+		`(assert (and (= (str.replace_all x "ab" "") "ab") (= x "aababb")))`,
+		`(assert (and (= (str.replace_all x "ab" "") "ab") (= x "abaabb")))`,
 		`(assert (and (= (str.replace_all x "a" "") "a") (= x "a")))`,
 	}
 	for example, assertion := range assertions {
