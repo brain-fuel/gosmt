@@ -931,12 +931,17 @@ func TestContextIndexedPositiveSymbolicIntegerSequence(t *testing.T) {
 		t.Fatalf("incompatible result=%T", checked)
 	}
 
-	unsupported := Not(ContainsIntSequence(x, unit(1)))
-	if checked := Check(Assert(3, NewSolver(context), unsupported)); func() bool {
-		_, ok := checked.(Unknown)
-		return ok
-	}() == false {
-		t.Fatalf("unsupported result=%T", checked)
+	negative := Not(ContainsIntSequence(x, unit(1)))
+	negativeResult, ok := Check(
+		Assert(3, NewSolver(context), negative),
+	).(Sat)
+	if !ok {
+		t.Fatal("negative containment must construct a model")
+	}
+	if valid, found := EvalBool(
+		negativeResult.Value, negative,
+	); !found || !valid {
+		t.Fatalf("negative formula=(%v,%v)", valid, found)
 	}
 }
 
@@ -1530,6 +1535,50 @@ func TestContextIndexedSymbolicIntegerSequenceGroundDisequality(t *testing.T) {
 		return ok
 	}() == false {
 		t.Fatalf("fixed result=%T", checked)
+	}
+}
+
+func TestContextIndexedNegatedGroundSymbolicIntegerSequencePredicates(t *testing.T) {
+	context := NewContext(51)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	formula := And(
+		EqInt(LengthIntSequence(x), IntVal(context, 2)),
+		ContainsIntSequence(x, unit(1)),
+		Not(HasPrefixIntSequence(x, unit(1))),
+		Not(ContainsIntSequence(x, unit(2))),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	value, found := EvalIntSequence(result.Value, x)
+	if !found || value.Len() != 2 {
+		t.Fatalf("model=(%d,%v)", value.Len(), found)
+	}
+	first, _ := value.At(0)
+	second, _ := value.At(1)
+	firstValue, _ := first.Int64()
+	secondValue, _ := second.Int64()
+	if firstValue != 0 || secondValue != 1 {
+		t.Fatalf("model=[%d,%d]", firstValue, secondValue)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	conflict := And(
+		ContainsIntSequence(x, unit(3)),
+		Not(ContainsIntSequence(x, unit(3))),
+	)
+	if checked := Check(Assert(2, NewSolver(context), conflict)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("conflict result=%T", checked)
 	}
 }
 

@@ -64,10 +64,13 @@ exact positive relations before constructive solving. Symbolic integer
 sequences also support finite ground-value disequality: exact exclusions share
 the placement search, discriminate free elements, backtrack fixed containment
 placements, and prove exhaustive conflicts under the same 4,096-resource
-contract. Disequality between two unassigned sequence symbols and negated
-content predicates, affine systems spanning nine or more canonical sequence
-symbols, and symbolic-element sequence search remain explicit future work.
-Ground strict
+contract. Negated ground `contains`, `prefix`, and `suffix` constraints use a
+fresh integer absent from every forbidden pattern for unconstrained positions;
+fixed violations backtrack through positive containment placements and length
+choices, while empty-pattern contradictions are exact. Disequality between two
+unassigned sequence symbols, symbolic-pattern negative predicates, affine
+systems spanning nine or more canonical sequence symbols, and symbolic-element
+sequence search remain explicit future work. Ground strict
 and non-strict length bounds now normalize into exact lower/upper requirements,
 search admissible lengths with the same placement engine, and prove
 order-independent bound conflicts.

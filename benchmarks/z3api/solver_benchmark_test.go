@@ -2386,6 +2386,89 @@ func BenchmarkGroundDisequalitySymbolicIntegerSequenceQFSeq(b *testing.B) {
 	})
 }
 
+func BenchmarkNegatedGroundPredicateSymbolicIntegerSequenceQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(51)
+			unit := func(value int64) gosmt.IntSequenceExpr {
+				return gosmt.UnitIntSequence(gosmt.IntVal(context, value))
+			}
+			x := gosmt.IntSequenceConst(context, "x", 1)
+			part := gosmt.ConcatIntSequence(
+				unit(1), unit(2), unit(3), unit(4),
+				unit(5), unit(6), unit(7),
+			)
+			formula := gosmt.And(
+				gosmt.EqInt(
+					gosmt.LengthIntSequence(x),
+					gosmt.IntVal(context, 8),
+				),
+				gosmt.ContainsIntSequence(x, part),
+				gosmt.Not(gosmt.HasPrefixIntSequence(x, part)),
+				gosmt.Not(gosmt.ContainsIntSequence(x, unit(0))),
+			)
+			result, ok := gosmt.Check(
+				gosmt.Assert(index+1, gosmt.NewSolver(context), formula),
+			).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			value, found := gosmt.EvalIntSequence(result.Value, x)
+			if !found || value.Len() != 8 {
+				b.Fatal("invalid negative-predicate sequence model")
+			}
+			first, _ := value.At(0)
+			firstValue, _ := first.Int64()
+			if firstValue != 8 {
+				b.Fatal("invalid fresh-element sequence witness")
+			}
+			if valid, found := gosmt.EvalBool(
+				result.Value, formula,
+			); !found || !valid {
+				b.Fatal("invalid negative-predicate sequence formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			x := context.MkConst(context.MkStringSymbol("x"), sequenceSort)
+			part := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(1, intSort)),
+				context.MkSeqUnit(context.MkInt(2, intSort)),
+				context.MkSeqUnit(context.MkInt(3, intSort)),
+				context.MkSeqUnit(context.MkInt(4, intSort)),
+				context.MkSeqUnit(context.MkInt(5, intSort)),
+				context.MkSeqUnit(context.MkInt(6, intSort)),
+				context.MkSeqUnit(context.MkInt(7, intSort)),
+			)
+			zero := context.MkSeqUnit(context.MkInt(0, intSort))
+			length := context.MkSeqLength(x)
+			formula := context.MkAnd(
+				context.MkEq(length, context.MkInt(8, intSort)),
+				context.MkSeqContains(x, part),
+				context.MkNot(context.MkSeqPrefix(part, x)),
+				context.MkNot(context.MkSeqContains(x, zero)),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, length, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid negative-predicate sequence model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
