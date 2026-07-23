@@ -57,9 +57,11 @@
    regex constraints remain. As many as four bounded ground-target equations
    now share one globally backtracked model and resource limit, including
    alternative splits forced by later equations. Larger/unbounded or
-   general Boolean-regex equation systems remain. Positive and negative
+   larger unbounded Boolean-regex equation systems remain. Positive and negative
    regular-language memberships now prune bounded equation candidates and
-   participate in final global-model validation.
+   participate in final global-model validation; bounded `or`, nested `not`,
+   implication, equivalence, Boolean equality, and ITE predicates backtrack
+   over alternative equation splits.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

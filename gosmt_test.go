@@ -557,6 +557,44 @@ func TestContextIndexedWordEquationRegexInteraction(t *testing.T) {
 	}
 }
 
+func TestContextIndexedWordEquationBooleanRegexInteraction(t *testing.T) {
+	context := NewContext(23)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	equation := EqString(ConcatString(x, y), StringVal(context, "abc"))
+	choice := Or(
+		InRegexString(x, RangeRegexString(StringVal(context, "z"), StringVal(context, "z"))),
+		InRegexString(x, RangeRegexString(StringVal(context, "a"), StringVal(context, "a"))),
+	)
+	formula := And(equation, choice)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "a" {
+		t.Fatalf("x=(%q,%v)", actual, found)
+	}
+	if actual, found := EvalString(result.Value, y); !found || actual != "bc" {
+		t.Fatalf("y=(%q,%v)", actual, found)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	impossible := And(
+		equation,
+		Or(
+			InRegexString(x, RangeRegexString(StringVal(context, "z"), StringVal(context, "z"))),
+			InRegexString(x, RangeRegexString(StringVal(context, "q"), StringVal(context, "q"))),
+		),
+	)
+	checked = Check(Assert(2, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
