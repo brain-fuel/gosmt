@@ -554,6 +554,77 @@ func BenchmarkStringWordEquationLengthInequalityQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(22)
+			x := gosmt.StringConst(context, "x", 1)
+			y := gosmt.StringConst(context, "y", 2)
+			z := gosmt.StringConst(context, "z", 3)
+			formula := gosmt.And(
+				gosmt.EqString(
+					gosmt.ConcatString(x, y),
+					gosmt.StringVal(context, "abc"),
+				),
+				gosmt.EqString(
+					gosmt.ConcatString(x, gosmt.StringVal(context, "-"), z),
+					gosmt.StringVal(context, "a-tail"),
+				),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			for _, item := range []struct {
+				expression gosmt.StringExpr
+				expected   string
+			}{
+				{x, "a"},
+				{y, "bc"},
+				{z, "tail"},
+			} {
+				if value, found := gosmt.EvalString(result.Value, item.expression); !found || value != item.expected {
+					b.Fatal("invalid shared word-equation model")
+				}
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid shared word-equation formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			x := context.MkConst(context.MkStringSymbol("x"), context.MkStringSort())
+			y := context.MkConst(context.MkStringSymbol("y"), context.MkStringSort())
+			z := context.MkConst(context.MkStringSymbol("z"), context.MkStringSort())
+			formula := context.MkAnd(
+				context.MkEq(
+					context.MkSeqConcat(x, y),
+					context.MkString("abc"),
+				),
+				context.MkEq(
+					context.MkSeqConcat(x, context.MkString("-"), z),
+					context.MkString("a-tail"),
+				),
+			)
+			solver := context.NewSolverForLogic("QF_SLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{x, y, z, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid shared word-equation model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringDelimitedWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

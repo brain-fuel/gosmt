@@ -79,6 +79,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | ambiguous word equation + ground equality interaction | ~3.354–3.359 us, 9,296 B, 8 allocs | ~0.987–1.084 ms, 432 B, 27 allocs | green (>293x) | green (target ≤13 allocs) |
 | word equation + exact code-point length interaction | ~3.351–3.366 us, 9,328 B, 10 allocs | ~1.518–1.584 ms, 384 B, 26 allocs | green (>450x) | green (target ≤13 allocs) |
 | word equation + code-point length bounds | ~4.395–4.413 us, 10,608 B, 13 allocs | ~1.673–1.752 ms, 440 B, 29 allocs | green (>379x) | green (target ≤14 allocs) |
+| two shared-symbol word equations + global backtracking | ~3.716–3.732 us, 8,224 B, 8 allocs | ~1.710–1.763 ms, 480 B, 32 allocs | green (>458x) | green (target ≤16 allocs) |
 
 The warm result is cached immutable-state checking in both APIs. The cold row
 includes context, term, solver, assertion, solve, and result construction. No
@@ -529,6 +530,15 @@ validates both bounds. Compact order relations avoid materializing generic
 integer ASTs, reducing the first public implementation from 18 allocations to
 13. Pinned Z3 uses 29 visible Go allocations and 1.673–1.752 ms versus
 GoSMT's 4.395–4.413 us. This is 55.2% fewer allocations and over 379x
+conservative-endpoint throughput.
+
+The multiple-equation workload solves `x ++ y = "abc"` together with
+`x ++ "-" ++ z = "a-tail"`. The second equation forces global backtracking
+from the first equation's initial empty split to `x = "a"`, after which the
+model contains `y = "bc"` and `z = "tail"`. One fixed-capacity search shares
+assignments and the 4,096-state limit across both equations. It uses
+8 allocations and 3.716–3.732 us versus pinned Z3's 32 visible Go allocations
+and 1.710–1.763 ms. This is 75.0% fewer allocations and over 458x
 conservative-endpoint throughput.
 
 Normalized CNF now recognizes disjoint positive choice groups constrained only

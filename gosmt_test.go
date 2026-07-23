@@ -467,6 +467,48 @@ func TestContextIndexedWordEquationLengthInequalityInteraction(t *testing.T) {
 	}
 }
 
+func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
+	context := NewContext(21)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	z := StringConst(context, "z", 3)
+	first := EqString(ConcatString(x, y), StringVal(context, "abc"))
+	second := EqString(
+		ConcatString(x, StringVal(context, "-"), z),
+		StringVal(context, "a-tail"),
+	)
+	formula := And(first, second)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	for _, item := range []struct {
+		expression StringExpr
+		expected   string
+	}{
+		{x, "a"},
+		{y, "bc"},
+		{z, "tail"},
+	} {
+		if actual, found := EvalString(result.Value, item.expression); !found || actual != item.expected {
+			t.Fatalf("value=(%q,%v), want=%q", actual, found, item.expected)
+		}
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+
+	impossible := And(
+		first,
+		EqString(ConcatString(x, x), StringVal(context, "zz")),
+	)
+	checked = Check(Assert(2, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
