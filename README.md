@@ -25,7 +25,9 @@ Built-in integer EUF includes context-indexed unary `Int -> Int`, binary
 typed API and SMT-LIB `QF_UFLIA` purify
 applications inside affine arithmetic and exchange implied equality between
 LIA and EUF to a fixed point, including affine arguments. Compact direct-symbol
-paths avoid materializing application trees.
+paths avoid materializing application trees. Unary `Int -> Bool` and binary
+`Int × Int -> Bool` predicates use the same context indices, affine argument
+purification, and LIA-driven congruence.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive

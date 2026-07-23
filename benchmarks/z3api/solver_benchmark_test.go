@@ -5840,6 +5840,95 @@ func BenchmarkPurifiedTernaryIntegerEUFArithmeticCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSharedIntegerPredicateCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(120)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			predicate := gosmt.DeclareIntPredicate(context, "p", 3)
+			formula := gosmt.And(
+				gosmt.Le(x, y),
+				gosmt.Le(y, x),
+				gosmt.ApplyIntPredicate(predicate, x),
+				gosmt.Not(gosmt.ApplyIntPredicate(predicate, y)),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Unsat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			y := context.MkIntConst("y")
+			predicate := context.MkFuncDecl(
+				context.MkStringSymbol("p"), []*z3.Sort{sort}, context.MkBoolSort(),
+			)
+			formula := context.MkAnd(
+				context.MkLe(x, y),
+				context.MkLe(y, x),
+				context.MkApp(predicate, x),
+				context.MkNot(context.MkApp(predicate, y)),
+			)
+			solver := context.NewSolverForLogic("QF_UFLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Unsatisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
+func BenchmarkSharedBinaryIntegerPredicateCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(121)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			z := gosmt.IntConst(context, "z", 3)
+			predicate := gosmt.DeclareIntBinaryPredicate(context, "p2", 4)
+			formula := gosmt.And(
+				gosmt.EqInt(x, y),
+				gosmt.ApplyIntBinaryPredicate(predicate, x, z),
+				gosmt.Not(gosmt.ApplyIntBinaryPredicate(predicate, y, z)),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Unsat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			y := context.MkIntConst("y")
+			z := context.MkIntConst("z")
+			predicate := context.MkFuncDecl(
+				context.MkStringSymbol("p2"),
+				[]*z3.Sort{sort, sort}, context.MkBoolSort(),
+			)
+			formula := context.MkAnd(
+				context.MkEq(x, y),
+				context.MkApp(predicate, x, z),
+				context.MkNot(context.MkApp(predicate, y, z)),
+			)
+			solver := context.NewSolverForLogic("QF_UFLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Unsatisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkPurifiedRealEUFArithmeticCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

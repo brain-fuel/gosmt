@@ -143,8 +143,10 @@
    purify applications in affine arithmetic, and exchange EUF/LIA equality to
    a fixed point. Reciprocal inequalities, affine arguments, reverse
    propagation, and compact direct-symbol paths are covered. Arity above three,
-   conditionals around applications, mixed signatures, and nonlinear
-   arithmetic remain.
+   conditionals around applications, other mixed signatures, and nonlinear
+   arithmetic remain. Unary Int→Bool and binary Int×Int→Bool predicates now
+   preserve their mixed signatures in Go+, accept affine arguments, execute
+   through SMT-LIB, and share fixed-point LIA/EUF congruence.
    Single-symbol affine length expressions now normalize exact addition,
    subtraction, and arbitrary-precision constant scaling with divisibility,
    sign reversal, integer rounding, and cancellation.

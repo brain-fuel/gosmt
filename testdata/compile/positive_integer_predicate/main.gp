@@ -1,0 +1,12 @@
+package compilefixture
+
+import "goforge.dev/gosmt"
+
+func AcceptedIntegerPredicate() {
+	context := gosmt.NewContext(7)
+	predicate := gosmt.DeclareIntPredicate(context, "p", 1)
+	x := gosmt.IntConst(context, "x", 2)
+	_ = gosmt.ApplyIntPredicate(predicate, x)
+	binary := gosmt.DeclareIntBinaryPredicate(context, "p2", 3)
+	_ = gosmt.ApplyIntBinaryPredicate(binary, x, x)
+}

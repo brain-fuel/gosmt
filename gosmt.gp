@@ -80,7 +80,13 @@ type RealBinaryFunc[c nat] enum { realBinaryFuncValue(ContextID int, Function sm
 type IntFunc[c nat] enum { intFuncValue(ContextID int, Function smt.SortedUnaryFunction[smt.IntSort, smt.IntSort], Fast integerFunctionFast) IntFunc[c] }
 //goplus:derive off
 //goplus:repr transparent
+type IntPredicate[c nat] enum { intPredicateValue(ContextID int, Function smt.SortedUnaryFunction[smt.IntSort, smt.BoolSort], Fast integerPredicateFast) IntPredicate[c] }
+//goplus:derive off
+//goplus:repr transparent
 type IntBinaryFunc[c nat] enum { intBinaryFuncValue(ContextID int, Function smt.SortedBinaryFunction[smt.IntSort, smt.IntSort, smt.IntSort], Fast integerBinaryFunctionFast) IntBinaryFunc[c] }
+//goplus:derive off
+//goplus:repr transparent
+type IntBinaryPredicate[c nat] enum { intBinaryPredicateValue(ContextID int, Function smt.SortedBinaryFunction[smt.IntSort, smt.IntSort, smt.BoolSort], Fast integerBinaryPredicateFast) IntBinaryPredicate[c] }
 //goplus:derive off
 //goplus:repr transparent
 type IntTernaryFunc[c nat] enum { intTernaryFuncValue(ContextID int, Function smt.SortedTernaryFunction[smt.IntSort, smt.IntSort, smt.IntSort, smt.IntSort], Fast integerTernaryFunctionFast) IntTernaryFunc[c] }
@@ -942,12 +948,28 @@ func ApplyIntFunction(0 c nat, function IntFunc[c], argument IntExpr[c]) IntExpr
 	return applyIntegerFunction(function, argument)
 }
 
+func DeclareIntPredicate(0 c nat, context Context[c], name string, id int) IntPredicate[c] {
+	match context { case contextValue(contextID): return fastIntegerPredicate(contextID, id, name) }
+}
+
+func ApplyIntPredicate(0 c nat, predicate IntPredicate[c], argument IntExpr[c]) BoolExpr[c] {
+	return applyIntegerPredicate(predicate, argument)
+}
+
 func DeclareIntBinary(0 c nat, context Context[c], name string, id int) IntBinaryFunc[c] {
 	match context { case contextValue(contextID): return fastIntegerBinaryFunction(contextID, id, name) }
 }
 
 func ApplyIntBinary(0 c nat, function IntBinaryFunc[c], first IntExpr[c], second IntExpr[c]) IntExpr[c] {
 	return applyIntegerBinaryFunction(function, first, second)
+}
+
+func DeclareIntBinaryPredicate(0 c nat, context Context[c], name string, id int) IntBinaryPredicate[c] {
+	match context { case contextValue(contextID): return fastIntegerBinaryPredicate(contextID, id, name) }
+}
+
+func ApplyIntBinaryPredicate(0 c nat, predicate IntBinaryPredicate[c], first IntExpr[c], second IntExpr[c]) BoolExpr[c] {
+	return applyIntegerBinaryPredicate(predicate, first, second)
 }
 
 func DeclareIntTernary(0 c nat, context Context[c], name string, id int) IntTernaryFunc[c] {

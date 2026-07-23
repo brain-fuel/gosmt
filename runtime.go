@@ -85,7 +85,19 @@ type integerFunctionFast struct {
 	name  string
 }
 
+type integerPredicateFast struct {
+	valid bool
+	id    int
+	name  string
+}
+
 type integerBinaryFunctionFast struct {
+	valid bool
+	id    int
+	name  string
+}
+
+type integerBinaryPredicateFast struct {
 	valid bool
 	id    int
 	name  string
@@ -2609,6 +2621,12 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		switch value.fast.kind {
 		case booleanFastIntegerDifference:
 			differenceCount++
+		case booleanFastIntegerSymbolEquality:
+			if value.fast.integerSymbolNegated {
+				allCompactIntegerCongruence = false
+			} else {
+				differenceCount += 2
+			}
 		case booleanFastUninterpretedEUFRelation:
 			relationCount++
 		default:
@@ -2635,6 +2653,26 @@ func fastAnd(values []BoolExpr) BoolExpr {
 					system.Differences[differenceIndex] = value.fast.integerDifference
 				}
 				differenceIndex++
+			} else if value.fast.kind == booleanFastIntegerSymbolEquality {
+				for _, constraint := range [...]smt.IntegerDifferenceConstraint{
+					{
+						PositiveID:  value.fast.integerSymbolLeft,
+						NegativeID:  value.fast.integerSymbolRight,
+						HasPositive: true, HasNegative: true,
+					},
+					{
+						PositiveID:  value.fast.integerSymbolRight,
+						NegativeID:  value.fast.integerSymbolLeft,
+						HasPositive: true, HasNegative: true,
+					},
+				} {
+					if system.OverflowDifferences != nil {
+						system.OverflowDifferences[differenceIndex] = constraint
+					} else {
+						system.Differences[differenceIndex] = constraint
+					}
+					differenceIndex++
+				}
 			} else {
 				if system.OverflowRelations != nil {
 					system.OverflowRelations[relationIndex] = value.fast.uninterpretedEUFRelation
@@ -3463,6 +3501,46 @@ func applyIntegerFunction(function IntFunc, argument IntExpr) IntExpr {
 	}
 }
 
+func fastIntegerPredicate(context, id int, name string) IntPredicate {
+	return intPredicateValue{
+		contextID: context,
+		fast:      integerPredicateFast{valid: true, id: id, name: name},
+	}
+}
+
+func applyIntegerPredicate(predicate IntPredicate, argument IntExpr) BoolExpr {
+	if predicate.contextID != argument.contextID {
+		panic("gosmt: erased integer predicate context mismatch")
+	}
+	if predicate.fast.valid {
+		if argumentID, _, ok := directIntegerExprSymbol(argument); ok {
+			relation := smt.UninterpretedEUFRelation{
+				Left: smt.UninterpretedEUFTerm{
+					Kind: 2, SortID: -3, FunctionID: predicate.fast.id,
+					FirstSortID: -2, FirstID: argumentID,
+				},
+				Right: smt.UninterpretedEUFTerm{
+					Kind: 4, SortID: -3, Constant: "true",
+				},
+			}
+			return boolExprValue{contextID: predicate.contextID, fast: booleanFast{
+				kind:                     booleanFastUninterpretedEUFRelation,
+				uninterpretedEUFRelation: relation,
+			}}
+		}
+	}
+	core := predicate.function
+	if core == nil {
+		core = smt.DeclareIntPredicate(predicate.fast.id, predicate.fast.name)
+	}
+	return boolExprValue{
+		contextID: predicate.contextID,
+		term: smt.ApplySortedUnary(
+			core, materializeInteger(argument.term, argument.fast),
+		),
+	}
+}
+
 func fastIntegerBinaryFunction(context, id int, name string) IntBinaryFunc {
 	return intBinaryFuncValue{
 		contextID: context,
@@ -3488,6 +3566,52 @@ func applyIntegerBinaryFunction(function IntBinaryFunc, first, second IntExpr) I
 	}
 	return intExprValue{
 		contextID: function.contextID,
+		term: smt.ApplySortedBinary(
+			core,
+			materializeInteger(first.term, first.fast),
+			materializeInteger(second.term, second.fast),
+		),
+	}
+}
+
+func fastIntegerBinaryPredicate(context, id int, name string) IntBinaryPredicate {
+	return intBinaryPredicateValue{
+		contextID: context,
+		fast:      integerBinaryPredicateFast{valid: true, id: id, name: name},
+	}
+}
+
+func applyIntegerBinaryPredicate(
+	predicate IntBinaryPredicate, first, second IntExpr,
+) BoolExpr {
+	if predicate.contextID != first.contextID ||
+		predicate.contextID != second.contextID {
+		panic("gosmt: erased binary integer predicate context mismatch")
+	}
+	firstID, _, firstOK := directIntegerExprSymbol(first)
+	secondID, _, secondOK := directIntegerExprSymbol(second)
+	if predicate.fast.valid && firstOK && secondOK {
+		relation := smt.UninterpretedEUFRelation{
+			Left: smt.UninterpretedEUFTerm{
+				Kind: 3, SortID: -3, FunctionID: predicate.fast.id,
+				FirstSortID: -2, SecondSortID: -2,
+				FirstID: firstID, SecondID: secondID,
+			},
+			Right: smt.UninterpretedEUFTerm{
+				Kind: 4, SortID: -3, Constant: "true",
+			},
+		}
+		return boolExprValue{contextID: predicate.contextID, fast: booleanFast{
+			kind:                     booleanFastUninterpretedEUFRelation,
+			uninterpretedEUFRelation: relation,
+		}}
+	}
+	core := predicate.function
+	if core == nil {
+		core = smt.DeclareIntBinaryPredicate(predicate.fast.id, predicate.fast.name)
+	}
+	return boolExprValue{
+		contextID: predicate.contextID,
 		term: smt.ApplySortedBinary(
 			core,
 			materializeInteger(first.term, first.fast),

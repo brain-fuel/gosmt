@@ -3135,6 +3135,38 @@ func TestIntegerFunctionSharedArithmetic(t *testing.T) {
 	}
 }
 
+func TestIntegerPredicateCongruence(t *testing.T) {
+	context := NewContext(120)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	predicate := DeclareIntPredicate(context, "p", 3)
+	formula := And(
+		Le(x, y),
+		Le(y, x),
+		ApplyIntPredicate(predicate, Add(x, IntVal(context, 1))),
+		Not(ApplyIntPredicate(predicate, Add(y, IntVal(context, 1)))),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("LIA-implied affine predicate congruence should be unsatisfiable")
+	}
+}
+
+func TestBinaryIntegerPredicateCongruence(t *testing.T) {
+	context := NewContext(121)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	z := IntConst(context, "z", 3)
+	predicate := DeclareIntBinaryPredicate(context, "p2", 4)
+	formula := And(
+		EqInt(x, y),
+		ApplyIntBinaryPredicate(predicate, x, z),
+		Not(ApplyIntBinaryPredicate(predicate, y, z)),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("binary integer predicate congruence should be unsatisfiable")
+	}
+}
+
 func TestRealFunctionApplicationsInsideArithmeticArePurified(t *testing.T) {
 	context := NewContext(17)
 	x := RealConst(context, "x", 1)
