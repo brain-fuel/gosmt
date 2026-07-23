@@ -883,8 +883,60 @@ func TestContextIndexedGroundAssignedIntegerSequence(t *testing.T) {
 	}
 
 	checked = Check(Assert(3, NewSolver(context), ContainsIntSequence(x, unit(2))))
-	if _, ok := checked.(Unknown); !ok {
+	if result, ok := checked.(Sat); !ok {
 		t.Fatalf("unbound result=%T", checked)
+	} else if value, found := EvalIntSequence(result.Value, x); !found || value.Len() != 1 {
+		t.Fatalf("unbound x len=(%d,%v)", value.Len(), found)
+	}
+}
+
+func TestContextIndexedPositiveSymbolicIntegerSequence(t *testing.T) {
+	context := NewContext(37)
+	unit := func(value int64) IntSequenceExpr {
+		return UnitIntSequence(IntVal(context, value))
+	}
+	x := IntSequenceConst(context, "x", 1)
+	y := IntSequenceConst(context, "y", 2)
+	formula := And(
+		HasPrefixIntSequence(x, ConcatIntSequence(unit(1), unit(2))),
+		HasPrefixIntSequence(x, unit(1)),
+		ContainsIntSequence(x, ConcatIntSequence(unit(3), unit(4))),
+		HasSuffixIntSequence(x, ConcatIntSequence(unit(5), unit(6))),
+		HasSuffixIntSequence(x, unit(6)),
+		ContainsIntSequence(y, ConcatIntSequence(unit(9), unit(8))),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+	if value, found := EvalIntSequence(result.Value, x); !found || value.Len() != 6 {
+		t.Fatalf("x len=(%d,%v)", value.Len(), found)
+	}
+	if value, found := EvalIntSequence(result.Value, y); !found || value.Len() != 2 {
+		t.Fatalf("y len=(%d,%v)", value.Len(), found)
+	}
+
+	incompatible := And(
+		HasPrefixIntSequence(x, unit(1)),
+		HasPrefixIntSequence(x, unit(2)),
+	)
+	if checked := Check(Assert(2, NewSolver(context), incompatible)); func() bool {
+		_, ok := checked.(Unsat)
+		return ok
+	}() == false {
+		t.Fatalf("incompatible result=%T", checked)
+	}
+
+	unsupported := Not(ContainsIntSequence(x, unit(1)))
+	if checked := Check(Assert(3, NewSolver(context), unsupported)); func() bool {
+		_, ok := checked.(Unknown)
+		return ok
+	}() == false {
+		t.Fatalf("unsupported result=%T", checked)
 	}
 }
 

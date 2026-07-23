@@ -49,8 +49,11 @@ disequality, length arithmetic, indexed `at`/extract, contains/prefix/suffix,
 index-of, first replacement, Boolean composition, and inline model evaluation.
 Go+ retains both the sequence element sort in std and the context identity in
 the GoSMT façade. Ground-assigned symbolic sequence constants retain exact
-model values across derived operators and assumptions; underconstrained
-symbolic sequence search remains explicit future work.
+model values across derived operators and assumptions. Positive conjunctive
+`contains`, `prefix`, and `suffix` constraints construct deterministic exact
+witnesses, merge compatible prefix/suffix requirements, and reject conflicts.
+Non-conjunctive and length-coupled symbolic sequence search remains explicit
+future work.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,

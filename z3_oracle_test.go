@@ -1024,6 +1024,89 @@ func TestGroundAssignedIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestPositiveSymbolicIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(620 + example)
+		unit := func(value int64) IntSequenceExpr {
+			return UnitIntSequence(IntVal(context, value))
+		}
+		x := IntSequenceConst(context, "x", 1)
+		y := IntSequenceConst(context, "y", 2)
+		formula := ContainsIntSequence(x, unit(int64(example%7)))
+		assertions := fmt.Sprintf("(assert (seq.contains x (seq.unit %d)))", example%7)
+		switch example % 8 {
+		case 1:
+			formula = HasPrefixIntSequence(x, ConcatIntSequence(unit(1), unit(2)))
+			assertions = "(assert (seq.prefixof (seq.++ (seq.unit 1) (seq.unit 2)) x))"
+		case 2:
+			formula = HasSuffixIntSequence(x, ConcatIntSequence(unit(3), unit(4)))
+			assertions = "(assert (seq.suffixof (seq.++ (seq.unit 3) (seq.unit 4)) x))"
+		case 3:
+			formula = And(
+				HasPrefixIntSequence(x, unit(1)),
+				ContainsIntSequence(x, unit(2)),
+				HasSuffixIntSequence(x, unit(3)),
+			)
+			assertions = `(assert (seq.prefixof (seq.unit 1) x))
+(assert (seq.contains x (seq.unit 2)))
+(assert (seq.suffixof (seq.unit 3) x))`
+		case 4:
+			formula = And(
+				HasPrefixIntSequence(x, unit(1)),
+				HasPrefixIntSequence(x, ConcatIntSequence(unit(1), unit(2))),
+			)
+			assertions = `(assert (seq.prefixof (seq.unit 1) x))
+(assert (seq.prefixof (seq.++ (seq.unit 1) (seq.unit 2)) x))`
+		case 5:
+			formula = And(
+				HasSuffixIntSequence(x, unit(4)),
+				HasSuffixIntSequence(x, ConcatIntSequence(unit(3), unit(4))),
+			)
+			assertions = `(assert (seq.suffixof (seq.unit 4) x))
+(assert (seq.suffixof (seq.++ (seq.unit 3) (seq.unit 4)) x))`
+		case 6:
+			formula = And(
+				ContainsIntSequence(x, unit(5)),
+				ContainsIntSequence(y, unit(6)),
+			)
+			assertions = `(assert (seq.contains x (seq.unit 5)))
+(assert (seq.contains y (seq.unit 6)))`
+		case 7:
+			formula = And(
+				HasPrefixIntSequence(x, unit(1)),
+				HasPrefixIntSequence(x, unit(2)),
+			)
+			assertions = `(assert (seq.prefixof (seq.unit 1) x))
+(assert (seq.prefixof (seq.unit 2) x))`
+		}
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := `(set-logic ALL)
+(declare-const x (Seq Int))
+(declare-const y (Seq Int))
+` + assertions + `
+(check-sat)`
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
 func sequenceIntegerLiteral(value int64) string {
 	if value < 0 {
 		return fmt.Sprintf("(- %d)", -value)

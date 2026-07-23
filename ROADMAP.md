@@ -89,7 +89,10 @@
    empty-sequence and out-of-range semantics. Generic sequence symbols and
    exact integer-sequence model storage now support ground assignments,
    conflicting-assignment proofs, derived operators, and temporary
-   assumptions. Underconstrained symbolic witness search and non-integer
+   assumptions. Positive conjunctive contains/prefix/suffix requirements now
+   construct deterministic witnesses for multiple symbols, merge compatible
+   boundaries, and prove incompatible boundaries unsatisfiable.
+   Non-conjunctive, length-coupled, relational, and non-integer symbolic
    sequence solving remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
