@@ -553,6 +553,16 @@ Boolean combinations. The cold workload uses 14 allocations and
 2.452–2.498 ms. This is exactly 50.0% fewer allocations and over 517x
 conservative-endpoint throughput.
 
+The integer-valued string-operation workload solves `x ++ y = "abc"` together
+with `str.indexof(x, "b", 0) = 1`, selecting `x = "ab"` and `y = "c"`.
+The same exact candidate evaluator covers `str.to_int`, `str.to_code`, and
+affine integer combinations, with arbitrary-precision conversion checked
+separately. Allocation-free Unicode/WTF-8 code-point boundary scanning reduced
+the cold workload from 21 allocations to 12. It uses 12 allocations and
+5.075–5.080 us versus pinned Z3's 27 visible Go allocations and
+2.725–2.811 ms. This is 55.6% fewer allocations and over 536x
+conservative-endpoint throughput.
+
 The multiple-equation workload solves `x ++ y = "abc"` together with
 `x ++ "-" ++ z = "a-tail"`. The second equation forces global backtracking
 from the first equation's initial empty split to `x = "a"`, after which the

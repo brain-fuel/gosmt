@@ -33,6 +33,9 @@ prefix/suffix equations directly. Compact relational length terms preserve
 `len(x) = len(y)`, `<`, and `<=` without generic AST materialization, including
 Boolean-nested constraints during bounded backtracking. Affine combinations
 of lengths support exact addition, subtraction, and constant scaling, plus
+integer-valued `str.indexof`, `str.to_int`, and `str.to_code` predicates
+coupled to word-equation candidates with exact arbitrary-precision conversion,
+plus
 regex-coupled candidate
 selection including bounded Boolean predicates and string disequalities, the
 core SMT-LIB regex, and globally backtracked contains/prefix/suffix constraints

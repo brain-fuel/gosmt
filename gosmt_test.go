@@ -573,6 +573,80 @@ func TestContextIndexedWordEquationAffineLengthInteraction(t *testing.T) {
 	}
 }
 
+func TestContextIndexedWordEquationIntegerStringOperationInteraction(t *testing.T) {
+	context := NewContext(32)
+	x := StringConst(context, "x", 1)
+	y := StringConst(context, "y", 2)
+	indexFormula := And(
+		EqString(ConcatString(x, y), StringVal(context, "abc")),
+		EqInt(
+			IndexOfString(x, StringVal(context, "b"), IntVal(context, 0)),
+			IntVal(context, 1),
+		),
+	)
+	checked := Check(Assert(1, NewSolver(context), indexFormula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("index result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "ab" {
+		t.Fatalf("index x=(%q,%v)", actual, found)
+	}
+
+	toIntegerFormula := And(
+		EqString(ConcatString(x, y), StringVal(context, "12z")),
+		EqInt(ToIntString(x), IntVal(context, 12)),
+	)
+	checked = Check(Assert(2, NewSolver(context), toIntegerFormula))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("to-int result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "12" {
+		t.Fatalf("to-int x=(%q,%v)", actual, found)
+	}
+
+	toCodeFormula := And(
+		EqString(ConcatString(x, y), StringVal(context, "a🙂")),
+		EqInt(ToCodeString(x), IntVal(context, 97)),
+	)
+	checked = Check(Assert(3, NewSolver(context), toCodeFormula))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("to-code result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != "a" {
+		t.Fatalf("to-code x=(%q,%v)", actual, found)
+	}
+
+	const digits = "1234567890123456789012345678901234567890"
+	exact, err := smt.ParseIntegerValue(digits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wide := And(
+		EqString(ConcatString(x, y), StringVal(context, digits+"!")),
+		EqInt(ToIntString(x), IntValExact(context, exact)),
+	)
+	checked = Check(Assert(4, NewSolver(context), wide))
+	result, ok = checked.(Sat)
+	if !ok {
+		t.Fatalf("wide result=%T", checked)
+	}
+	if actual, found := EvalString(result.Value, x); !found || actual != digits {
+		t.Fatalf("wide x=(%q,%v)", actual, found)
+	}
+
+	impossible := And(
+		EqString(ConcatString(x, y), StringVal(context, "abc")),
+		EqInt(ToCodeString(x), IntVal(context, 122)),
+	)
+	checked = Check(Assert(5, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

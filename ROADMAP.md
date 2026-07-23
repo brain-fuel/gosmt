@@ -65,7 +65,11 @@
    now compare bound string expressions exactly, including within Boolean
    choices, using compact std terms. Affine length arithmetic now covers exact
    addition, subtraction, and arbitrary-precision constant scaling against
-   affine or constant bounds. Unbounded-target or unbounded Boolean-regex
+   affine or constant bounds. Integer predicates over `str.indexof`,
+   `str.to_int`, and `str.to_code`, including affine combinations, now
+   participate in the same exact candidate validation. `str.indexof` scans
+   Unicode/WTF-8 code-point boundaries without temporary rune slices.
+   Unbounded-target or unbounded Boolean-regex
    equation systems remain. Positive and negative
    regular-language memberships now prune bounded equation candidates and
    participate in final global-model validation; bounded `or`, nested `not`,
