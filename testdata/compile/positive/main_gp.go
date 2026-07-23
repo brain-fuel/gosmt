@@ -45,4 +45,9 @@ func Accepted() {
 	one := gosmt.ApplyRecursiveDatatypeConstructor(succ, zero)
 	_ = gosmt.SelectRecursiveDatatypeConstructor(succ, one)
 	_ = gosmt.IsRecursiveDatatypeConstructor(succ, one)
+	leaf := gosmt.DatatypeConstructor(2, 2, 0, context, "leaf")
+	node := gosmt.DeclareBinaryRecursiveDatatypeConstructor(2, 2, 1, context, "node", "left", "right")
+	branch := gosmt.ApplyBinaryRecursiveDatatypeConstructor(node, leaf, leaf)
+	_ = gosmt.SelectBinaryRecursiveDatatypeConstructor(gosmt.FirstDatatypeField(), node, branch)
+	_ = gosmt.SelectBinaryRecursiveDatatypeConstructor(gosmt.SecondDatatypeField(), node, branch)
 }

@@ -5,6 +5,19 @@ import smt "goforge.dev/goplus/std/smt"
 var resultViewKey byte
 
 const (
+	integerFastNone = iota
+	integerFastBitVectorConversion
+)
+
+type integerFast struct {
+	kind     uint8
+	width    int
+	symbolID int
+	name     string
+	signed   bool
+}
+
+const (
 	booleanFastNone = iota
 	booleanFastLiteral
 	booleanFastClause
@@ -16,6 +29,7 @@ const (
 	booleanFastBitVectorRelation
 	booleanFastBitVectorEUFRelation
 	booleanFastIntegerDifference
+	booleanFastIntegerSymbolEquality
 	booleanFastBitVectorIntegerRelation
 	booleanFastArrayEquality
 	booleanFastArrayReadEquality
@@ -45,6 +59,9 @@ type booleanFast struct {
 	bitVectorRelation            smt.BitVectorRelation
 	bitVectorEUFRelation         smt.BitVectorEUFRelation
 	integerDifference            smt.IntegerDifferenceConstraint
+	integerSymbolLeft            int
+	integerSymbolRight           int
+	integerSymbolNegated         bool
 	bitVectorIntegerRelation     smt.BitVectorIntegerRelation
 	arrayEquality                smt.ArrayEqualityRelation
 	arrayReadEquality            smt.ArrayReadRelation
@@ -680,19 +697,20 @@ func subtractInteger(left, right IntExpr) IntExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
 	}
-	return intExprValue{contextID: left.contextID, term: smt.Subtract{Left: left.term, Right: right.term}}
+	return intExprValue{contextID: left.contextID, term: smt.Subtract{Left: materializeInteger(left.term, left.fast), Right: materializeInteger(right.term, right.fast)}}
 }
 
 func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
 	}
-	if constraint, ok := compactIntegerDifference(left.term, right.term, strict); ok {
+	leftTerm, rightTerm := materializeInteger(left.term, left.fast), materializeInteger(right.term, right.fast)
+	if constraint, ok := compactIntegerDifference(leftTerm, rightTerm, strict); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerDifference, integerDifference: constraint}}
 	}
-	term := smt.Term[smt.BoolSort](smt.LessEqual{Left: left.term, Right: right.term})
+	term := smt.Term[smt.BoolSort](smt.LessEqual{Left: leftTerm, Right: rightTerm})
 	if strict {
-		term = smt.Less{Left: left.term, Right: right.term}
+		term = smt.Less{Left: leftTerm, Right: rightTerm}
 	}
 	return boolExprValue{contextID: left.contextID, term: term}
 }
@@ -1240,6 +1258,10 @@ func fastNot(value BoolExpr) BoolExpr {
 		value.fast.bitVectorIntegerRelation.Negated = !value.fast.bitVectorIntegerRelation.Negated
 		return value
 	}
+	if value.fast.kind == booleanFastIntegerSymbolEquality {
+		value.fast.integerSymbolNegated = !value.fast.integerSymbolNegated
+		return value
+	}
 	if value.fast.kind == booleanFastArrayEquality {
 		value.fast.arrayEquality.Negated = !value.fast.arrayEquality.Negated
 		return value
@@ -1378,6 +1400,18 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		}
 	}
 	if len(values) == 2 {
+		var symbolEquality booleanFast
+		var storeRead smt.ArrayStoreReadValueRelation
+		symbolReadMatched := false
+		if values[0].fast.kind == booleanFastIntegerSymbolEquality && values[1].fast.kind == booleanFastArrayStoreReadValue {
+			symbolEquality, storeRead, symbolReadMatched = values[0].fast, values[1].fast.arrayStoreReadValue, true
+		}
+		if values[1].fast.kind == booleanFastIntegerSymbolEquality && values[0].fast.kind == booleanFastArrayStoreReadValue {
+			symbolEquality, storeRead, symbolReadMatched = values[1].fast, values[0].fast.arrayStoreReadValue, true
+		}
+		if symbolReadMatched && !symbolEquality.integerSymbolNegated {
+			return boolExprValue{contextID: context, term: smt.ArrayIntegerSymbolEqualityExchange{LeftID: symbolEquality.integerSymbolLeft, RightID: symbolEquality.integerSymbolRight, Read: storeRead}}
+		}
 		if values[0].fast.kind == booleanFastBitVectorEUFRelation && values[1].fast.kind == booleanFastBitVectorArrayStoreReadValue {
 			return boolExprValue{contextID: context, term: smt.BitVectorArrayEqualityExchange{Equality: values[0].fast.bitVectorEUFRelation, Read: values[1].fast.bitVectorArrayStoreReadValue}}
 		}
@@ -1397,6 +1431,12 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		}
 		if matched {
 			return boolExprValue{contextID: context, term: smt.ArrayCongruenceConjunction{Equality: equality, Read: read}}
+		}
+		if values[0].fast.kind == booleanFastArrayEquality && values[1].fast.kind == booleanFastArrayReadValue {
+			return boolExprValue{contextID: context, term: smt.ArrayExtensionalReadConjunction{Equality: values[0].fast.arrayEquality, Read: values[1].fast.arrayReadValue}}
+		}
+		if values[1].fast.kind == booleanFastArrayEquality && values[0].fast.kind == booleanFastArrayReadValue {
+			return boolExprValue{contextID: context, term: smt.ArrayExtensionalReadConjunction{Equality: values[1].fast.arrayEquality, Read: values[0].fast.arrayReadValue}}
 		}
 		if values[0].fast.kind == booleanFastArrayStoreEquality && values[1].fast.kind == booleanFastArrayReadEquality {
 			return boolExprValue{contextID: context, term: smt.ArrayStoreBridgeReadConjunction{Store: values[0].fast.arrayStoreEquality, Read: values[1].fast.arrayReadEquality}}
@@ -1735,6 +1775,12 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.bitVectorEUFRelation
 	case booleanFastIntegerDifference:
 		return fast.integerDifference
+	case booleanFastIntegerSymbolEquality:
+		equality := smt.Term[smt.BoolSort](smt.Equal{Left: smt.IntegerVariable(fast.integerSymbolLeft), Right: smt.IntegerVariable(fast.integerSymbolRight)})
+		if fast.integerSymbolNegated {
+			return smt.Not{Value: equality}
+		}
+		return equality
 	case booleanFastBitVectorIntegerRelation:
 		return fast.bitVectorIntegerRelation
 	case booleanFastArrayEquality:
@@ -1779,48 +1825,99 @@ func fastEqInteger(left, right IntExpr) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
 	}
-	if first, firstOK := smt.ExactIntegerConstant(left.term); firstOK {
-		if second, secondOK := smt.ExactIntegerConstant(right.term); secondOK {
+	if relation, ok := compactFastBitVectorIntegerEquality(left, right); ok {
+		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastBitVectorIntegerRelation, bitVectorIntegerRelation: relation}}
+	}
+	leftTerm, rightTerm := materializeInteger(left.term, left.fast), materializeInteger(right.term, right.fast)
+	if first, firstOK := smt.ExactIntegerConstant(leftTerm); firstOK {
+		if second, secondOK := smt.ExactIntegerConstant(rightTerm); secondOK {
 			return boolExprValue{contextID: left.contextID, term: smt.Bool{Value: smt.CompareIntegerValue(first, second) == 0}}
 		}
 	}
-	if relation, ok := smt.CompactBitVectorIntegerEquality(left.term, right.term); ok {
+	if leftID, leftOK := smt.IntegerVariableID(leftTerm); leftOK {
+		if rightID, rightOK := smt.IntegerVariableID(rightTerm); rightOK {
+			return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerSymbolEquality, integerSymbolLeft: leftID, integerSymbolRight: rightID}}
+		}
+	}
+	if relation, ok := smt.CompactBitVectorIntegerEquality(leftTerm, rightTerm); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastBitVectorIntegerRelation, bitVectorIntegerRelation: relation}}
 	}
-	if relation, ok := smt.CompactIntegerArrayReadEquality(left.term, right.term); ok {
+	if relation, ok := smt.CompactIntegerArrayReadEquality(leftTerm, rightTerm); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastArrayReadEquality, arrayReadEquality: relation}}
 	}
-	if relation, ok := smt.CompactIntegerArrayReadValueEquality(left.term, right.term); ok {
+	if relation, ok := smt.CompactIntegerArrayReadValueEquality(leftTerm, rightTerm); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastArrayReadValue, arrayReadValue: relation}}
 	}
-	if relation, ok := smt.CompactIntegerArrayStoreReadValueEquality(left.term, right.term); ok {
+	if relation, ok := smt.CompactIntegerArrayStoreReadValueEquality(leftTerm, rightTerm); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastArrayStoreReadValue, arrayStoreReadValue: relation}}
 	}
-	if relation, ok := smt.CompactIntegerDivModEquality(left.term, right.term); ok {
+	if relation, ok := smt.CompactIntegerDivModEquality(leftTerm, rightTerm); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerDivModRelation, integerDivModRelation: relation}}
 	}
-	if relation, ok := smt.CompactIntegerDivModEquality(right.term, left.term); ok {
+	if relation, ok := smt.CompactIntegerDivModEquality(rightTerm, leftTerm); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerDivModRelation, integerDivModRelation: relation}}
 	}
-	if relation, ok := smt.CompactIntegerLinearEquality(left.term, right.term); ok {
+	if relation, ok := smt.CompactIntegerLinearEquality(leftTerm, rightTerm); ok {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{kind: booleanFastIntegerLinearEquality, integerLinearEquality: relation}}
 	}
-	return fastBooleanAtom(left.contextID, smt.Equal{Left: left.term, Right: right.term})
+	return fastBooleanAtom(left.contextID, smt.Equal{Left: leftTerm, Right: rightTerm})
+}
+
+func fastBitVectorToInteger(contextID int, term smt.Term[smt.BitVecSort], fast bitVectorFast, signed bool) IntExpr {
+	if term == nil && fast.kind == bitVectorFastSymbol {
+		return intExprValue{contextID: contextID, fast: integerFast{kind: integerFastBitVectorConversion, width: fast.width, symbolID: fast.id, name: fast.name, signed: signed}}
+	}
+	value := materializeBitVector(term, fast)
+	if signed {
+		return intExprValue{contextID: contextID, term: smt.BitVecToInt(value)}
+	}
+	return intExprValue{contextID: contextID, term: smt.BitVecToNat(value)}
+}
+
+func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[smt.IntSort] {
+	if term != nil {
+		return term
+	}
+	if fast.kind == integerFastBitVectorConversion {
+		value := smt.BitVecConst(fast.width, fast.symbolID, fast.name)
+		if fast.signed {
+			return smt.BitVecToInt(value)
+		}
+		return smt.BitVecToNat(value)
+	}
+	panic("gosmt: invalid erased integer expression")
+}
+
+func compactFastBitVectorIntegerEquality(left, right IntExpr) (smt.BitVectorIntegerRelation, bool) {
+	conversion, constant, reverse := left, right, false
+	if conversion.fast.kind != integerFastBitVectorConversion {
+		conversion, constant, reverse = right, left, true
+	}
+	if conversion.fast.kind != integerFastBitVectorConversion || constant.fast.kind != integerFastNone {
+		return smt.BitVectorIntegerRelation{}, false
+	}
+	value, ok := smt.ExactIntegerConstant(constant.term)
+	if !ok {
+		return smt.BitVectorIntegerRelation{}, false
+	}
+	return smt.BitVectorIntegerRelation{SymbolID: conversion.fast.symbolID, Width: conversion.fast.width, Signed: conversion.fast.signed, Constant: value, Reverse: reverse}, true
 }
 
 func cachedCheckResult(context int, core smt.Solver) Result {
-	return smt.MemoizedView(core, &resultViewKey, func(checked smt.CheckResult) any {
-		var result Result
-		switch checked := checked.(type) {
-		case smt.Satisfiable:
-			result = Sat{Value: modelValue{contextID: context, core: checked.Value}}
-		case smt.Unsatisfiable:
-			result = Unsat{Context: contextValue{iD: context}, Proof: checked.Value}
-		case smt.Unknown:
-			result = Unknown{Context: contextValue{iD: context}, Proof: checked.Context, Reason: checked.Reason}
-		}
-		return result
-	}).(Result)
+	return smt.MemoizedContextView(core, &resultViewKey, context, buildCachedCheckResult).(Result)
+}
+
+func buildCachedCheckResult(context int, checked smt.CheckResult) any {
+	var result Result
+	switch checked := checked.(type) {
+	case smt.Satisfiable:
+		result = Sat{Value: modelValue{contextID: context, core: checked.Value}}
+	case smt.Unsatisfiable:
+		result = Unsat{Context: contextValue{iD: context}, Proof: checked.Value}
+	case smt.Unknown:
+		result = Unknown{Context: contextValue{iD: context}, Proof: checked.Context, Reason: checked.Reason}
+	}
+	return result
 }
 
 func booleanTerms(values []BoolExpr) (int, []smt.Term[smt.BoolSort]) {
@@ -1868,7 +1965,7 @@ func integerTerms(values []IntExpr) (int, []smt.Term[smt.IntSort]) {
 		if context != item.contextID {
 			panic("gosmt: erased integer expression context mismatch")
 		}
-		terms[index] = item.term
+		terms[index] = materializeInteger(item.term, item.fast)
 	}
 	return context, terms
 }

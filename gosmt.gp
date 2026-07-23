@@ -17,7 +17,7 @@ type Context[c nat] enum { contextValue(ID int) Context[c] }
 type BoolExpr[c nat] enum { boolExprValue(ContextID int, Term smt.Term[smt.BoolSort], Fast booleanFast) BoolExpr[c] }
 //goplus:derive off
 //goplus:repr transparent
-type IntExpr[c nat] enum { intExprValue(ContextID int, Term smt.Term[smt.IntSort]) IntExpr[c] }
+type IntExpr[c nat] enum { intExprValue(ContextID int, Term smt.Term[smt.IntSort], Fast integerFast) IntExpr[c] }
 //goplus:derive off
 //goplus:repr transparent
 type RealExpr[c nat] enum { realExprValue(ContextID int, Term smt.Term[smt.RealSort], Fast realFast) RealExpr[c] }
@@ -35,6 +35,9 @@ type DatatypeExpr[c nat, d nat, n nat] enum { datatypeExprValue(ContextID int, T
 //goplus:derive off
 //goplus:repr transparent
 type DatatypeRecursiveConstructor[c nat, d nat, n nat, k nat] enum { datatypeRecursiveConstructorValue(ContextID int, Core smt.RecursiveDatatypeConstructor[d, n, k]) DatatypeRecursiveConstructor[c, d, n, k] }
+//goplus:derive off
+//goplus:repr transparent
+type DatatypeBinaryRecursiveConstructor[c nat, d nat, n nat, k nat] enum { datatypeBinaryRecursiveConstructorValue(ContextID int, Core smt.BinaryRecursiveDatatypeConstructor[d, n, k]) DatatypeBinaryRecursiveConstructor[c, d, n, k] }
 //goplus:derive off
 //goplus:repr transparent
 type UninterpretedExpr[c nat, s nat] enum { uninterpretedExprValue(ContextID int, Term smt.Term[smt.UninterpretedSort[s]], Fast uninterpretedFast) UninterpretedExpr[c, s] }
@@ -129,6 +132,34 @@ func IsRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat,
 	} }
 }
 
+func DeclareBinaryRecursiveDatatypeConstructor(datatype nat, constructors nat, constructor nat, 0 c nat, context Context[c], name string, firstSelectorName string, secondSelectorName string) DatatypeBinaryRecursiveConstructor[c, datatype, constructors, constructor] {
+	match context { case contextValue(contextID): return datatypeBinaryRecursiveConstructorValue(contextID, smt.DeclareBinaryRecursiveDatatypeConstructor(datatype, constructors, constructor, name, firstSelectorName, secondSelectorName)) }
+}
+
+func ApplyBinaryRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, declaration DatatypeBinaryRecursiveConstructor[c, datatype, constructors, constructor], first DatatypeExpr[c, datatype, constructors], second DatatypeExpr[c, datatype, constructors]) DatatypeExpr[c, datatype, constructors] {
+	match declaration { case datatypeBinaryRecursiveConstructorValue(contextID, core): match first { case datatypeExprValue(firstContext, firstTerm): match second { case datatypeExprValue(secondContext, secondTerm):
+		if contextID != firstContext || contextID != secondContext { panic("gosmt: erased binary recursive datatype constructor context mismatch") }
+		return datatypeExprValue(contextID, smt.ApplyBinaryRecursiveDatatypeConstructor(core, firstTerm, secondTerm))
+	} } }
+}
+
+func FirstDatatypeField() smt.BinaryDatatypeField { return smt.FirstDatatypeField() }
+func SecondDatatypeField() smt.BinaryDatatypeField { return smt.SecondDatatypeField() }
+
+func SelectBinaryRecursiveDatatypeConstructor(field smt.BinaryDatatypeField, 0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, declaration DatatypeBinaryRecursiveConstructor[c, datatype, constructors, constructor], value DatatypeExpr[c, datatype, constructors]) DatatypeExpr[c, datatype, constructors] {
+	match declaration { case datatypeBinaryRecursiveConstructorValue(contextID, core): match value { case datatypeExprValue(valueContext, term):
+		if contextID != valueContext { panic("gosmt: erased binary recursive datatype selector context mismatch") }
+		return datatypeExprValue(contextID, smt.SelectBinaryRecursiveDatatypeConstructor(field, core, term))
+	} }
+}
+
+func IsBinaryRecursiveDatatypeConstructor(0 c nat, 0 datatype nat, 0 constructors nat, 0 constructor nat, declaration DatatypeBinaryRecursiveConstructor[c, datatype, constructors, constructor], value DatatypeExpr[c, datatype, constructors]) BoolExpr[c] {
+	match declaration { case datatypeBinaryRecursiveConstructorValue(contextID, core): match value { case datatypeExprValue(valueContext, term):
+		if contextID != valueContext { panic("gosmt: erased binary recursive datatype recognizer context mismatch") }
+		return fastBooleanAtom(contextID, smt.IsBinaryRecursiveDatatypeConstructor(core, term))
+	} }
+}
+
 func EqDatatype(0 c nat, 0 datatype nat, 0 constructors nat, left DatatypeExpr[c, datatype, constructors], right DatatypeExpr[c, datatype, constructors]) BoolExpr[c] {
 	match left { case datatypeExprValue(contextID, leftTerm): match right { case datatypeExprValue(rightContext, rightTerm):
 		if contextID != rightContext { panic("gosmt: erased datatype equality context mismatch") }
@@ -141,17 +172,17 @@ func IsDatatypeConstructor(datatype nat, constructors nat, constructor nat, 0 c 
 }
 
 func IntConst(0 c nat, context Context[c], name string, id int) IntExpr[c] {
-	match context { case contextValue(contextID): return intExprValue(contextID, smt.IntegerVariable(id)) }
+	match context { case contextValue(contextID): return intExprValue(contextID, smt.IntegerVariable(id), integerFast{}) }
 }
 
 func IntVal(0 c nat, context Context[c], value int64) IntExpr[c] {
-	match context { case contextValue(contextID): return intExprValue(contextID, smt.Integer(value)) }
+	match context { case contextValue(contextID): return intExprValue(contextID, smt.Integer(value), integerFast{}) }
 }
 
 func ParseInteger(value string) (smt.IntegerValue, error) { return smt.ParseIntegerValue(value) }
 
 func IntValExact(0 c nat, context Context[c], value smt.IntegerValue) IntExpr[c] {
-	match context { case contextValue(contextID): return intExprValue(contextID, smt.IntegerTerm(value)) }
+	match context { case contextValue(contextID): return intExprValue(contextID, smt.IntegerTerm(value), integerFast{}) }
 }
 
 func Rational(numerator int64, denominator int64) smt.Rational { return smt.NewRational(numerator, denominator) }
@@ -178,7 +209,7 @@ func BitVecConst(width nat, 0 c nat, context Context[c], name string, id int) Bi
 func BvToNat(0 c nat, 0 width nat, value BitVecExpr[c, width]) IntExpr[c] {
 	match value {
 	case bitVecExprValue(contextID, term, fast):
-		return intExprValue(contextID, smt.BitVecToNat(materializeBitVector(term, fast)))
+		return fastBitVectorToInteger(contextID, term, fast, false)
 	}
 }
 
@@ -186,7 +217,7 @@ func BvToNat(0 c nat, 0 width nat, value BitVecExpr[c, width]) IntExpr[c] {
 func BvToInt(0 c nat, 0 width nat, value BitVecExpr[c, width]) IntExpr[c] {
 	match value {
 	case bitVecExprValue(contextID, term, fast):
-		return intExprValue(contextID, smt.BitVecToInt(materializeBitVector(term, fast)))
+		return fastBitVectorToInteger(contextID, term, fast, true)
 	}
 }
 
@@ -194,8 +225,8 @@ func BvToInt(0 c nat, 0 width nat, value BitVecExpr[c, width]) IntExpr[c] {
 // dependent index, so mismatched widths are rejected by Go+ at compile time.
 func IntToBitVec(width nat, 0 c nat, value IntExpr[c]) BitVecExpr[c, width] {
 	match value {
-	case intExprValue(contextID, term):
-		return bitVecExprValue(contextID, smt.IntToBitVec(width, term), bitVectorFast{})
+	case intExprValue(contextID, term, fast):
+		return bitVecExprValue(contextID, smt.IntToBitVec(width, materializeInteger(term, fast)), bitVectorFast{})
 	}
 }
 
@@ -231,16 +262,16 @@ func IntArrayConst(0 c nat, context Context[c], name string, id int) ArrayExpr[c
 }
 
 func ConstIntArray(0 c nat, value IntExpr[c]) ArrayExpr[c, smt.IntSort, smt.IntSort] {
-	match value { case intExprValue(contextID, term): return fastConstIntArray(contextID, term) }
+	match value { case intExprValue(contextID, term, fast): return fastConstIntArray(contextID, materializeInteger(term, fast)) }
 }
 
 func SelectIntArray(0 c nat, array ArrayExpr[c, smt.IntSort, smt.IntSort], index IntExpr[c]) IntExpr[c] {
 	match array {
 	case arrayExprValue(contextID, term, fast):
 		match index {
-		case intExprValue(indexContext, indexTerm):
+		case intExprValue(indexContext, indexTerm, indexFast):
 			if contextID != indexContext { panic("gosmt: erased array/index context mismatch") }
-			return selectIntArray(contextID, term, fast, indexTerm)
+			return selectIntArray(contextID, term, fast, materializeInteger(indexTerm, indexFast))
 		}
 	}
 }
@@ -249,11 +280,11 @@ func StoreIntArray(0 c nat, array ArrayExpr[c, smt.IntSort, smt.IntSort], index 
 	match array {
 	case arrayExprValue(contextID, term, fast):
 		match index {
-		case intExprValue(indexContext, indexTerm):
+		case intExprValue(indexContext, indexTerm, indexFast):
 			match value {
-			case intExprValue(valueContext, valueTerm):
+			case intExprValue(valueContext, valueTerm, valueFast):
 				if contextID != indexContext || contextID != valueContext { panic("gosmt: erased array store context mismatch") }
-				return storeIntArray(contextID, term, fast, indexTerm, valueTerm)
+				return storeIntArray(contextID, term, fast, materializeInteger(indexTerm, indexFast), materializeInteger(valueTerm, valueFast))
 			}
 		}
 	}
@@ -548,7 +579,7 @@ func IffBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c] {
 
 func Add(0 c nat, values ...IntExpr[c]) IntExpr[c] {
 	context, terms := integerTerms(values)
-	return intExprValue(context, smt.Add(terms))
+	return intExprValue(context, smt.Add(terms), integerFast{})
 }
 
 func Sub(0 c nat, left IntExpr[c], right IntExpr[c]) IntExpr[c] {
@@ -556,7 +587,7 @@ func Sub(0 c nat, left IntExpr[c], right IntExpr[c]) IntExpr[c] {
 }
 
 func ScaleInt(0 c nat, coefficient smt.IntegerValue, value IntExpr[c]) IntExpr[c] {
-	match value { case intExprValue(contextID, term): return intExprValue(contextID, smt.ScaleInteger(coefficient, term)) }
+	match value { case intExprValue(contextID, term, fast): return intExprValue(contextID, smt.ScaleInteger(coefficient, materializeInteger(term, fast)), integerFast{}) }
 }
 
 func ScaleInt64(0 c nat, coefficient int64, value IntExpr[c]) IntExpr[c] {
@@ -564,11 +595,11 @@ func ScaleInt64(0 c nat, coefficient int64, value IntExpr[c]) IntExpr[c] {
 }
 
 func DivInt(0 c nat, value IntExpr[c], divisor smt.IntegerValue) IntExpr[c] {
-	match value { case intExprValue(contextID, term): return intExprValue(contextID, smt.DivInteger(term, divisor)) }
+	match value { case intExprValue(contextID, term, fast): return intExprValue(contextID, smt.DivInteger(materializeInteger(term, fast), divisor), integerFast{}) }
 }
 
 func ModInt(0 c nat, value IntExpr[c], divisor smt.IntegerValue) IntExpr[c] {
-	match value { case intExprValue(contextID, term): return intExprValue(contextID, smt.ModInteger(term, divisor)) }
+	match value { case intExprValue(contextID, term, fast): return intExprValue(contextID, smt.ModInteger(materializeInteger(term, fast), divisor), integerFast{}) }
 }
 
 func DivInt64(0 c nat, value IntExpr[c], divisor int64) IntExpr[c] {
@@ -668,9 +699,9 @@ func EvalInt(0 c nat, 0 a nat, model Model[c, a], expression IntExpr[c]) (int64,
 	match model {
 	case modelValue(context, core):
 		match expression {
-		case intExprValue(expressionContext, term):
+		case intExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
-			return smt.IntValue(core, term)
+			return smt.IntValue(core, materializeInteger(term, fast))
 		}
 	}
 }
@@ -679,9 +710,9 @@ func EvalIntExact(0 c nat, 0 a nat, model Model[c, a], expression IntExpr[c]) (s
 	match model {
 	case modelValue(context, core):
 		match expression {
-		case intExprValue(expressionContext, term):
+		case intExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
-			return smt.IntegerModelValue(core, term)
+			return smt.IntegerModelValue(core, materializeInteger(term, fast))
 		}
 	}
 }

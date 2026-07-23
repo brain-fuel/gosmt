@@ -1755,6 +1755,89 @@ func TestRecursiveUnaryDatatypesAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestBinaryRecursiveDatatypesAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		leftDepth := 1 + example%6
+		rightDepth := (example * 3) % 6
+		field := example % 2
+		forcedDepth := leftDepth
+		fieldWitness := FirstDatatypeField()
+		if field == 1 {
+			forcedDepth = rightDepth
+			fieldWitness = SecondDatatypeField()
+		}
+		comparedDepth := (example*5 + 2) % 6
+		equality := example%4 < 2
+		context := NewContext(156)
+		leaf := DatatypeConstructor(79, 2, 0, context, "leaf")
+		node := DeclareBinaryRecursiveDatatypeConstructor(79, 2, 1, context, "node", "left", "right")
+		chain := func(depth int) DatatypeExpr {
+			value := leaf
+			for step := 0; step < depth; step++ {
+				value = ApplyBinaryRecursiveDatatypeConstructor(node, value, leaf)
+			}
+			return value
+		}
+		x := DatatypeConst(79, 2, context, "x", 1)
+		tree := ApplyBinaryRecursiveDatatypeConstructor(node, chain(leftDepth), chain(rightDepth))
+		comparison := EqDatatype(SelectBinaryRecursiveDatatypeConstructor(fieldWitness, node, x), chain(comparedDepth))
+		if !equality {
+			comparison = Not(comparison)
+		}
+		formula := And(EqDatatype(x, tree), IsBinaryRecursiveDatatypeConstructor(node, x), comparison)
+		result := Check(Assert(example+1, NewSolver(context), formula))
+		ours := "sat"
+		if _, ok := result.(Unsat); ok {
+			ours = "unsat"
+		} else if _, ok := result.(Unknown); ok {
+			ours = "unknown"
+		}
+
+		z3Chain := func(depth int) string {
+			value := "leaf"
+			for step := 0; step < depth; step++ {
+				value = "(node " + value + " leaf)"
+			}
+			return value
+		}
+		selector := "left"
+		if field == 1 {
+			selector = "right"
+		}
+		comparisonOperator := "="
+		if !equality {
+			comparisonOperator = "distinct"
+		}
+		script := fmt.Sprintf(`(set-logic QF_DT)
+(declare-datatype Tree ((leaf) (node (left Tree) (right Tree))))
+(declare-const x Tree)
+(assert (= x (node %s %s)))
+(assert (is-node x))
+(assert (%s (%s x) %s))
+(check-sat)
+`, z3Chain(leftDepth), z3Chain(rightDepth), comparisonOperator, selector, z3Chain(comparedDepth))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s", example, err, output)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s (%#v) z3=%s forced=%d compared=%d\n%s", example, ours, result, want, forcedDepth, comparedDepth, script)
+		}
+		if sat, ok := result.(Sat); ok {
+			value, found := EvalDatatype(79, 2, sat.Value, x)
+			if !found || value.ConstructorID != 1 || value.Child == nil || value.SecondChild == nil {
+				t.Fatalf("example %d: invalid binary model %#v/%v", example, value, found)
+			}
+		}
+	}
+}
+
 func TestFormattedSMTLibIsAcceptedByPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

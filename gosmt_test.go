@@ -301,6 +301,49 @@ func TestRecursiveUnaryDatatypeInjectivityAndAcyclicity(t *testing.T) {
 	}
 }
 
+func TestBinaryRecursiveDatatypeConstructorSelectorsAndModel(t *testing.T) {
+	context := NewContext(154)
+	leaf := DatatypeConstructor(83, 2, 0, context, "leaf")
+	node := DeclareBinaryRecursiveDatatypeConstructor(83, 2, 1, context, "node", "left", "right")
+	branch := ApplyBinaryRecursiveDatatypeConstructor(node, leaf, leaf)
+	tree := ApplyBinaryRecursiveDatatypeConstructor(node, branch, leaf)
+	x := DatatypeConst(83, 2, context, "x", 1)
+	formula := And(
+		EqDatatype(x, tree),
+		EqDatatype(SelectBinaryRecursiveDatatypeConstructor(FirstDatatypeField(), node, x), branch),
+		EqDatatype(SelectBinaryRecursiveDatatypeConstructor(SecondDatatypeField(), node, x), leaf),
+		IsBinaryRecursiveDatatypeConstructor(node, x),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%#v", Check(Assert(1, NewSolver(context), formula)))
+	}
+	value, found := EvalDatatype(83, 2, result.Value, x)
+	if !found || value.ConstructorID != 1 || value.Child == nil || value.SecondChild == nil || value.Child.ConstructorID != 1 || value.Child.Child == nil || value.Child.SecondChild == nil || value.SecondChild.ConstructorID != 0 {
+		t.Fatalf("value=%#v found=%v", value, found)
+	}
+}
+
+func TestBinaryRecursiveDatatypeInjectivityAndAcyclicity(t *testing.T) {
+	context := NewContext(155)
+	leaf := DatatypeConstructor(84, 2, 0, context, "leaf")
+	node := DeclareBinaryRecursiveDatatypeConstructor(84, 2, 1, context, "node", "left", "right")
+	x := DatatypeConst(84, 2, context, "x", 1)
+	y := DatatypeConst(84, 2, context, "y", 2)
+	firstConflict := And(EqDatatype(ApplyBinaryRecursiveDatatypeConstructor(node, x, leaf), ApplyBinaryRecursiveDatatypeConstructor(node, y, leaf)), Not(EqDatatype(x, y)))
+	if result := Check(Assert(1, NewSolver(context), firstConflict)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("first-field injectivity result=%#v", result)
+	}
+	secondConflict := And(EqDatatype(ApplyBinaryRecursiveDatatypeConstructor(node, leaf, x), ApplyBinaryRecursiveDatatypeConstructor(node, leaf, y)), Not(EqDatatype(x, y)))
+	if result := Check(Assert(2, NewSolver(context), secondConflict)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("second-field injectivity result=%#v", result)
+	}
+	cycle := EqDatatype(x, ApplyBinaryRecursiveDatatypeConstructor(node, leaf, x))
+	if result := Check(Assert(3, NewSolver(context), cycle)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+		t.Fatalf("acyclicity result=%#v", result)
+	}
+}
+
 func TestGroundUninterpretedFunctionZeroIdentifiersUseCompactPath(t *testing.T) {
 	context := NewContext(102)
 	a := UninterpretedConst(0, context, "a", 0)

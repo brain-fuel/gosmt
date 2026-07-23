@@ -418,6 +418,59 @@ func BenchmarkRecursiveUnaryDatatypeCold(b *testing.B) {
 	})
 }
 
+func BenchmarkBinaryRecursiveDatatypeCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(41)
+			leaf := gosmt.DatatypeConstructor(3, 2, 0, context, "leaf")
+			node := gosmt.DeclareBinaryRecursiveDatatypeConstructor(3, 2, 1, context, "node", "left", "right")
+			x := gosmt.DatatypeConst(3, 2, context, "x", 1)
+			branch := gosmt.ApplyBinaryRecursiveDatatypeConstructor(node, leaf, leaf)
+			tree := gosmt.ApplyBinaryRecursiveDatatypeConstructor(node, branch, leaf)
+			formula := gosmt.And(
+				gosmt.EqDatatype(x, tree),
+				gosmt.EqDatatype(gosmt.SelectBinaryRecursiveDatatypeConstructor(gosmt.FirstDatatypeField(), node, x), branch),
+				gosmt.EqDatatype(gosmt.SelectBinaryRecursiveDatatypeConstructor(gosmt.SecondDatatypeField(), node, x), leaf),
+				gosmt.IsBinaryRecursiveDatatypeConstructor(node, x),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalDatatype(3, 2, result.Value, x); !found || value.Child == nil || value.SecondChild == nil || value.Child.Child == nil || value.Child.SecondChild == nil {
+				b.Fatal("invalid datatype model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			leafDeclaration := context.MkConstructor("leaf", "is-leaf", nil, nil, nil)
+			nodeDeclaration := context.MkConstructor("node", "is-node", []string{"left", "right"}, []*z3.Sort{nil, nil}, []uint{0, 0})
+			treeSort := context.MkDatatypeSort("Tree", []*z3.Constructor{leafDeclaration, nodeDeclaration})
+			leaf := context.MkApp(context.GetDatatypeSortConstructor(treeSort, 0))
+			node := context.GetDatatypeSortConstructor(treeSort, 1)
+			left := context.GetDatatypeSortConstructorAccessor(treeSort, 1, 0)
+			right := context.GetDatatypeSortConstructorAccessor(treeSort, 1, 1)
+			isNode := context.GetDatatypeSortRecognizer(treeSort, 1)
+			x := context.MkConst(context.MkStringSymbol("x"), treeSort)
+			branch := context.MkApp(node, leaf, leaf)
+			tree := context.MkApp(node, branch, leaf)
+			formula := context.MkAnd(context.MkEq(x, tree), context.MkEq(context.MkApp(left, x), branch), context.MkEq(context.MkApp(right, x), leaf), context.MkApp(isNode, x))
+			solver := context.NewSolverForLogic("QF_DT")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, ok := solver.Model().Eval(x, true); !ok {
+				b.Fatal("invalid datatype model")
+			}
+		}
+	})
+}
+
 func BenchmarkDisjointEUFLinearRealCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

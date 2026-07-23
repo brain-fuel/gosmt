@@ -10,36 +10,17 @@ Release gate for every declared workload family:
 - GoSMT allocations are at most 50% of the pinned Go-facing baseline.
 - No timeout, `unknown`, invalid model, or omitted workload counts as a win.
 
-After replacing exhaustive assignment enumeration with linear-size Tseitin CNF
-and unit-propagating DPLL, an immutable warm check of the deliberately tiny
-two-variable Boolean solve is approximately 1.45 ns/op with 0 B/op and 0
-allocations/op on Apple M5 Max. After arena sizing, the corresponding cold
-construct-and-solve path is approximately 316 ns/op, 1,272 B/op, and 5
-allocations/op. Warm reuse is a
-real API workload, but it cannot mask the still-red cold gate.
+The current Boolean core combines direct constants, allocation-free inline
+CNF, fixed-bitset choice solving, linear-size Tseitin encoding, scanning DPLL,
+and watched first-UIP CDCL with learned clauses, backjumping, activity, and
+geometric restarts. The old 62-variable ceiling is gone. Immutable warm checks
+remain allocation-free, while every cold public workload below is gated
+independently against the official pinned Z3 Go API.
 
-With adaptive scan/CDCL propagation, the current 70-variable cold Boolean
-workload is approximately 10.14–10.37 us/op, 63,640 B/op, and 21 allocations/op. The
-256-variable implication-chain workload is approximately 22.68–23.05 us/op, 156,289
-B/op, and 16 allocations/op. The 256-variable QF_IDL chain is approximately
-20.1 us/op, 43,728 B/op, and 32 allocations/op. These are explicit red scale baselines for clause
-learning and denser watcher storage, not Z3-relative gate results.
-
-The new core removes the old 62-variable ceiling and gives larger formulas an
-actual search procedure. Watched literals, arena-backed clauses, incremental
-reuse across assertion descendants, learning, and non-chronological
-backtracking remain required before the Boolean family may pass its complete
-performance gate.
-
-QF_IDL now retains inline `int64` values and promotes only out-of-range values
-to immutable arbitrary-precision integers. Migrating weights, distances, and
-models initially moved the cold public workload to 15 allocations. Compact
-inline difference constraints and graph storage reduced it to 8 allocations,
-60% fewer than Z3's 20, while the slowest GoSMT endpoint remains over 1,000x
-faster than Z3's fastest endpoint. Wide 101-bit bounds use the same exact path.
-
-This measurement is not yet a Z3 comparison and therefore does not satisfy a
-compatibility or performance gate.
+QF_IDL retains inline `int64` values and promotes only out-of-range values to
+immutable arbitrary-precision integers. Compact difference constraints and
+graph storage use 7 allocations in the current cold public workload versus
+Z3's 20, while wide 101-bit bounds use the same exact path.
 
 ## Official Go API comparison
 
@@ -58,10 +39,11 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | QF_LIA signed Euclidean div/mod model construction + two evaluations | ~1.65–1.69 us, 4,392 B, 8 allocs | ~1.27–1.40 ms, 352 B, 23 allocs | green | green (target ≤11 allocs) |
 | ground QF_UF cold construct + check | ~1.330–1.341 us, 4,680 B, 8 allocs | ~0.78–1.00 ms, 304 B, 21 allocs | green | green (target ≤10 allocs) |
 | binary ground QF_UF cold construct + check | ~1.691–1.712 us, 4,824 B, 9 allocs | ~0.83–0.97 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
-| finite QF_DT enum construct + model evaluation | ~1.92–1.94 us, 6,512 B, 10 allocs | ~1.08–1.17 ms, 512 B, 31 allocs | green | green (target ≤15 allocs) |
-| unary recursive QF_DT construct + selector + model evaluation | ~2.791–2.818 us, 10,288 B, 19 allocs | ~0.954–1.080 ms, 544 B, 38 allocs | green (>338x) | green (exact target ≤19 allocs) |
-| QF_BOOL 5-into-4 pigeonhole construct + check | ~11.13–11.22 us, 30,320 B, 27 allocs | ~1.12–1.21 ms, 6,536 B, 360 allocs | green | green (target ≤180 allocs) |
-| QF_BOOL 7-into-6 pigeonhole construct + check | ~1.19–1.21 ms, 277,217 B, 44 allocs | ~2.89–2.91 ms, 24,728 B, 1,078 allocs | green | green (target ≤539 allocs) |
+| finite QF_DT enum construct + model evaluation | ~1.98 us, 6,320 B, 11 allocs | ~1.17 ms, 512 B, 31 allocs | green | green (target ≤15 allocs) |
+| unary recursive QF_DT construct + selector + model evaluation | ~2.75 us, 7,152 B, 18 allocs | ~1.06 ms, 544 B, 38 allocs | green | green (target ≤19 allocs) |
+| binary recursive QF_DT construct + two selectors + model evaluation | ~3.154–3.271 us, 7,296 B, 20 allocs | ~0.989–1.081 ms, 656 B, 43 allocs | green (>302x) | green (target ≤21 allocs) |
+| QF_BOOL 5-into-4 pigeonhole construct + check | ~76.60–79.80 us, 185,177 B, 13 allocs | ~1.091–1.173 ms, 6,536 B, 360 allocs | green (>13.6x) | green (target ≤180 allocs) |
+| QF_BOOL 7-into-6 pigeonhole construct + check | ~326.05–326.89 us, 1,111,514 B, 23 allocs | ~2.962–3.068 ms, 24,728 B, 1,078 allocs | green (>9.0x) | green (target ≤539 allocs) |
 | QF_LRA cold construct + exact check | ~5.08–5.22 us, 3,200 B, 5 allocs | ~1.77–2.81 ms, 304 B, 19 allocs | green | green (target ≤9 allocs) |
 | disjoint EUF+QF_LRA cold construct + check | ~2.17–2.41 us, 3,808 B, 13 allocs | ~1.04–1.19 ms, 416 B, 27 allocs | green | green (target ≤13 allocs) |
 | shared Real→Real EUF+QF_LRA equality exchange | ~1.32–1.50 us, 3,144 B, 7 allocs | ~1.05–1.16 ms, 344 B, 23 allocs | green | green (target ≤11 allocs) |
@@ -76,11 +58,11 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | QF_BV 8-bit symbol-dependent rotate-left | ~561–640 ns, 1,224 B, 4 allocs | ~0.90–1.05 ms, 280 B, 18 allocs | green | green (target ≤9 allocs) |
 | QF_BV 8-bit unsigned-add overflow | ~516–670 ns, 1,256 B, 4 allocs | ~0.90–1.05 ms, 248 B, 16 allocs | green | green (target ≤8 allocs) |
 | ground QF_UFBV unary congruence contradiction | ~854 ns–1.09 us, 2,424 B, 8 allocs | ~0.94–1.13 ms, 336 B, 23 allocs | green | green (target ≤11 allocs) |
-| QF_BV unsigned BV-to-Int contradiction | ~698–700 ns, 1,568 B, 6 allocs | ~0.89–1.03 ms, 200 B, 13 allocs | green | green (target ≤6 allocs) |
+| QF_BV unsigned BV-to-Int contradiction | ~1.398–1.443 us, 3,688 B, 5 allocs | ~0.938–1.048 ms, 200 B, 13 allocs | green | green (target ≤6 allocs) |
 | ground QF_ALIA integer-array read-over-write | ~318–320 ns, 920 B, 5 allocs | ~0.79–1.00 ms, 200 B, 13 allocs | green | green (target ≤6 allocs) |
 | ground QF_ALIA equal-array select congruence | ~531–537 ns, 936 B, 6 allocs | ~0.84–1.03 ms, 264 B, 17 allocs | green | green (target ≤8 allocs) |
-| ground QF_ALIA symbolic-index store/read congruence | ~863–865 ns, 1,176 B, 9 allocs | ~0.90–1.05 ms, 328 B, 21 allocs | green | green (target ≤10 allocs) |
-| ground QF_ALIA extensional model construction + evaluation | ~1.281–1.284 us, 3,096 B, 10 allocs | ~1.023–1.123 ms, 320 B, 21 allocs | green | green (target ≤10 allocs) |
+| ground QF_ALIA symbolic-index store/read congruence | ~1.213–1.222 us, 3,256 B, 7 allocs | ~0.894–1.083 ms, 328 B, 21 allocs | green | green (target ≤10 allocs) |
+| ground QF_ALIA extensional model construction + evaluation | ~1.569–1.608 us, 5,120 B, 8 allocs | ~0.998–1.136 ms, 320 B, 21 allocs | green | green (target ≤10 allocs) |
 | ground QF_ALIA shared-base store-chain extensionality | ~489–495 ns, 1,384 B, 7 allocs | ~1.012–1.151 ms, 264 B, 17 allocs | green | green (target ≤8 allocs) |
 | ground QF_ALIA cross-base store equality + outside read | ~664–686 ns, 1,288 B, 8 allocs | ~1.012–1.147 ms, 328 B, 21 allocs | green | green (target ≤10 allocs) |
 | ground QF_ALIA symbolic-to-constant equality + read | ~596–641 ns, 1,056 B, 6 allocs | ~0.830–1.031 ms, 248 B, 16 allocs | green | green (target ≤8 allocs) |
@@ -219,10 +201,11 @@ bit-blasted application model rather than the contradiction-only fast path.
 The unsigned BV-to-Int workload fixes an 8-bit symbol and contradicts its
 exact unsigned integer image. A compact mixed conversion relation, preserved
 through the GoSMT façade and copied directly into the solver arena, reduced the
-initial bit-blasted path from 46 allocations and ~3.33–3.38 us to 6
-allocations and ~698–700 ns: an 87.0% allocation reduction and more than 4.7x
-internal speedup. It uses less than half of Z3's 13 visible Go allocations and
-remains over 1,270x faster conservatively. The Z3 Go binding omits
+initial bit-blasted path from 46 allocations to 5. The current façade defers a
+symbol conversion without boxing either its bit-vector symbol or conversion
+AST; equality emits the standard library's compact relation directly. It uses
+38.5% of Z3's 13 visible Go allocations and remains over 650x faster at the
+current conservative endpoints. The Z3 Go binding omits
 `Z3_mk_bv2int`, so the comparison uses the equivalent boundary equality
 `x = #xff`.
 
@@ -244,15 +227,15 @@ and compact array/read relations reduced it to 6 allocations and ~531–537 ns:
 The symbolic-index array workload equates two integer indices and denies the
 read-over-write result across those equivalent indices. Compact one-word
 integer variables and a deferred symbolic store/read relation reduced the
-working path from 14 to 9 allocations and ~863–865 ns. It uses under 43% of
-Z3's 21 visible Go allocations and remains over 1,040x faster conservatively.
+working path from 14 to 7 allocations and ~1.213–1.222 us. It uses one third
+of Z3's 21 visible Go allocations and remains over 730x faster conservatively.
 
 The extensional-model workload constrains one observed read, requires two
 array symbols to differ, retrieves the satisfying model, and evaluates that
 read. A shared immutable finite interpretation records defaults, observed
 overrides, and a witness value for each distinct array class. The complete
-path uses 10 allocations versus Z3's 21 and ~1.281–1.284 us versus
-~1.023–1.123 ms, remaining over 796x faster conservatively.
+path uses 8 allocations versus Z3's 21 and ~1.569–1.608 us versus
+~0.998–1.136 ms, remaining over 620x faster conservatively.
 
 The store-chain workload denies equality between two extensionally identical
 two-update arrays whose distinct-index stores occur in opposite order. The
@@ -336,28 +319,30 @@ both unary and binary EUF rows now clear their independent gates.
 The finite QF_DT workload constrains a symbolic three-constructor enumeration
 with constructor disequality and a recognizer, then evaluates its exact model.
 Inline union-find and disequality arenas reduced the first implementation from
-17 to 10 allocations versus Z3's 31, while remaining over 550x faster on the
+17 to 11 allocations versus Z3's 31, while remaining over 550x faster on the
 same official-API cold workload.
 
 The unary recursive QF_DT workload constructs `succ(succ(zero))`, constrains
 and evaluates its selector and recognizer, and validates the nested model. A
 small retained-child arena reduces the public workload to 19 allocations
-versus Z3's 38, exactly meeting the 50% ceiling; conservative same-process
-endpoints remain more than 338x apart.
+versus Z3's 38; storing the datatype interpretation once behind the immutable
+model reduces the current path further to 18 allocations. Conservative
+same-process endpoints remain more than 350x apart.
 
-The first-UIP CDCL implementation learns 17 clauses on the direct 5-into-4
-pigeonhole workload. Reusing conflict-analysis state reduced that core
-benchmark from 55 to 17 allocations (69%). GoSMT's clause/CNF fusion then
-reduced the full public workload from 342 to 27 allocations while retaining
-more than two orders of magnitude throughput advantage over Z3.
+The binary recursive QF_DT workload constructs a branching `node(left,right)`,
+evaluates both selectors, and validates the exact tree model. Per-field
+injectivity and graph acyclicity share the same indexed datatype arena. It uses
+20 allocations versus Z3's 43 and 3.154–3.271 us versus 0.989–1.081 ms,
+clearing both gates independently.
 
-On the harder 7-into-6 pigeonhole workload, activity selection and geometric
-restarts are exercised rather than merely present. Expanding the reusable
-first-UIP clause arena reduced the initial 582 allocations to 34 (94%); the
-current direct-core cold solve is approximately 1.17–1.20 ms, 180,544 B/op,
-and 25 allocations. The full GoSMT construction-and-solve comparison also
-clears both independent Z3-relative gates, at over 2.3× throughput and fewer
-than 5% of Z3's Go allocation count.
+Normalized CNF now recognizes disjoint positive choice groups constrained only
+by binary incompatibilities, the common core of one-hot allocation, graph
+coloring, and finite scheduling. A fixed 64-variable bit-set search avoids
+remapping these formulas through Tseitin/CDCL while the general watched solver
+remains the fallback. The full 5-into-4 public workload uses 13 allocations
+versus Z3's 360 and is at least 13.6x faster. The harder 7-into-6 workload uses
+23 allocations versus 1,078 and 326.05–326.89 us versus 2.962–3.068 ms, at
+least 9.0x faster. Both results include public expression construction.
 
 ## SMT-LIB front-end baseline
 
