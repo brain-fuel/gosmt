@@ -80,6 +80,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | word equation + exact code-point length interaction | ~3.351–3.366 us, 9,328 B, 10 allocs | ~1.518–1.584 ms, 384 B, 26 allocs | green (>450x) | green (target ≤13 allocs) |
 | word equation + code-point length bounds | ~4.395–4.413 us, 10,608 B, 13 allocs | ~1.673–1.752 ms, 440 B, 29 allocs | green (>379x) | green (target ≤14 allocs) |
 | word equation + derived substring equality | ~5.879–5.897 us, 8,168 B, 12 allocs | ~1.813–1.866 ms, 424 B, 29 allocs | green (>307x) | green (target ≤14 allocs) |
+| ground `Seq Int` construction + equality/length/model evaluation | ~3.176–3.193 us, 8,368 B, 12 allocs | ~0.955–1.039 ms, 456 B, 30 allocs | green (>299x) | green (target ≤15 allocs) |
 | two shared-symbol word equations + global backtracking | ~3.716–3.732 us, 8,224 B, 8 allocs | ~1.710–1.763 ms, 480 B, 32 allocs | green (>458x) | green (target ≤16 allocs) |
 | word equation + regular-language candidate selection | ~4.177–4.193 us, 8,552 B, 9 allocs | ~1.270–1.360 ms, 432 B, 29 allocs | green (>302x) | green (target ≤14 allocs) |
 | word equation + general Boolean-regex split selection | ~5.504–5.516 us, 9,144 B, 13 allocs | ~1.423–1.496 ms, 480 B, 32 allocs | green (>257x) | green (target ≤16 allocs) |
@@ -573,6 +574,15 @@ QF_SLIA case, so that operator remains independently covered by direct
 semantic laws. Allocation-free Unicode/WTF-8 boundary scanning keeps the cold
 workload at 12 allocations and 5.879–5.897 us versus pinned Z3's 29 visible Go
 allocations and 1.813–1.866 ms. This is 58.6% fewer allocations and over 307x
+conservative-endpoint throughput.
+
+The ground integer-sequence workload constructs `[7, 11]` through typed
+`empty`, `unit`, and `concat`, proves equality with a separately constructed
+sequence and length two, then evaluates the sequence, length, and complete
+formula. Std and the context-indexed GoSMT façade keep the first eight exact
+integer elements inline before exact overflow. It uses 12 allocations and
+3.176–3.193 us versus pinned Z3's 30 visible Go allocations and
+0.955–1.039 ms. This is 60.0% fewer allocations and over 299x
 conservative-endpoint throughput.
 
 The multiple-equation workload solves `x ++ y = "abc"` together with

@@ -739,6 +739,55 @@ func TestContextIndexedWordEquationDerivedStringOperationInteraction(t *testing.
 	}
 }
 
+func TestContextIndexedGroundIntegerSequenceEvaluation(t *testing.T) {
+	context := NewContext(34)
+	empty := EmptyIntSequence(context)
+	first := UnitIntSequence(IntVal(context, 7))
+	second := UnitIntSequence(IntVal(context, 11))
+	sequence := ConcatIntSequence(first, empty, second)
+	same := ConcatIntSequence(
+		UnitIntSequence(IntVal(context, 7)),
+		UnitIntSequence(IntVal(context, 11)),
+	)
+	different := UnitIntSequence(IntVal(context, 7))
+	formula := And(
+		EqIntSequence(sequence, same),
+		Not(EqIntSequence(sequence, different)),
+		EqInt(LengthIntSequence(sequence), IntVal(context, 2)),
+		Lt(LengthIntSequence(empty), LengthIntSequence(sequence)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("result=%T", checked)
+	}
+	if valid, found := EvalBool(result.Value, formula); !found || !valid {
+		t.Fatalf("formula=(%v,%v)", valid, found)
+	}
+	if length, found := EvalInt(result.Value, LengthIntSequence(sequence)); !found || length != 2 {
+		t.Fatalf("length=(%d,%v)", length, found)
+	}
+	value, found := EvalIntSequence(result.Value, sequence)
+	if !found || value.Len() != 2 {
+		t.Fatalf("sequence len=(%d,%v)", value.Len(), found)
+	}
+	if element, ok := value.At(0); !ok || smt.CompareIntegerValue(element, smt.NewIntegerValue(7)) != 0 {
+		t.Fatalf("first=(%v,%v)", element, ok)
+	}
+	if element, ok := value.At(1); !ok || smt.CompareIntegerValue(element, smt.NewIntegerValue(11)) != 0 {
+		t.Fatalf("second=(%v,%v)", element, ok)
+	}
+
+	impossible := And(
+		EqIntSequence(sequence, different),
+		EqInt(LengthIntSequence(sequence), IntVal(context, 2)),
+	)
+	checked = Check(Assert(2, NewSolver(context), impossible))
+	if _, ok := checked.(Unsat); !ok {
+		t.Fatalf("impossible result=%T", checked)
+	}
+}
+
 func TestContextIndexedMultipleWordEquationInteraction(t *testing.T) {
 	context := NewContext(21)
 	x := StringConst(context, "x", 1)

@@ -27,6 +27,9 @@ type RealExpr[c nat] enum { realExprValue(ContextID int, Term smt.Term[smt.RealS
 type StringExpr[c nat] enum { stringExprValue(ContextID int, Term smt.Term[smt.StringSort], Fast stringFast) StringExpr[c] }
 //goplus:derive off
 //goplus:repr transparent
+type IntSequenceExpr[c nat] enum { intSequenceExprValue(ContextID int, Term smt.Term[smt.SequenceSort[smt.IntSort]], Fast integerSequenceFast) IntSequenceExpr[c] }
+//goplus:derive off
+//goplus:repr transparent
 type RegexExpr[c nat] enum { regexExprValue(ContextID int, Core smt.Regex[smt.StringSort], Fast regexFast) RegexExpr[c] }
 //goplus:derive off
 //goplus:repr transparent
@@ -136,6 +139,35 @@ func LengthString(0 c nat, value StringExpr[c]) IntExpr[c] {
 		if ok { return intExprValue(contextID, nil, integerFast{kind: integerFastStringLength, string: compact}) }
 		return intExprValue(contextID, smt.StringLength(materializeString(stringExprValue(contextID, term, fast))), integerFast{})
 	}
+}
+
+func EmptyIntSequence(0 c nat, context Context[c]) IntSequenceExpr[c] {
+	match context { case contextValue(contextID):
+		return intSequenceExprValue(contextID, nil, emptyIntegerSequenceFast())
+	}
+}
+
+func UnitIntSequence(0 c nat, value IntExpr[c]) IntSequenceExpr[c] {
+	match value { case intExprValue(contextID, term, fast):
+		return unitIntegerSequence(contextID, term, fast)
+	}
+}
+
+func ConcatIntSequence(0 c nat, values ...IntSequenceExpr[c]) IntSequenceExpr[c] {
+	return concatIntegerSequences(values)
+}
+
+func LengthIntSequence(0 c nat, value IntSequenceExpr[c]) IntExpr[c] {
+	match value { case intSequenceExprValue(contextID, term, fast):
+		return intExprValue(contextID, smt.SequenceLength[smt.IntSort](materializeIntegerSequence(term, fast)), integerFast{})
+	}
+}
+
+func EqIntSequence(0 c nat, left IntSequenceExpr[c], right IntSequenceExpr[c]) BoolExpr[c] {
+	match left { case intSequenceExprValue(contextID, leftTerm, leftFast): match right { case intSequenceExprValue(rightContext, rightTerm, rightFast):
+		if contextID != rightContext { panic("gosmt: erased integer sequence context mismatch") }
+		return fastBooleanAtom(contextID, smt.Equal{Left: materializeIntegerSequence(leftTerm, leftFast), Right: materializeIntegerSequence(rightTerm, rightFast)})
+	} }
 }
 
 func ContainsString(0 c nat, value StringExpr[c], substring StringExpr[c]) BoolExpr[c] {
@@ -1073,6 +1105,17 @@ func EvalString(0 c nat, 0 a nat, model Model[c, a], expression StringExpr[c]) (
 		case stringExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
 			return fastEvaluateString(core, stringExprValue(expressionContext, term, fast))
+		}
+	}
+}
+
+func EvalIntSequence(0 c nat, 0 a nat, model Model[c, a], expression IntSequenceExpr[c]) (smt.IntegerSequenceValue, bool) {
+	match model {
+	case modelValue(context, core):
+		match expression {
+		case intSequenceExprValue(expressionContext, term, fast):
+			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
+			return smt.IntegerSequenceModelValue(core, materializeIntegerSequence(term, fast))
 		}
 	}
 }

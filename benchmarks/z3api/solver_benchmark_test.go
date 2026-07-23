@@ -794,6 +794,75 @@ func BenchmarkStringWordEquationDerivedSubstringQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkGroundIntegerSequenceQFSeq(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(34)
+			sequence := gosmt.ConcatIntSequence(
+				gosmt.UnitIntSequence(gosmt.IntVal(context, 7)),
+				gosmt.EmptyIntSequence(context),
+				gosmt.UnitIntSequence(gosmt.IntVal(context, 11)),
+			)
+			same := gosmt.ConcatIntSequence(
+				gosmt.UnitIntSequence(gosmt.IntVal(context, 7)),
+				gosmt.UnitIntSequence(gosmt.IntVal(context, 11)),
+			)
+			length := gosmt.LengthIntSequence(sequence)
+			formula := gosmt.And(
+				gosmt.EqIntSequence(sequence, same),
+				gosmt.EqInt(length, gosmt.IntVal(context, 2)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalIntSequence(result.Value, sequence); !found || value.Len() != 2 {
+				b.Fatal("invalid sequence model")
+			}
+			if value, found := gosmt.EvalInt(result.Value, length); !found || value != 2 {
+				b.Fatal("invalid sequence length")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid sequence formula")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			sequenceSort := context.MkSeqSort(intSort)
+			sequence := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(7, intSort)),
+				context.MkEmptySeq(sequenceSort),
+				context.MkSeqUnit(context.MkInt(11, intSort)),
+			)
+			same := context.MkSeqConcat(
+				context.MkSeqUnit(context.MkInt(7, intSort)),
+				context.MkSeqUnit(context.MkInt(11, intSort)),
+			)
+			length := context.MkSeqLength(sequence)
+			formula := context.MkAnd(
+				context.MkEq(sequence, same),
+				context.MkEq(length, context.MkInt(2, intSort)),
+			)
+			solver := context.NewSolver()
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, expression := range []*z3.Expr{sequence, length, formula} {
+				if _, found := model.Eval(expression, true); !found {
+					b.Fatal("invalid sequence model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkStringMultipleWordEquationQFSLIA(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

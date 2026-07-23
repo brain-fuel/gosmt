@@ -72,6 +72,11 @@ type integerFast struct {
 	string   smt.CompactStringTerm
 }
 
+type integerSequenceFast struct {
+	compact smt.CompactIntegerSequence
+	valid   bool
+}
+
 const (
 	booleanFastNone = iota
 	booleanFastLiteral
@@ -229,6 +234,77 @@ func materializeString(value StringExpr) smt.Term[smt.StringSort] {
 	default:
 		panic("gosmt: invalid erased string expression")
 	}
+}
+
+func emptyIntegerSequenceFast() integerSequenceFast {
+	return integerSequenceFast{
+		compact: smt.EmptyCompactIntegerSequence(),
+		valid:   true,
+	}
+}
+
+func unitIntegerSequence(
+	contextID int,
+	term smt.Term[smt.IntSort],
+	fast integerFast,
+) IntSequenceExpr {
+	materialized := materializeInteger(term, fast)
+	if value, ok := smt.ExactIntegerConstant(materialized); ok {
+		return intSequenceExprValue{
+			contextID: contextID,
+			fast: integerSequenceFast{
+				compact: smt.UnitCompactIntegerSequence(value),
+				valid:   true,
+			},
+		}
+	}
+	return intSequenceExprValue{
+		contextID: contextID,
+		term:      smt.SequenceUnit[smt.IntSort](materialized),
+	}
+}
+
+func concatIntegerSequences(values []IntSequenceExpr) IntSequenceExpr {
+	if len(values) == 0 {
+		panic("gosmt: integer sequence concatenation requires at least one value")
+	}
+	contextID := values[0].contextID
+	allCompact := true
+	compact := smt.EmptyCompactIntegerSequence()
+	for _, value := range values {
+		if value.contextID != contextID {
+			panic("gosmt: erased integer sequence context mismatch")
+		}
+		if !value.fast.valid {
+			allCompact = false
+			break
+		}
+		compact = smt.AppendCompactIntegerSequence(compact, value.fast.compact)
+	}
+	if allCompact {
+		return intSequenceExprValue{
+			contextID: contextID,
+			fast:      integerSequenceFast{compact: compact, valid: true},
+		}
+	}
+	terms := make([]smt.Term[smt.SequenceSort[smt.IntSort]], len(values))
+	for index, value := range values {
+		terms[index] = materializeIntegerSequence(value.term, value.fast)
+	}
+	return intSequenceExprValue{
+		contextID: contextID,
+		term:      smt.SequenceConcat[smt.IntSort](terms...),
+	}
+}
+
+func materializeIntegerSequence(
+	term smt.Term[smt.SequenceSort[smt.IntSort]],
+	fast integerSequenceFast,
+) smt.Term[smt.SequenceSort[smt.IntSort]] {
+	if fast.valid {
+		return fast.compact
+	}
+	return term
 }
 
 func materializeCompactString(value smt.CompactStringTerm) smt.Term[smt.StringSort] {

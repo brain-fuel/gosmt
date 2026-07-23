@@ -798,6 +798,92 @@ func TestWordEquationDerivedStringOperationCorpusAgreesWithPinnedZ3(t *testing.T
 	}
 }
 
+func TestGroundIntegerSequenceCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(340 + example)
+		firstValue := int64(example - 31)
+		secondValue := int64(example*3 + 1)
+		first := UnitIntSequence(IntVal(context, firstValue))
+		second := UnitIntSequence(IntVal(context, secondValue))
+		sequence := ConcatIntSequence(first, EmptyIntSequence(context), second)
+		same := ConcatIntSequence(
+			UnitIntSequence(IntVal(context, firstValue)),
+			UnitIntSequence(IntVal(context, secondValue)),
+		)
+		different := UnitIntSequence(IntVal(context, firstValue))
+		formula := EqIntSequence(sequence, same)
+		assertion := fmt.Sprintf(
+			"(= (seq.++ (seq.unit %s) (as seq.empty (Seq Int)) (seq.unit %s)) (seq.++ (seq.unit %s) (seq.unit %s)))",
+			sequenceIntegerLiteral(firstValue), sequenceIntegerLiteral(secondValue),
+			sequenceIntegerLiteral(firstValue), sequenceIntegerLiteral(secondValue),
+		)
+		switch example % 6 {
+		case 1:
+			formula = Not(EqIntSequence(sequence, different))
+			assertion = fmt.Sprintf(
+				"(not (= (seq.++ (seq.unit %s) (seq.unit %s)) (seq.unit %s)))",
+				sequenceIntegerLiteral(firstValue), sequenceIntegerLiteral(secondValue), sequenceIntegerLiteral(firstValue),
+			)
+		case 2:
+			formula = EqInt(LengthIntSequence(sequence), IntVal(context, 2))
+			assertion = fmt.Sprintf(
+				"(= (seq.len (seq.++ (seq.unit %s) (seq.unit %s))) 2)",
+				sequenceIntegerLiteral(firstValue), sequenceIntegerLiteral(secondValue),
+			)
+		case 3:
+			formula = EqIntSequence(sequence, different)
+			assertion = fmt.Sprintf(
+				"(= (seq.++ (seq.unit %s) (seq.unit %s)) (seq.unit %s))",
+				sequenceIntegerLiteral(firstValue), sequenceIntegerLiteral(secondValue), sequenceIntegerLiteral(firstValue),
+			)
+		case 4:
+			formula = EqInt(LengthIntSequence(sequence), IntVal(context, 3))
+			assertion = fmt.Sprintf(
+				"(= (seq.len (seq.++ (seq.unit %s) (seq.unit %s))) 3)",
+				sequenceIntegerLiteral(firstValue), sequenceIntegerLiteral(secondValue),
+			)
+		case 5:
+			formula = Or(
+				EqIntSequence(sequence, different),
+				EqInt(LengthIntSequence(sequence), IntVal(context, 2)),
+			)
+			assertion = fmt.Sprintf(
+				"(or (= (seq.++ (seq.unit %s) (seq.unit %s)) (seq.unit %s)) (= (seq.len (seq.++ (seq.unit %s) (seq.unit %s))) 2))",
+				sequenceIntegerLiteral(firstValue), sequenceIntegerLiteral(secondValue), sequenceIntegerLiteral(firstValue),
+				sequenceIntegerLiteral(firstValue), sequenceIntegerLiteral(secondValue),
+			)
+		}
+		ours := Check(Assert(example+1, NewSolver(context), formula))
+		oursStatus := "sat"
+		if _, ok := ours.(Unsat); ok {
+			oursStatus = "unsat"
+		} else if _, ok := ours.(Unknown); ok {
+			oursStatus = "unknown"
+		}
+		script := "(set-logic ALL)\n(assert " + assertion + ")\n(check-sat)"
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); oursStatus != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, oursStatus, want, script)
+		}
+	}
+}
+
+func sequenceIntegerLiteral(value int64) string {
+	if value < 0 {
+		return fmt.Sprintf("(- %d)", -value)
+	}
+	return fmt.Sprint(value)
+}
+
 func TestMultipleWordEquationCorpusAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {
