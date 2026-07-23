@@ -19,11 +19,13 @@
    implemented. Unary `par` families now monomorphize lazily into distinct
    concrete identities across scalar, datatype, and nested parametric
    arguments; qualified constructors, indexed recognizers, exact scalar
-   selector models, constructor-determined exhaustive scalar `match`, and
+   selector models, exhaustive scalar `match` for both constructor-determined
+   and unconstrained terms, and
    typed/SMT-LIB `update-field` agree with pinned Z3. Updates rebuild the
    selector's owning constructor, preserve every other constructor, work from
-   symbolic recognizer evidence, and retain exact models. General match
-   results, multi-parameter families, and mutually parametric groups remain.
+   symbolic recognizer evidence, and retain exact models. General non-scalar
+   match results, multi-parameter families, and mutually parametric groups
+   remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

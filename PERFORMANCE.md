@@ -365,6 +365,13 @@ value, applies a typed head update, and evaluates the rebuilt model. Three
 35 allocations and 0.906–1.052 ms for pinned Z3. This is 60.0% fewer
 allocations and about 330x faster at the median.
 
+The parametric differential corpus also leaves a second `PList Int`
+unconstrained and requires its scalar `match` result to equal a nonzero
+integer. Constructor coloring and scalar solving are therefore checked as one
+decision: both GoSMT and pinned Z3 must select `cons` and solve its synthetic
+head field. Exact model extraction is covered separately in the standard
+library tests.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids
