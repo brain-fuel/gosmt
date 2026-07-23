@@ -27,6 +27,9 @@ type RealExpr[c nat] enum { realExprValue(ContextID int, Term smt.Term[smt.RealS
 type StringExpr[c nat] enum { stringExprValue(ContextID int, Term smt.Term[smt.StringSort], Fast stringFast) StringExpr[c] }
 //goplus:derive off
 //goplus:repr transparent
+type RegexExpr[c nat] enum { regexExprValue(ContextID int, Core smt.Regex[smt.StringSort], Fast regexFast) RegexExpr[c] }
+//goplus:derive off
+//goplus:repr transparent
 type BitVecExpr[c nat, w nat] enum { bitVecExprValue(ContextID int, Term smt.Term[smt.BitVecSort[w]], Fast bitVectorFast) BitVecExpr[c, w] }
 //goplus:derive off
 type ArrayExpr[c nat, I any, E any] enum { arrayExprValue(ContextID int, Term smt.Term[smt.ArraySort[I, E]], Fast arrayFast) ArrayExpr[c, I, E] }
@@ -189,6 +192,94 @@ func FromCodeString(0 c nat, value IntExpr[c]) StringExpr[c] {
 
 func IsDigitString(0 c nat, value StringExpr[c]) BoolExpr[c] {
 	return fastStringIsDigit(value)
+}
+
+func ToRegexString(0 c nat, value StringExpr[c]) RegexExpr[c] {
+	match value { case stringExprValue(contextID, term, fast):
+		if fast.kind == stringFastLiteral { return regexExprValue(contextID, smt.Regex[smt.StringSort]{}, regexFast{kind: regexFastLiteral, value: fast.value}) }
+		return regexExprValue(contextID, smt.StringToRegex(materializeString(stringExprValue(contextID, term, fast))), regexFast{})
+	}
+}
+
+func RangeRegexString(0 c nat, low StringExpr[c], high StringExpr[c]) RegexExpr[c] {
+	match low { case stringExprValue(contextID, lowTerm, lowFast): match high { case stringExprValue(highContext, highTerm, highFast):
+		if contextID != highContext { panic("gosmt: erased regex range context mismatch") }
+		return regexExprValue(contextID, smt.StringRangeRegex(
+			materializeString(stringExprValue(contextID, lowTerm, lowFast)),
+			materializeString(stringExprValue(highContext, highTerm, highFast))), regexFast{})
+	} }
+}
+
+func EmptyStringRegex(0 c nat, context Context[c]) RegexExpr[c] {
+	match context { case contextValue(contextID): return regexExprValue(contextID, smt.Regex[smt.StringSort]{}, regexFast{kind: regexFastEmpty}) }
+}
+
+func FullStringRegex(0 c nat, context Context[c]) RegexExpr[c] {
+	match context { case contextValue(contextID): return regexExprValue(contextID, smt.Regex[smt.StringSort]{}, regexFast{kind: regexFastFull}) }
+}
+
+func AllCharStringRegex(0 c nat, context Context[c]) RegexExpr[c] {
+	match context { case contextValue(contextID): return regexExprValue(contextID, smt.Regex[smt.StringSort]{}, regexFast{kind: regexFastAllChar}) }
+}
+
+func ConcatRegexExpr(0 c nat, left RegexExpr[c], right RegexExpr[c]) RegexExpr[c] {
+	match left { case regexExprValue(contextID, leftCore, leftFast): match right { case regexExprValue(rightContext, rightCore, rightFast):
+		if contextID != rightContext { panic("gosmt: erased regex concat context mismatch") }
+		return regexExprValue(contextID, smt.ConcatRegex(materializeRegex(leftCore, leftFast), materializeRegex(rightCore, rightFast)), regexFast{})
+	} }
+}
+
+func UnionRegexExpr(0 c nat, left RegexExpr[c], right RegexExpr[c]) RegexExpr[c] {
+	match left { case regexExprValue(contextID, leftCore, leftFast): match right { case regexExprValue(rightContext, rightCore, rightFast):
+		if contextID != rightContext { panic("gosmt: erased regex union context mismatch") }
+		return regexExprValue(contextID, smt.UnionRegex(materializeRegex(leftCore, leftFast), materializeRegex(rightCore, rightFast)), regexFast{})
+	} }
+}
+
+func IntersectRegexExpr(0 c nat, left RegexExpr[c], right RegexExpr[c]) RegexExpr[c] {
+	match left { case regexExprValue(contextID, leftCore, leftFast): match right { case regexExprValue(rightContext, rightCore, rightFast):
+		if contextID != rightContext { panic("gosmt: erased regex intersection context mismatch") }
+		return regexExprValue(contextID, smt.IntersectRegex(materializeRegex(leftCore, leftFast), materializeRegex(rightCore, rightFast)), regexFast{})
+	} }
+}
+
+func DifferenceRegexExpr(0 c nat, left RegexExpr[c], right RegexExpr[c]) RegexExpr[c] {
+	match left { case regexExprValue(contextID, leftCore, leftFast): match right { case regexExprValue(rightContext, rightCore, rightFast):
+		if contextID != rightContext { panic("gosmt: erased regex difference context mismatch") }
+		return regexExprValue(contextID, smt.DifferenceRegex(materializeRegex(leftCore, leftFast), materializeRegex(rightCore, rightFast)), regexFast{})
+	} }
+}
+
+func ComplementRegexExpr(0 c nat, value RegexExpr[c]) RegexExpr[c] {
+	match value { case regexExprValue(contextID, core, fast): return regexExprValue(contextID, smt.ComplementRegex(materializeRegex(core, fast)), regexFast{}) }
+}
+
+func StarRegexExpr(0 c nat, value RegexExpr[c]) RegexExpr[c] {
+	match value { case regexExprValue(contextID, core, fast): return regexExprValue(contextID, smt.StarRegex(materializeRegex(core, fast)), regexFast{}) }
+}
+
+func PlusRegexExpr(0 c nat, value RegexExpr[c]) RegexExpr[c] {
+	match value { case regexExprValue(contextID, core, fast): return regexExprValue(contextID, smt.PlusRegex(materializeRegex(core, fast)), regexFast{}) }
+}
+
+func OptionalRegexExpr(0 c nat, value RegexExpr[c]) RegexExpr[c] {
+	match value { case regexExprValue(contextID, core, fast): return regexExprValue(contextID, smt.OptionalRegex(materializeRegex(core, fast)), regexFast{}) }
+}
+
+func LoopRegexExpr(0 c nat, minimum int, maximum int, value RegexExpr[c]) RegexExpr[c] {
+	match value { case regexExprValue(contextID, core, fast): return regexExprValue(contextID, smt.LoopRegex(minimum, maximum, materializeRegex(core, fast)), regexFast{}) }
+}
+
+func InRegexString(0 c nat, value StringExpr[c], expression RegexExpr[c]) BoolExpr[c] {
+	match value { case stringExprValue(contextID, term, fast): match expression { case regexExprValue(regexContext, core, regex):
+		if contextID != regexContext { panic("gosmt: erased regex membership context mismatch") }
+		if fast.kind == stringFastLiteral {
+			if regex.kind == regexFastLiteral { return boolExprValue(contextID, smt.Bool{Value: fast.value == regex.value}, booleanFast{}) }
+			if regex.kind == regexFastEmpty { return boolExprValue(contextID, smt.Bool{Value: false}, booleanFast{}) }
+			if regex.kind == regexFastFull { return boolExprValue(contextID, smt.Bool{Value: true}, booleanFast{}) }
+		}
+		return fastBooleanAtom(contextID, smt.StringInRegex(materializeString(stringExprValue(contextID, term, fast)), materializeRegex(core, regex)))
+	} }
 }
 
 func DatatypeConst(datatype nat, constructors nat, 0 c nat, context Context[c], name string, id int) DatatypeExpr[c, datatype, constructors] {

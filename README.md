@@ -19,6 +19,9 @@ division/modulo by nonzero constants,
 plus bounded complete Boolean QF_DT branching and sound conjunctive
 combination while those signatures remain
 disjoint and fixed-point shared equality exchange for unary Real→Real EUF.
+Strings include exact ground regular-language membership, the core SMT-LIB
+regex algebra, and context-indexed GoSMT construction; the standard-library
+regex representation remains element-sort indexed.
 Function arguments and results retain Go+ sort indices. The
 solver-neutral SMT-LIB syntax lives
 in `goforge.dev/goplus/std/smtlib`. This module adds Z3-shaped contexts,

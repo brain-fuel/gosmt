@@ -181,6 +181,43 @@ func BenchmarkStringConversionQFSLIA(b *testing.B) {
 	})
 }
 
+func BenchmarkStringRegexQFS(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := gosmt.NewContext(11)
+			language := gosmt.ToRegexString(gosmt.StringVal(context, "go-forge"))
+			value := gosmt.StringVal(context, "go-forge")
+			formula := gosmt.InRegexString(value, language)
+			result, ok := gosmt.Check(gosmt.Assert(index+1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if valid, found := gosmt.EvalBool(result.Value, formula); !found || !valid {
+				b.Fatal("invalid regex model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for index := 0; index < b.N; index++ {
+			context := z3.NewContext()
+			language := context.MkToRe(context.MkString("go-forge"))
+			value := context.MkString("go-forge")
+			formula := context.MkInRe(value, language)
+			solver := context.NewSolverForLogic("QF_S")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(formula, true); !found {
+				b.Fatal("invalid regex model")
+			}
+		}
+	})
+}
+
 func BenchmarkBooleanWarm(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		context := gosmt.NewContext(1)

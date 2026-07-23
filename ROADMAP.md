@@ -30,6 +30,10 @@
    validate group productivity before installation. Boolean QF_DT supports
    disjunction, implication, equivalence, Boolean equality/ITE, nested
    negation, and `distinct`, with an explicit bounded-expansion limit.
+   Strings now include exact ground regular-language membership with
+   literal/range/empty/full/all-character languages, Boolean language
+   operations, closure, optionality, and indexed exact/bounded repetition.
+   General symbolic language synthesis and word equations remain.
 6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.

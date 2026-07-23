@@ -136,6 +136,27 @@ func TestContextIndexedStringConversions(t *testing.T) {
 	}
 }
 
+func TestContextIndexedStringRegularExpressions(t *testing.T) {
+	context := NewContext(12)
+	letter := RangeRegexString(StringVal(context, "a"), StringVal(context, "z"))
+	suffix := StarRegexExpr(UnionRegexExpr(
+		ToRegexString(StringVal(context, "-")),
+		letter,
+	))
+	language := ConcatRegexExpr(ToRegexString(StringVal(context, "go")), suffix)
+	formula := And(
+		InRegexString(StringVal(context, "go-forge"), language),
+		InRegexString(StringVal(context, ""), OptionalRegexExpr(ToRegexString(StringVal(context, "x")))),
+		InRegexString(StringVal(context, "aaa"), LoopRegexExpr(2, 4, ToRegexString(StringVal(context, "a")))),
+		Not(InRegexString(StringVal(context, "1"), IntersectRegexExpr(letter, AllCharStringRegex(context)))),
+		InRegexString(StringVal(context, "🙂"), DifferenceRegexExpr(FullStringRegex(context), EmptyStringRegex(context))),
+	)
+	result := Check(Assert(1, NewSolver(context), formula))
+	if _, ok := result.(Sat); !ok {
+		t.Fatalf("result=%T", result)
+	}
+}
+
 func BenchmarkContextIndexedStringSolve(b *testing.B) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

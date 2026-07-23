@@ -259,6 +259,43 @@ func TestStringCorpusAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestStringRegexCorpusAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		count := 2 + example%3
+		value := "go-" + strings.Repeat("a", count)
+		final := fmt.Sprintf(`(assert (str.in_re x (re.++ (str.to_re "go-") ((_ re.loop %d %d) (str.to_re "a")))))`, count, count+1)
+		if example%2 != 0 {
+			final = fmt.Sprintf(`(assert (str.in_re "%s" (re.++ (str.to_re "go-") ((_ re.^ 1) (str.to_re "z")))))`, value)
+		}
+		script := fmt.Sprintf(`(set-logic ALL)
+(declare-const x String)
+(assert (= x "%s"))
+(assert (str.in_re x (re.++ (str.to_re "go-") (re.+ (re.range "a" "z")))))
+(assert (str.in_re x (re.++ (str.to_re "go") (re.* (re.union (str.to_re "-") (re.range "a" "z"))))))
+(assert (str.in_re x (re.inter re.all (re.comp (str.to_re "other")))))
+(assert (str.in_re "a" (re.diff re.allchar (str.to_re "b"))))
+(assert (str.in_re "" (re.opt (str.to_re "x"))))
+(assert (not (str.in_re "a" (re.range "" "z"))))
+(assert (not (str.in_re "" (as re.none (RegEx String)))))
+%s
+(check-sat)`, value, final)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestBooleanPigeonholeAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

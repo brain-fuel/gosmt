@@ -149,6 +149,34 @@ type stringFast struct {
 	value string
 }
 
+const (
+	regexFastNone = iota
+	regexFastLiteral
+	regexFastEmpty
+	regexFastFull
+	regexFastAllChar
+)
+
+type regexFast struct {
+	kind  uint8
+	value string
+}
+
+func materializeRegex(core smt.Regex[smt.StringSort], fast regexFast) smt.Regex[smt.StringSort] {
+	switch fast.kind {
+	case regexFastLiteral:
+		return smt.StringToRegex(smt.StringVal(fast.value))
+	case regexFastEmpty:
+		return smt.EmptyRegex[smt.StringSort]()
+	case regexFastFull:
+		return smt.FullRegex[smt.StringSort]()
+	case regexFastAllChar:
+		return smt.AllCharRegex[smt.StringSort]()
+	default:
+		return core
+	}
+}
+
 func compactString(value StringExpr) (smt.CompactStringTerm, bool) {
 	switch value.fast.kind {
 	case stringFastLiteral:

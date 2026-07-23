@@ -429,6 +429,14 @@ propagation reduce the initial 13-allocation path to 8 allocations and
 allocations and 0.978–1.061 ms. This is 55.6% fewer allocations and about 800x
 faster at the median.
 
+The QF_S regular-language cold workload constructs a string literal, converts
+another literal to a regex, checks membership, solves it, and validates the
+Boolean model through each public API. Compact ground-regex construction uses
+5 allocations and 1.023–1.044 us across five Apple M5 Max samples. Pinned Z3
+uses 10 visible Go allocations and 0.809–1.023 ms. This is exactly 50.0% fewer
+allocations and about 900x faster at the median; Z3's native C heap is not
+included.
+
 Normalized CNF now recognizes disjoint positive choice groups constrained only
 by binary incompatibilities, the common core of one-hot allocation, graph
 coloring, and finite scheduling. A fixed 64-variable bit-set search avoids
