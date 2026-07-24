@@ -1183,6 +1183,15 @@ allocations and 4.822–4.893 us versus the complete parser's 200 allocations
 and 14.510–14.593 us: 95.5% fewer allocations and over 2.96x
 conservative-endpoint throughput.
 
+The repeated-operand floating-point division workload solves `x/x = 1` and
+validates the synthesized binary32 source. GoSMT uses 5 allocations and
+4.470–4.974 us versus pinned Z3's 13 allocations and 34.088–45.590 ms: 61.5%
+fewer allocations and over 6,850x conservative-endpoint throughput. The
+combined SMT-LIB repeated-subtraction/division/remainder workload uses 11
+allocations and 5.434–6.726 us versus the complete parser's 218 allocations
+and 17.296–17.358 us: 95.0% fewer allocations and over 2.57x
+conservative-endpoint throughput.
+
 The unconstrained fused-multiply-add workload fixes only the exact binary32
 result to `0x337ffffe`, synthesizes three operand models, and evaluates all
 three. GoSMT's validated `fma(result, 1, +0)` path uses 5 allocations and

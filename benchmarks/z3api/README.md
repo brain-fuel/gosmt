@@ -100,6 +100,12 @@ Across five Apple M5 Max runs it uses 5 allocations versus Z3's 14 (64.3%
 fewer) and takes 4.298–4.407 µs versus 1.373–1.493 ms, more than 311 times
 faster at conservative endpoints.
 
+The repeated-operand floating-point division workload solves `x/x = 1` and
+validates the synthesized binary32 source. Across five Apple M5 Max runs it
+uses 5 allocations versus Z3's 13 (61.5% fewer) and takes 4.470–4.974 µs
+versus 34.088–45.590 ms, more than 6,850 times faster at conservative
+endpoints.
+
 The shared floating-point equality-graph workload combines a positive
 equivalence, a cross-class disequality, and a NaN-backed self-disequality,
 then validates all synthesized models. Across five Apple M5 Max runs it uses

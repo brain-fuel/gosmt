@@ -8119,6 +8119,63 @@ func TestUnconstrainedFloatingPointRemAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRepeatedOperandFloatingPointImagesAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modes := []string{"RNE", "RNA", "RTP", "RTN", "RTZ"}
+	for example := 0; example < 64; example++ {
+		mode := modes[example%len(modes)]
+		operation := example % 3
+		expression := fmt.Sprintf("(fp.sub %s x x)", mode)
+		target := uint32(0)
+		candidate := uint32(0x3f800000)
+		if mode == "RTN" {
+			target = 0x80000000
+		}
+		if operation == 1 {
+			expression = fmt.Sprintf("(fp.div %s x x)", mode)
+			target = 0x3f800000
+		}
+		if operation == 2 {
+			expression = "(fp.rem x x)"
+			if example%2 != 0 {
+				candidate = 0xbf800000
+				target = 0x80000000
+			} else {
+				target = 0
+			}
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const x (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv %s) #x%08x))\n(check-sat)\n",
+			expression, target,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		literal := fmt.Sprintf("((_ to_fp 8 24) #x%08x)", candidate)
+		groundExpression := strings.ReplaceAll(expression, "x", literal)
+		z3Script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(assert (= (fp.to_ieee_bv %s) #x%08x))\n(check-sat)\n",
+			groundExpression, target,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(z3Script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf(
+				"example %d: Z3: %v\n%s\n%s",
+				example, err, output, z3Script,
+			)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d: gosmt=%s z3=%s\n%s",
+				example, got, want, script,
+			)
+		}
+	}
+}
+
 func TestSMTLibFloatingPointRemAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

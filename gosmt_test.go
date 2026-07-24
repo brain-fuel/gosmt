@@ -884,6 +884,65 @@ func TestContextIndexedFloatingPointRemSynthesizesOperands(t *testing.T) {
 	}
 }
 
+func TestContextIndexedRepeatedOperandFloatingPointImages(t *testing.T) {
+	context := NewContext(1090)
+	source := FloatingPointConst(8, 24, context, "source", 1)
+	for _, test := range []struct {
+		name   string
+		target uint64
+		term   FloatingPointExpr
+		eval   func(smt.FloatingPointValue) smt.FloatingPointValue
+	}{
+		{
+			"subtract", 0x00000000,
+			FloatingPointSub(RoundNearestTiesToEven(), source, source),
+			func(value smt.FloatingPointValue) smt.FloatingPointValue {
+				return smt.FloatingPointSub(
+					smt.RoundNearestTiesToEven(), value, value,
+				)
+			},
+		},
+		{
+			"divide", 0x3f800000,
+			FloatingPointDiv(RoundNearestTiesToEven(), source, source),
+			func(value smt.FloatingPointValue) smt.FloatingPointValue {
+				return smt.FloatingPointDiv(
+					smt.RoundNearestTiesToEven(), value, value,
+				)
+			},
+		},
+		{
+			"remainder", 0x00000000,
+			FloatingPointRem(source, source),
+			func(value smt.FloatingPointValue) smt.FloatingPointValue {
+				return smt.FloatingPointRem(value, value)
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, ok := Check(Assert(
+				1, NewSolver(context),
+				EqBitVec(
+					FloatingPointBits(test.term),
+					BitVecValue(32, context, test.target),
+				),
+			)).(Sat)
+			if !ok {
+				t.Fatal("expected repeated-operand model")
+			}
+			bits, found := ModelFloatingPointBits(result.Value, source)
+			if !found {
+				t.Fatal("source model is missing")
+			}
+			actual := test.eval(smt.FloatingPointFromBits(8, 24, bits))
+			actualBits, inline := smt.FloatingPointBits(actual).Uint64()
+			if !inline || actualBits != test.target {
+				t.Fatalf("result=%#x, want %#x", actualBits, test.target)
+			}
+		})
+	}
+}
+
 func TestContextIndexedFloatingPointToBitVector(t *testing.T) {
 	context := NewContext(767)
 	value := FloatingPointFromUint64(8, 24, context, 0xbfc00000)

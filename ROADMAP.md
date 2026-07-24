@@ -75,6 +75,9 @@
    now synthesize canonical exact result-plus/minus-signed-zero,
    result-times-one, or result-divided-by-one models, validated through the
    arithmetic kernel for every format and rounding mode.
+   Repeated-operand subtraction, division, and remainder synthesize exact
+   signed-zero, positive-one, or NaN preimages and reject ordinary result
+   patterns outside their IEEE images.
    Distinct unconstrained `fp.fma` operands use the exact canonical
    `fma(result, 1, signed-zero)` witness, preserving single-rounding semantics.
    Unconstrained `fp.sqrt` sources synthesize exact validated rounded-square
