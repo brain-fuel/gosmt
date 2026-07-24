@@ -156,6 +156,7 @@ const (
 	booleanFastFloatingPointRoundToIntegral
 	booleanFastFloatingPointToBitVector
 	booleanFastFloatingPointFromBitVector
+	booleanFastFloatingPointFormatConversion
 	booleanFastFloatingPointAdd
 	booleanFastFloatingPointSub
 	booleanFastFloatingPointMul
@@ -192,61 +193,62 @@ const (
 )
 
 type booleanFast struct {
-	kind                         uint8
-	count                        uint8
-	inline                       [4]int
-	overflow                     []int
-	real                         smt.LinearRealConstraint
-	symbolEquality               smt.RealSymbolEquality
-	unaryComparison              smt.RealUnaryComparison
-	binaryComparison             smt.RealBinaryComparison
-	ternaryComparison            smt.RealTernaryComparison
-	integerUnaryComparison       smt.IntegerUnaryComparison
-	integerBinaryComparison      smt.IntegerBinaryComparison
-	integerTernaryComparison     smt.IntegerTernaryComparison
-	integerConditionalComparison smt.IntegerConditionalComparison
-	bitVectorRelation            smt.BitVectorRelation
-	floatingPointRelation        smt.FloatingPointRelation
-	floatingPointComparison      smt.FloatingPointComparisonRelation
-	floatingPointMinMax          smt.FloatingPointMinMaxRelation
-	floatingPointRoundToIntegral smt.FloatingPointRoundToIntegralRelation
-	floatingPointToBitVector     smt.FloatingPointToBitVectorRelation
-	floatingPointFromBitVector   smt.FloatingPointFromBitVectorRelation
-	floatingPointAdd             smt.FloatingPointAddRelation
-	floatingPointSub             smt.FloatingPointSubRelation
-	floatingPointMul             smt.FloatingPointMulRelation
-	floatingPointDiv             smt.FloatingPointDivRelation
-	floatingPointFMA             smt.FloatingPointFMARelation
-	floatingPointSqrt            smt.FloatingPointSqrtRelation
-	floatingPointRem             smt.FloatingPointRemRelation
-	bitVectorEUFRelation         smt.BitVectorEUFRelation
-	integerDifference            smt.IntegerDifferenceConstraint
-	integerSymbolLeft            int
-	integerSymbolRight           int
-	integerSymbolNegated         bool
-	bitVectorIntegerRelation     smt.BitVectorIntegerRelation
-	arrayEquality                smt.ArrayEqualityRelation
-	arrayReadEquality            smt.ArrayReadRelation
-	arrayStoreEquality           smt.ArrayStoreEqualityRelation
-	arrayConstantEquality        smt.ArrayConstantEqualityRelation
-	arrayReadValue               smt.ArrayReadValueRelation
-	arrayStoreReadValue          smt.ArrayStoreReadValueRelation
-	bitVectorArrayStoreReadValue smt.BitVectorArrayStoreReadValueRelation
-	bitVectorArrayEquality       smt.BitVectorArrayEqualityRelation
-	integerLinearEquality        smt.IntegerLinearEquality
-	integerLinearChoice          smt.IntegerLinearChoice
-	integerDivModRelation        smt.IntegerDivModRelation
-	integerDivModSystem          smt.IntegerDivModSystem
-	uninterpretedEUFRelation     smt.UninterpretedEUFRelation
-	stringRelation               smt.CompactStringRelation
-	stringBooleanFormula         smt.CompactStringBooleanFormula
-	stringWordEquation           smt.CompactStringWordEquation
-	stringIndexedEquality        smt.CompactStringIndexedEquality
-	stringReplaceEquality        smt.CompactStringReplaceEquality
-	groundIndexedStringFormula   *smt.CompactGroundIndexedStringFormula
-	stringIndexOfEquality        smt.CompactStringIndexOfEquality
-	groundStringEvaluation       *smt.CompactGroundStringEvaluationFormula
-	negated                      bool
+	kind                          uint8
+	count                         uint8
+	inline                        [4]int
+	overflow                      []int
+	real                          smt.LinearRealConstraint
+	symbolEquality                smt.RealSymbolEquality
+	unaryComparison               smt.RealUnaryComparison
+	binaryComparison              smt.RealBinaryComparison
+	ternaryComparison             smt.RealTernaryComparison
+	integerUnaryComparison        smt.IntegerUnaryComparison
+	integerBinaryComparison       smt.IntegerBinaryComparison
+	integerTernaryComparison      smt.IntegerTernaryComparison
+	integerConditionalComparison  smt.IntegerConditionalComparison
+	bitVectorRelation             smt.BitVectorRelation
+	floatingPointRelation         smt.FloatingPointRelation
+	floatingPointComparison       smt.FloatingPointComparisonRelation
+	floatingPointMinMax           smt.FloatingPointMinMaxRelation
+	floatingPointRoundToIntegral  smt.FloatingPointRoundToIntegralRelation
+	floatingPointToBitVector      smt.FloatingPointToBitVectorRelation
+	floatingPointFromBitVector    smt.FloatingPointFromBitVectorRelation
+	floatingPointFormatConversion smt.FloatingPointFormatConversionRelation
+	floatingPointAdd              smt.FloatingPointAddRelation
+	floatingPointSub              smt.FloatingPointSubRelation
+	floatingPointMul              smt.FloatingPointMulRelation
+	floatingPointDiv              smt.FloatingPointDivRelation
+	floatingPointFMA              smt.FloatingPointFMARelation
+	floatingPointSqrt             smt.FloatingPointSqrtRelation
+	floatingPointRem              smt.FloatingPointRemRelation
+	bitVectorEUFRelation          smt.BitVectorEUFRelation
+	integerDifference             smt.IntegerDifferenceConstraint
+	integerSymbolLeft             int
+	integerSymbolRight            int
+	integerSymbolNegated          bool
+	bitVectorIntegerRelation      smt.BitVectorIntegerRelation
+	arrayEquality                 smt.ArrayEqualityRelation
+	arrayReadEquality             smt.ArrayReadRelation
+	arrayStoreEquality            smt.ArrayStoreEqualityRelation
+	arrayConstantEquality         smt.ArrayConstantEqualityRelation
+	arrayReadValue                smt.ArrayReadValueRelation
+	arrayStoreReadValue           smt.ArrayStoreReadValueRelation
+	bitVectorArrayStoreReadValue  smt.BitVectorArrayStoreReadValueRelation
+	bitVectorArrayEquality        smt.BitVectorArrayEqualityRelation
+	integerLinearEquality         smt.IntegerLinearEquality
+	integerLinearChoice           smt.IntegerLinearChoice
+	integerDivModRelation         smt.IntegerDivModRelation
+	integerDivModSystem           smt.IntegerDivModSystem
+	uninterpretedEUFRelation      smt.UninterpretedEUFRelation
+	stringRelation                smt.CompactStringRelation
+	stringBooleanFormula          smt.CompactStringBooleanFormula
+	stringWordEquation            smt.CompactStringWordEquation
+	stringIndexedEquality         smt.CompactStringIndexedEquality
+	stringReplaceEquality         smt.CompactStringReplaceEquality
+	groundIndexedStringFormula    *smt.CompactGroundIndexedStringFormula
+	stringIndexOfEquality         smt.CompactStringIndexOfEquality
+	groundStringEvaluation        *smt.CompactGroundStringEvaluationFormula
+	negated                       bool
 }
 
 const (
@@ -588,6 +590,11 @@ func assertBoolean(assertion int, solver smt.Solver, term smt.Term[smt.BoolSort]
 			assertion, solver, fast.floatingPointFromBitVector,
 		)
 	}
+	if fast.kind == booleanFastFloatingPointFormatConversion {
+		return smt.AssertFloatingPointFormatConversionRelation(
+			assertion, solver, fast.floatingPointFormatConversion,
+		)
+	}
 	if fast.kind == booleanFastFloatingPointAdd {
 		return smt.AssertFloatingPointAddRelation(
 			assertion, solver, fast.floatingPointAdd,
@@ -689,6 +696,18 @@ func modelFloatingPointBits(model smt.Model, term smt.Term[smt.BitVecSort], fast
 			)
 		}
 		return smt.FloatingPointBits(value), true
+	}
+	if fast.kind == bitVectorFastFloatingPointFormatConversion {
+		bits, found := smt.FloatingPointSymbolModelBits(model, fast.id)
+		if !found {
+			return smt.BitVectorValue{}, false
+		}
+		value := smt.FloatingPointFromBits(
+			fast.sourceExponentBits, fast.sourceSignificandBits, bits,
+		)
+		return smt.FloatingPointBits(smt.FloatingPointConvertFormat(
+			fast.parameterA, fast.parameterB, fast.roundingMode, value,
+		)), true
 	}
 	if fast.kind == bitVectorFastFloatingPointAdd {
 		leftBits, leftFound := smt.FloatingPointSymbolModelBits(model, fast.id)
@@ -1561,6 +1580,7 @@ const (
 	bitVectorFastFloatingPointRoundToIntegral
 	bitVectorFastFloatingPointToBitVector
 	bitVectorFastFloatingPointFromBitVector
+	bitVectorFastFloatingPointFormatConversion
 	bitVectorFastFloatingPointAdd
 	bitVectorFastFloatingPointSub
 	bitVectorFastFloatingPointMul
@@ -1571,26 +1591,28 @@ const (
 )
 
 type bitVectorFast struct {
-	kind         uint8
-	width        int
-	id           int
-	name         string
-	value        smt.BitVectorValue
-	mask         smt.BitVectorValue
-	operation    uint8
-	operand      smt.BitVectorValue
-	sourceWidth  int
-	parameterA   int
-	parameterB   int
-	functionID   int
-	firstID      int
-	firstName    string
-	firstWidth   int
-	secondID     int
-	secondName   string
-	function     smt.SortedUnaryFunction[smt.BitVecSort, smt.BitVecSort]
-	roundingMode smt.FloatingPointRoundingMode
-	signed       bool
+	kind                  uint8
+	width                 int
+	id                    int
+	name                  string
+	value                 smt.BitVectorValue
+	mask                  smt.BitVectorValue
+	operation             uint8
+	operand               smt.BitVectorValue
+	sourceWidth           int
+	sourceExponentBits    int
+	sourceSignificandBits int
+	parameterA            int
+	parameterB            int
+	functionID            int
+	firstID               int
+	firstName             string
+	firstWidth            int
+	secondID              int
+	secondName            string
+	function              smt.SortedUnaryFunction[smt.BitVecSort, smt.BitVecSort]
+	roundingMode          smt.FloatingPointRoundingMode
+	signed                bool
 }
 
 const (
@@ -2016,6 +2038,18 @@ func fastEqBitVector(left, right BitVecExpr) BoolExpr {
 			floatingPointFromBitVector: relation,
 		}}
 	}
+	if relation, ok := compactFloatingPointFormatConversionRelation(left.fast, right.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind:                          booleanFastFloatingPointFormatConversion,
+			floatingPointFormatConversion: relation,
+		}}
+	}
+	if relation, ok := compactFloatingPointFormatConversionRelation(right.fast, left.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind:                          booleanFastFloatingPointFormatConversion,
+			floatingPointFormatConversion: relation,
+		}}
+	}
 	if relation, ok := compactFloatingPointAddRelation(left.fast, right.fast); ok {
 		return boolExprValue{contextID: context, fast: booleanFast{
 			kind: booleanFastFloatingPointAdd, floatingPointAdd: relation,
@@ -2155,6 +2189,20 @@ func compactFloatingPointFromBitVectorRelation(
 		expression.parameterA, expression.parameterB,
 		expression.sourceWidth, expression.id, expression.roundingMode,
 		expression.signed, constant.value,
+	), true
+}
+
+func compactFloatingPointFormatConversionRelation(
+	expression, constant bitVectorFast,
+) (smt.FloatingPointFormatConversionRelation, bool) {
+	if expression.kind != bitVectorFastFloatingPointFormatConversion ||
+		constant.kind != bitVectorFastValue {
+		return smt.FloatingPointFormatConversionRelation{}, false
+	}
+	return smt.NewFloatingPointFormatConversionRelation(
+		expression.sourceExponentBits, expression.sourceSignificandBits,
+		expression.parameterA, expression.parameterB,
+		expression.id, expression.roundingMode, constant.value,
 	), true
 }
 
@@ -2675,6 +2723,15 @@ func materializeBitVector(term smt.Term[smt.BitVecSort], fast bitVectorFast) smt
 		}
 		return smt.FloatingPointFromUnsignedBitVectorTerm(
 			fast.parameterA, fast.parameterB, fast.sourceWidth,
+			value, fast.roundingMode,
+		)
+	case bitVectorFastFloatingPointFormatConversion:
+		value := smt.BitVecConst(
+			fast.sourceWidth, fast.id, fast.name,
+		)
+		return smt.FloatingPointFormatConversionTerm(
+			fast.sourceExponentBits, fast.sourceSignificandBits,
+			fast.parameterA, fast.parameterB,
 			value, fast.roundingMode,
 		)
 	case bitVectorFastUnaryApplication:
@@ -3541,6 +3598,62 @@ func floatingPointFromBitVector(
 		contextID:    value.contextID,
 		exponentBits: exponentBits, significandBits: significandBits,
 		bits: bitVecExprValue{contextID: value.contextID, term: converted},
+	}
+}
+
+func floatingPointConvertFormat(
+	targetExponentBits, targetSignificandBits int,
+	mode smt.FloatingPointRoundingMode,
+	value FloatingPointExpr,
+) FloatingPointExpr {
+	validateFloatingPointFormat(targetExponentBits, targetSignificandBits)
+	if value.bits.fast.kind == bitVectorFastValue {
+		source := smt.FloatingPointFromBits(
+			value.exponentBits, value.significandBits, value.bits.fast.value,
+		)
+		converted := smt.FloatingPointConvertFormat(
+			targetExponentBits, targetSignificandBits, mode, source,
+		)
+		return floatingPointExprValue{
+			contextID:       value.contextID,
+			exponentBits:    targetExponentBits,
+			significandBits: targetSignificandBits,
+			bits: exactBitVectorExpr(
+				value.contextID, smt.FloatingPointBits(converted),
+			),
+		}
+	}
+	if value.bits.fast.kind == bitVectorFastSymbol {
+		return floatingPointExprValue{
+			contextID:       value.contextID,
+			exponentBits:    targetExponentBits,
+			significandBits: targetSignificandBits,
+			bits: bitVecExprValue{
+				contextID: value.contextID,
+				fast: bitVectorFast{
+					kind:                  bitVectorFastFloatingPointFormatConversion,
+					width:                 targetExponentBits + targetSignificandBits,
+					sourceWidth:           value.exponentBits + value.significandBits,
+					sourceExponentBits:    value.exponentBits,
+					sourceSignificandBits: value.significandBits,
+					id:                    value.bits.fast.id, name: value.bits.fast.name,
+					parameterA:   targetExponentBits,
+					parameterB:   targetSignificandBits,
+					roundingMode: mode,
+				},
+			},
+		}
+	}
+	converted := smt.FloatingPointFormatConversionTerm(
+		value.exponentBits, value.significandBits,
+		targetExponentBits, targetSignificandBits,
+		materializeBitVector(value.bits.term, value.bits.fast), mode,
+	)
+	return floatingPointExprValue{
+		contextID:       value.contextID,
+		exponentBits:    targetExponentBits,
+		significandBits: targetSignificandBits,
+		bits:            bitVecExprValue{contextID: value.contextID, term: converted},
 	}
 }
 
@@ -4458,6 +4571,11 @@ func fastNot(value BoolExpr) BoolExpr {
 	if value.fast.kind == booleanFastFloatingPointFromBitVector {
 		value.fast.floatingPointFromBitVector.Negated =
 			!value.fast.floatingPointFromBitVector.Negated
+		return value
+	}
+	if value.fast.kind == booleanFastFloatingPointFormatConversion {
+		value.fast.floatingPointFormatConversion.Negated =
+			!value.fast.floatingPointFormatConversion.Negated
 		return value
 	}
 	if value.fast.kind == booleanFastFloatingPointAdd {
@@ -5480,6 +5598,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.floatingPointToBitVector
 	case booleanFastFloatingPointFromBitVector:
 		return fast.floatingPointFromBitVector
+	case booleanFastFloatingPointFormatConversion:
+		return fast.floatingPointFormatConversion
 	case booleanFastFloatingPointAdd:
 		return fast.floatingPointAdd
 	case booleanFastFloatingPointSub:

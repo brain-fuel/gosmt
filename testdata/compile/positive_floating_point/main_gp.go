@@ -70,4 +70,7 @@ func AcceptedFloatingPoint() {
 	_ = gosmt.FloatingPointFromSignedBitVector(
 		8, 24, 32, gosmt.RoundTowardZero(), sourceBits,
 	)
+	_ = gosmt.FloatingPointConvertFormat(
+		5, 11, gosmt.RoundNearestTiesToEven(), symbolic,
+	)
 }

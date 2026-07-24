@@ -35,12 +35,14 @@
    `(_ to_fp e s) rm bv` and unsigned `(_ to_fp_unsigned e s) rm bv`
    conversions cover arbitrary source widths, all five modes, compact
    assigned-symbol constraints, and preserve the separate IEEE-reinterpretation
-   overload.
+   overload. Exact `((_ to_fp e s) rm fp)` conversion now rounds once between
+   arbitrary source and target formats across all five modes, with compact
+   assigned-symbol constraints.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline
    streaming execution with full-parser fallback. Remaining numeric
-   conversions, unconstrained symbolic rounding, and general QF_FP/QF_FPBV
+   real-to-floating-point conversion, unconstrained symbolic rounding, and general QF_FP/QF_FPBV
    solving remain.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,

@@ -3776,6 +3776,16 @@ func FloatingPointFromSignedBitVector(exponentBits int, significandBits int, wid
 	return floatingPointFromBitVector(int(exponentBits), int(significandBits), int(width), mode, value, true)
 }
 
+// FloatingPointConvertFormat implements SMT-LIB's ((_ to_fp e s) rm fp)
+// overload while retaining the source context and target format as indices.
+//
+//goplus:dep FloatingPointConvertFormat(targetExponentBits nat, targetSignificandBits nat, 0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingMode, value FloatingPointExpr[c, e, s]) FloatingPointExpr[c, targetExponentBits, targetSignificandBits]
+func FloatingPointConvertFormat(targetExponentBits int, targetSignificandBits int, mode smt.FloatingPointRoundingMode, value FloatingPointExpr) FloatingPointExpr {
+	return floatingPointConvertFormat(
+		int(targetExponentBits), int(targetSignificandBits), mode, value,
+	)
+}
+
 //goplus:dep ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool)
 func ModelFloatingPointBits(model Model, value FloatingPointExpr) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)

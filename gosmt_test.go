@@ -532,6 +532,29 @@ func TestContextIndexedFloatingPointFromBitVector(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointFormatConversion(t *testing.T) {
+	context := NewContext(769)
+	source := FloatingPointConst(8, 24, context, "source", 1)
+	converted := FloatingPointConvertFormat(
+		5, 11, RoundNearestTiesToEven(), source,
+	)
+	sourceValue := FloatingPointFromUint64(8, 24, context, 0x3f801000)
+	expected := FloatingPointFromUint64(5, 11, context, 0x3c00)
+	solver := Assert(1, NewSolver(context), And(
+		EqBitVec(FloatingPointBits(source), FloatingPointBits(sourceValue)),
+		EqBitVec(FloatingPointBits(converted), FloatingPointBits(expected)),
+	))
+	result, ok := Check(solver).(Sat)
+	if !ok {
+		t.Fatalf("expected sat format conversion, got %T", Check(solver))
+	}
+	bits, found := ModelFloatingPointBits(result.Value, converted)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x3c00 {
+		t.Fatalf("converted bits=%#x,%v,%v", raw, inline, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

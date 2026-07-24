@@ -2,4 +2,4 @@ module goforge.dev/gosmt
 
 go 1.26.0
 
-require goforge.dev/goplus/std v0.152.0
+require goforge.dev/goplus/std v0.153.0

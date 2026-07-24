@@ -1520,6 +1520,14 @@ func FloatingPointFromSignedBitVector(exponentBits nat, significandBits nat, 0 c
 	return floatingPointFromBitVector(int(exponentBits), int(significandBits), int(width), mode, value, true)
 }
 
+// FloatingPointConvertFormat implements SMT-LIB's ((_ to_fp e s) rm fp)
+// overload while retaining the source context and target format as indices.
+func FloatingPointConvertFormat(targetExponentBits nat, targetSignificandBits nat, 0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingMode, value FloatingPointExpr[c, e, s]) FloatingPointExpr[c, targetExponentBits, targetSignificandBits] {
+	return floatingPointConvertFormat(
+		int(targetExponentBits), int(targetSignificandBits), mode, value,
+	)
+}
+
 func ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)
 }
