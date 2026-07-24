@@ -8875,6 +8875,58 @@ func TestSMTLibSymbolicFloatingPointFromRealAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestUnconstrainedFloatingPointFromRealAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modeNames := []string{"RNE", "RNA", "RTP", "RTN", "RTZ"}
+	modes := []smt.FloatingPointRoundingMode{
+		smt.RoundNearestTiesToEven(), smt.RoundNearestTiesToAway(),
+		smt.RoundTowardPositive(), smt.RoundTowardNegative(),
+		smt.RoundTowardZero(),
+	}
+	random := rand.New(rand.NewSource(0x52465055))
+	for example := 0; example < 64; example++ {
+		modeName, mode := modeNames[example%5], modes[example%5]
+		numerator := int64(random.Int31()) - 1<<30
+		denominator := int64(random.Int31n(1<<20) + 1)
+		converted := smt.FloatingPointFromRational(
+			8, 24, mode, smt.NewRational(numerator, denominator),
+		)
+		target, _ := smt.FloatingPointBits(converted).Uint64()
+		switch example % 16 {
+		case 0:
+			target = 0x7fc00000
+		case 1:
+			target = 0x80000000
+			// Z3 4.16.0 reports a spurious satisfiable result for the
+			// RTN/-zero bit-vector encoding and returns +zero in the
+			// resulting model. Keep the differential corpus model-valid.
+			if modeName == "RTN" {
+				target = 0x00000000
+			}
+		}
+		script := fmt.Sprintf(
+			"(set-logic ALL)\n(declare-const x Real)\n(assert (= (fp.to_ieee_bv ((_ to_fp 8 24) %s x)) #x%08x))\n(check-sat)\n",
+			modeName, uint32(target),
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d (%s, target=%#08x): gosmt=%s z3=%s\n%s",
+				example, modeName, uint32(target), got, want, script,
+			)
+		}
+	}
+}
+
 func TestSMTLibFloatingPointToRealAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

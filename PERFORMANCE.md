@@ -1282,6 +1282,15 @@ four-image SMT-LIB workload spans signed and unsigned sources from 8 through
 306 allocations and 19.194–21.626 us: 90.5% fewer allocations and over 3.05x
 conservative-endpoint throughput.
 
+The unconstrained Real-to-floating-point workload fixes only the binary32
+result to `-3` and synthesizes an exact rational source. GoSMT's
+target-derived, forward-validated path uses 6 allocations and 3.314–3.567 us
+versus pinned Z3's 13 visible Go allocations and 4.911–5.117 ms: 53.8% fewer
+allocations and over 1,377x conservative-endpoint throughput. The four-image
+binary32 SMT-LIB workload uses 29 allocations and 5.172–6.287 us versus the
+complete parser's 274 allocations and 17.213–20.974 us: 89.4% fewer
+allocations and over 2.73x conservative-endpoint throughput.
+
 The floating-point-to-real workload fixes binary32 symbols to exact `1.5` and
 `3.5` bit patterns, converts them to exact rationals, constrains those results,
 and evaluates both derived values. SMT-LIB streaming execution uses 27

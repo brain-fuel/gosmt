@@ -70,8 +70,11 @@ preserving signed zero and infinities and selecting a deterministic target NaN.
 Unconstrained sources use reverse-converted candidates and exact forward
 validation; targets outside a narrowing conversion's image remain unknown.
 The Real overload `((_ to_fp e s) rm Real)` rounds exact arbitrary-precision
-rationals directly, with compact directly assigned Real-symbol constraints and
-no intermediate host floating-point value.
+rationals directly, with compact Real-symbol constraints and no intermediate
+host floating-point value. Fixed FP results now synthesize exact rational
+sources, including signed-zero and overflow witnesses selected by rounding
+direction and validated through the forward kernel; NaN and directionally
+unreachable zero or infinity images are rejected.
 `fp.to_real` performs the inverse finite conversion exactly for arbitrary
 formats. Ground terms and directly assigned floating-point symbols use compact
 affine relations for rational scaling, addition/subtraction, equality, all

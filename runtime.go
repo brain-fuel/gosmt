@@ -3795,6 +3795,9 @@ func modelRealValue(
 	term smt.Term[smt.RealSort],
 	fast realFast,
 ) (smt.Rational, bool) {
+	if symbolID, direct := fastRealSymbolID(fast); direct {
+		return smt.DirectRealSymbolModelValue(model, symbolID)
+	}
 	if fast.floatingPointCount != 0 {
 		result := fast.constant
 		for _, coefficient := range fast.coefficients() {

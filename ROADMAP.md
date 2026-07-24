@@ -46,8 +46,11 @@
    assigned-symbol constraints. Unconstrained FP sources now synthesize
    reverse-converted, forward-validated preimages for result patterns in the
    conversion image. Exact `((_ to_fp e s) rm Real)` conversion
-   handles arbitrary-precision rationals and directly assigned Real symbols,
-   completing the SMT-LIB numeric conversion overload family. Exact
+   handles arbitrary-precision rationals and Real symbols. Wholly unconstrained
+   sources now synthesize exact finite, signed-zero, and overflow preimages,
+   with forward validation and sound rejection of NaN and directionally
+   unreachable images, completing the compact SMT-LIB numeric conversion
+   overload family. Exact
    `fp.to_real` now converts every finite arbitrary-format value to a rational,
    with compact affine arithmetic across directly assigned floating-point
    symbols, exact rational coefficients and offsets, equality/order, and model

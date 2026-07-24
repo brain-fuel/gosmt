@@ -904,6 +904,33 @@ func TestContextIndexedFloatingPointFromReal(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointFromRealSynthesizesSource(t *testing.T) {
+	context := NewContext(789)
+	source := RealConst(context, "source", 1)
+	converted := FloatingPointFromReal(
+		8, 24, RoundNearestTiesToEven(), source,
+	)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(
+			FloatingPointBits(converted),
+			BitVecValue(32, context, 0xc0400000),
+		),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected Real-to-FP conversion to synthesize a source")
+	}
+	sourceValue, found := EvalReal(result.Value, source)
+	if !found || sourceValue.String() != "-3" {
+		t.Fatalf("source=%s found=%v", sourceValue, found)
+	}
+	convertedBits, found := ModelFloatingPointBits(result.Value, converted)
+	raw, inline := convertedBits.Uint64()
+	if !found || !inline || raw != 0xc0400000 {
+		t.Fatalf("converted=%#x found=%v", raw, found)
+	}
+}
+
 func TestContextIndexedFloatingPointToReal(t *testing.T) {
 	context := NewContext(771)
 	source := FloatingPointConst(8, 24, context, "source", 1)
