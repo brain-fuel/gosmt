@@ -154,6 +154,49 @@ func TestContextIndexedSymbolicFloatingPointEquality(t *testing.T) {
 	}
 }
 
+func TestContextIndexedUnconstrainedFloatingPointEquality(t *testing.T) {
+	context := NewContext(857)
+	for _, test := range []struct {
+		name    string
+		negated bool
+		same    bool
+	}{
+		{"equal", false, false},
+		{"not equal", true, false},
+		{"self equal", false, true},
+		{"self not equal through NaN", true, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			left := FloatingPointConst(15, 113, context, "left", 1)
+			right := FloatingPointConst(15, 113, context, "right", 2)
+			if test.same {
+				right = left
+			}
+			formula := FloatingPointEqual(left, right)
+			if test.negated {
+				formula = Not(formula)
+			}
+			result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+			if !ok {
+				t.Fatal("expected unconstrained binary128 equality model")
+			}
+			leftBits, leftFound := ModelFloatingPointBits(result.Value, left)
+			rightBits, rightFound := ModelFloatingPointBits(result.Value, right)
+			if !leftFound || !rightFound ||
+				leftBits.Width() != 128 || rightBits.Width() != 128 {
+				t.Fatal("unconstrained equality model is incomplete")
+			}
+			holds := smt.FloatingPointEqual(
+				smt.FloatingPointFromBits(15, 113, leftBits),
+				smt.FloatingPointFromBits(15, 113, rightBits),
+			)
+			if holds == test.negated {
+				t.Fatal("unconstrained equality model has wrong polarity")
+			}
+		})
+	}
+}
+
 func TestContextIndexedFloatingPointAbsAndNeg(t *testing.T) {
 	context := NewContext(136)
 	value := FloatingPointConst(8, 24, context, "x", 1)
