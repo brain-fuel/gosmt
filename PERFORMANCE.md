@@ -1035,15 +1035,19 @@ GoSMT's compact assigned-symbol relation and inline binary32 rounding path use
 9 allocations versus pinned Z3's 19 visible Go allocations. This is 52.6%
 fewer allocations and more than 175x conservative-endpoint throughput.
 
-The first SMT-LIB QF_FP execution baseline parses, sorts, lowers, solves, and
-checks the corresponding assigned-symbol `fp.roundToIntegral` script in
-8.602–8.719 us with 140 allocations. This is an internal red parser/executor
-baseline, not a Z3-relative gate: Z3's Go binding does not expose an equivalent
-SMT-LIB execution entry point. Its first allocation milestone is at most 70
-while preserving source spans, structured execution errors, arbitrary FP
-formats, and the solver-neutral compact relation. The underlying typed
-operation remains independently gated against Z3 at 9 versus 19 allocations
-and more than 175x conservative-endpoint throughput.
+The SMT-LIB QF_FP execution workload parses, sorts, lowers, solves, and checks
+the corresponding assigned-symbol `fp.roundToIntegral` script. Its initial
+general-parser baseline was 8.602–8.719 us with 140 allocations. A
+fixed-inline streaming command/symbol path, with transparent fallback to the
+complete S-expression parser, now takes 3.275–3.353 us and 9 allocations:
+93.6% fewer allocations and over 2.56x conservative-endpoint throughput.
+Streaming/general semantic equivalence, comments, reversed equalities, long
+rounding-mode names, structured errors, arbitrary-format fallback, and the
+64-case pinned-Z3 corpus are retained. This remains an internal
+parser/executor comparison rather than a Z3-relative wire gate because Z3's Go
+binding does not expose an equivalent SMT-LIB execution entry point. The
+underlying typed operation is independently gated against Z3 at 9 versus 19
+allocations and more than 175x conservative-endpoint throughput.
 
 ## SMT-LIB front-end baseline
 
