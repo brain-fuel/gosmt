@@ -3401,6 +3401,37 @@ func TestAffineIntegerRealComparisons(t *testing.T) {
 	}
 }
 
+func TestRationalScaledIntegerRealCoercions(t *testing.T) {
+	context := NewContext(131)
+	x := IntConst(context, "x", 1)
+	scaled := ScaleReal(Rational(3, 2), ToReal(x))
+	nonIntegral := And(
+		EqInt(x, IntVal(context, 7)),
+		EqInt(ToIntReal(scaled), IntVal(context, 10)),
+		Not(IsIntReal(scaled)),
+	)
+	if result := Check(Assert(1, NewSolver(context), nonIntegral)); func() bool { _, ok := result.(Sat); return ok }() == false {
+		t.Fatalf("non-integral rational scale result=%T", result)
+	}
+	integral := And(
+		EqInt(x, IntVal(context, 8)),
+		EqInt(ToIntReal(scaled), IntVal(context, 12)),
+		IsIntReal(scaled),
+	)
+	if _, ok := Check(Assert(2, NewSolver(context), integral)).(Sat); !ok {
+		t.Fatal("integral rational scale should be satisfiable")
+	}
+	negative := ScaleReal(Rational(-3, 2), ToReal(x))
+	negativeFractional := And(
+		EqInt(x, IntVal(context, 7)),
+		EqInt(ToIntReal(negative), IntVal(context, -11)),
+		Not(IsIntReal(negative)),
+	)
+	if _, ok := Check(Assert(3, NewSolver(context), negativeFractional)).(Sat); !ok {
+		t.Fatal("negative rational scale should use Euclidean floor")
+	}
+}
+
 func TestIndexedBitVectorOperations(t *testing.T) {
 	context := NewContext(72)
 	x := BitVecConst(8, context, "x", 1)

@@ -4503,6 +4503,60 @@ func TestRandomAffineIntegerRealComparisonsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomRationalScaledIntegerRealCoercionsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x5241545343414c45))
+	for example := 0; example < 64; example++ {
+		integer := random.Intn(101) - 50
+		// Keep the SMT-LIB spelling positive here. Negative rational scaling
+		// is covered through the typed API because the executor intentionally
+		// does not accept a unary-minus term in the coefficient position yet.
+		halfUnits := 2*random.Intn(8) + 1
+		coefficient := smt.NewRational(int64(halfUnits), 2)
+		product := smt.MultiplyRational(
+			smt.RationalFromInteger(smt.NewIntegerValue(int64(integer))),
+			coefficient,
+		)
+		expected := smt.FloorRational(product)
+		integerText := fmt.Sprintf("%d", integer)
+		if integer < 0 {
+			integerText = fmt.Sprintf("(- %d)", -integer)
+		}
+		absolute := halfUnits
+		if absolute < 0 {
+			absolute = -absolute
+		}
+		coefficientText := fmt.Sprintf("%d.5", absolute/2)
+		expectedText := expected.String()
+		if smt.CompareIntegerValue(expected, smt.IntegerValue{}) < 0 {
+			expectedText = fmt.Sprintf("(- %s)", strings.TrimPrefix(expectedText, "-"))
+		}
+		integrality := fmt.Sprintf("(assert (is_int (* %s (to_real x))))", coefficientText)
+		if !product.IsInteger() {
+			integrality = fmt.Sprintf("(assert (not (is_int (* %s (to_real x)))))", coefficientText)
+		}
+		script := fmt.Sprintf(`(set-logic QF_LIRA)
+(declare-const x Int)
+(assert (= x %s))
+(assert (= (to_int (* %s (to_real x))) %s))
+%s
+(check-sat)`, integerText, coefficientText, expectedText, integrality)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestRandomConditionalIntegerApplicationsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

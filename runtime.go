@@ -2161,8 +2161,10 @@ type realCoefficient struct {
 type realFast struct {
 	valid            bool
 	integerToReal    bool
+	rationalScaled   bool
 	integerTerm      smt.Term[smt.IntSort]
 	integerOffset    smt.Rational
+	rationalScale    smt.Rational
 	eufValid         bool
 	eufArity         uint8
 	functionID       int
@@ -2512,6 +2514,13 @@ func fastToIntReal(context int, term smt.Term[smt.RealSort], fast realFast) IntE
 	if value, ok := fastRealConstant(fast); ok {
 		return intExprValue{contextID: context, term: smt.IntegerTerm(smt.FloorRational(value))}
 	}
+	if fast.rationalScaled {
+		numerator := smt.ScaleInteger(smt.RationalNumerator(fast.rationalScale), fast.integerTerm)
+		return intExprValue{
+			contextID: context,
+			term:      smt.DivInteger(numerator, smt.RationalDenominator(fast.rationalScale)),
+		}
+	}
 	return intExprValue{contextID: context, term: smt.RealToInt(materializeReal(term, fast))}
 }
 
@@ -2522,7 +2531,37 @@ func fastIsIntReal(context int, term smt.Term[smt.RealSort], fast realFast) Bool
 	if value, ok := fastRealConstant(fast); ok {
 		return boolExprValue{contextID: context, term: smt.Bool{Value: value.IsInteger()}}
 	}
-	return boolExprValue{contextID: context, term: smt.RealIsInt(materializeReal(term, fast))}
+	if fast.rationalScaled {
+		numerator := smt.ScaleInteger(smt.RationalNumerator(fast.rationalScale), fast.integerTerm)
+		remainder := smt.ModInteger(numerator, smt.RationalDenominator(fast.rationalScale))
+		relation, compact := smt.CompactIntegerDivModEquality(
+			remainder,
+			smt.Integer{Value: 0},
+		)
+		if compact {
+			return boolExprValue{contextID: context, fast: booleanFast{
+				kind: booleanFastIntegerDivModRelation, integerDivModRelation: relation,
+			}}
+		}
+	}
+	integral := smt.RealIsInt(materializeReal(term, fast))
+	if equality, ok := integral.(smt.Equal); ok {
+		left, leftOK := equality.Left.(smt.Term[smt.IntSort])
+		right, rightOK := equality.Right.(smt.Term[smt.IntSort])
+		if leftOK && rightOK {
+			if relation, compact := smt.CompactIntegerDivModEquality(left, right); compact {
+				return boolExprValue{contextID: context, fast: booleanFast{
+					kind: booleanFastIntegerDivModRelation, integerDivModRelation: relation,
+				}}
+			}
+			if relation, compact := smt.CompactIntegerDivModEquality(right, left); compact {
+				return boolExprValue{contextID: context, fast: booleanFast{
+					kind: booleanFastIntegerDivModRelation, integerDivModRelation: relation,
+				}}
+			}
+		}
+	}
+	return boolExprValue{contextID: context, term: integral}
 }
 
 func fastAddReal(values []RealExpr) RealExpr {
@@ -2564,6 +2603,13 @@ func fastScaleReal(coefficient smt.Rational, value RealExpr) RealExpr {
 				value.fast.integerTerm,
 			),
 			integerOffset: smt.MultiplyRational(coefficient, value.fast.integerOffset),
+		}}
+	}
+	if value.fast.integerToReal && value.fast.integerOffset.Sign() == 0 {
+		return realExprValue{contextID: value.contextID, fast: realFast{
+			rationalScaled: true,
+			integerTerm:    value.fast.integerTerm,
+			rationalScale:  coefficient,
 		}}
 	}
 	if value.fast.valid {
@@ -2826,6 +2872,12 @@ func materializeReal(term smt.Term[smt.RealSort], fast realFast) smt.Term[smt.Re
 			smt.Real{Value: fast.integerOffset},
 		}}
 	}
+	if fast.rationalScaled {
+		return smt.RealScale{
+			Coefficient: fast.rationalScale,
+			Value:       smt.IntToReal(fast.integerTerm),
+		}
+	}
 	if fast.eufValid {
 		if fast.eufArity == 3 {
 			function := smt.DeclareRealTernaryFunction(fast.functionID, "")
@@ -2955,6 +3007,10 @@ func fastNot(value BoolExpr) BoolExpr {
 	}
 	if value.fast.kind == booleanFastIntegerLinearDisequality {
 		value.fast.kind = booleanFastIntegerLinearEquality
+		return value
+	}
+	if value.fast.kind == booleanFastIntegerDivModRelation {
+		value.fast.integerDivModRelation.Negated = !value.fast.integerDivModRelation.Negated
 		return value
 	}
 	if value.fast.kind == booleanFastUninterpretedEUFRelation {

@@ -15,9 +15,10 @@
    coerced-integer expressions with rational offsets and integral scaling use
    exact `floor(n+r)=n+floor(r)` and offset-integrality normalization.
    Equality and order between two supported affine expressions lower to LIA
-   with exact rational residual-bound rounding. Broader
-   symbolic mixed LIA/LRA coercions,
-   cutting planes, and full shared-theory exchange remain.
+   with exact rational residual-bound rounding. Rational scaling of a coerced
+   integer lowers `to_int` and `is_int` to exact Euclidean `div` and `mod`,
+   backed by compact scaled-dividend relations. Broader symbolic mixed LIA/LRA
+   coercions, cutting planes, and full shared-theory exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,

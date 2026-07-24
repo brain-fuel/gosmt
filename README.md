@@ -43,9 +43,11 @@ preserves every integer, `ToIntReal` implements SMT-LIB floor semantics, and
 `IsIntReal` decides exact integrality. Their Go+ façade retains the context
 index. Symbolic `to_real` is exact when direct coerced integer terms are
 compared with another coerced integer or an exact rational constant, including
-floor/ceiling normalization of fractional bounds. Other symbolic mixed
-expressions, `to_int`, and `is_int` deliberately remain `unknown` until broader
-mixed LIA/LRA integrality solving is complete.
+floor/ceiling normalization of fractional bounds. Exact rational scaling of a
+coerced integer is also normalized: `to_int((p/q)*to_real(x))` becomes
+Euclidean `div(p*x,q)`, and `is_int` becomes `mod(p*x,q)=0`, including negative
+coefficients and floor behavior. Other symbolic mixed expressions deliberately
+remain `unknown` until broader mixed LIA/LRA integrality solving is complete.
 Exact symbolic round trips normalize before solving:
 `ToIntReal(ToReal(x))` is `x`, and `IsIntReal(ToReal(x))` is true for every
 integer expression. Reflexive integer equality and constant Boolean
