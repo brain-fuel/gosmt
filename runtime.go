@@ -2162,6 +2162,7 @@ type realFast struct {
 	valid            bool
 	integerToReal    bool
 	integerTerm      smt.Term[smt.IntSort]
+	integerOffset    smt.Rational
 	eufValid         bool
 	eufArity         uint8
 	functionID       int
@@ -2371,7 +2372,8 @@ func applyRealTernaryFunction(
 
 func fastEqReal(left, right RealExpr) BoolExpr {
 	context := realPairContext(left, right)
-	if left.fast.integerToReal && right.fast.integerToReal {
+	if left.fast.integerToReal && right.fast.integerToReal &&
+		left.fast.integerOffset.Sign() == 0 && right.fast.integerOffset.Sign() == 0 {
 		leftInteger := intExprValue{contextID: context, term: left.fast.integerTerm}
 		rightInteger := intExprValue{contextID: context, term: right.fast.integerTerm}
 		return fastEqInteger(leftInteger, rightInteger)
@@ -2380,7 +2382,7 @@ func fastEqReal(left, right RealExpr) BoolExpr {
 	if !coercion.fast.integerToReal {
 		coercion, constant = right, left
 	}
-	if coercion.fast.integerToReal {
+	if coercion.fast.integerToReal && coercion.fast.integerOffset.Sign() == 0 {
 		if value, ok := fastRealConstant(constant.fast); ok {
 			if !value.IsInteger() {
 				return boolExprValue{contextID: context, term: smt.Bool{Value: false}}
@@ -2483,7 +2485,14 @@ func fastToReal(context int, term smt.Term[smt.IntSort], fast integerFast) RealE
 
 func fastToIntReal(context int, term smt.Term[smt.RealSort], fast realFast) IntExpr {
 	if fast.integerToReal {
-		return intExprValue{contextID: context, term: fast.integerTerm}
+		offset := smt.FloorRational(fast.integerOffset)
+		if smt.CompareIntegerValue(offset, smt.IntegerValue{}) == 0 {
+			return intExprValue{contextID: context, term: fast.integerTerm}
+		}
+		return intExprValue{contextID: context, term: smt.Add{Values: []smt.Term[smt.IntSort]{
+			fast.integerTerm,
+			exactIntegerTerm(offset),
+		}}}
 	}
 	if value, ok := fastRealConstant(fast); ok {
 		return intExprValue{contextID: context, term: smt.IntegerTerm(smt.FloorRational(value))}
@@ -2493,7 +2502,7 @@ func fastToIntReal(context int, term smt.Term[smt.RealSort], fast realFast) IntE
 
 func fastIsIntReal(context int, term smt.Term[smt.RealSort], fast realFast) BoolExpr {
 	if fast.integerToReal {
-		return boolExprValue{contextID: context, term: smt.Bool{Value: true}}
+		return boolExprValue{contextID: context, term: smt.Bool{Value: fast.integerOffset.IsInteger()}}
 	}
 	if value, ok := fastRealConstant(fast); ok {
 		return boolExprValue{contextID: context, term: smt.Bool{Value: value.IsInteger()}}
@@ -2503,6 +2512,9 @@ func fastIsIntReal(context int, term smt.Term[smt.RealSort], fast realFast) Bool
 
 func fastAddReal(values []RealExpr) RealExpr {
 	context := realContext(values)
+	if affine, ok := combineFastIntegerAffineReal(values, false); ok {
+		return realExprValue{contextID: context, fast: affine}
+	}
 	fast := realFast{valid: true}
 	for _, value := range values {
 		if !value.fast.valid {
@@ -2516,6 +2528,9 @@ func fastAddReal(values []RealExpr) RealExpr {
 
 func fastSubReal(left, right RealExpr) RealExpr {
 	context := realPairContext(left, right)
+	if affine, ok := combineFastIntegerAffineReal([]RealExpr{left, right}, true); ok {
+		return realExprValue{contextID: context, fast: affine}
+	}
 	if left.fast.valid && right.fast.valid {
 		fast := realFast{valid: true}
 		fast.accumulate(left.fast, smt.NewRational(1, 1))
@@ -2526,12 +2541,64 @@ func fastSubReal(left, right RealExpr) RealExpr {
 }
 
 func fastScaleReal(coefficient smt.Rational, value RealExpr) RealExpr {
+	if value.fast.integerToReal && coefficient.IsInteger() {
+		return realExprValue{contextID: value.contextID, fast: realFast{
+			integerToReal: true,
+			integerTerm: smt.ScaleInteger(
+				smt.FloorRational(coefficient),
+				value.fast.integerTerm,
+			),
+			integerOffset: smt.MultiplyRational(coefficient, value.fast.integerOffset),
+		}}
+	}
 	if value.fast.valid {
 		fast := realFast{valid: true}
 		fast.accumulate(value.fast, coefficient)
 		return realExprValue{contextID: value.contextID, fast: fast}
 	}
-	return realExprValue{contextID: value.contextID, term: smt.RealScale{Coefficient: coefficient, Value: value.term}}
+	return realExprValue{
+		contextID: value.contextID,
+		term: smt.RealScale{
+			Coefficient: coefficient,
+			Value:       materializeReal(value.term, value.fast),
+		},
+	}
+}
+
+func combineFastIntegerAffineReal(values []RealExpr, subtract bool) (realFast, bool) {
+	result := realFast{integerToReal: true}
+	for index, value := range values {
+		sign := int64(1)
+		if subtract && index > 0 {
+			sign = -1
+		}
+		multiplier := smt.NewRational(sign, 1)
+		if value.fast.integerToReal {
+			term := value.fast.integerTerm
+			if sign < 0 {
+				term = smt.ScaleInteger(smt.NewIntegerValue(-1), term)
+			}
+			if result.integerTerm == nil {
+				result.integerTerm = term
+			} else {
+				result.integerTerm = smt.Add{Values: []smt.Term[smt.IntSort]{result.integerTerm, term}}
+			}
+			result.integerOffset = smt.AddRational(
+				result.integerOffset,
+				smt.MultiplyRational(multiplier, value.fast.integerOffset),
+			)
+			continue
+		}
+		constant, ok := fastRealConstant(value.fast)
+		if !ok {
+			return realFast{}, false
+		}
+		result.integerOffset = smt.AddRational(
+			result.integerOffset,
+			smt.MultiplyRational(multiplier, constant),
+		)
+	}
+	return result, result.integerTerm != nil
 }
 
 func fastRealRelation(left, right RealExpr, strict bool) BoolExpr {
@@ -2624,6 +2691,10 @@ func fastRealRelation(left, right RealExpr, strict bool) BoolExpr {
 }
 
 func fastIntegerToRealRelation(left, right RealExpr, strict bool) (BoolExpr, bool) {
+	if left.fast.integerToReal && left.fast.integerOffset.Sign() != 0 ||
+		right.fast.integerToReal && right.fast.integerOffset.Sign() != 0 {
+		return boolExprValue{}, false
+	}
 	leftInteger := intExprValue{contextID: left.contextID, term: left.fast.integerTerm}
 	rightInteger := intExprValue{contextID: right.contextID, term: right.fast.integerTerm}
 	if left.fast.integerToReal && right.fast.integerToReal {
@@ -2683,7 +2754,14 @@ func realPairContext(left, right RealExpr) int {
 
 func materializeReal(term smt.Term[smt.RealSort], fast realFast) smt.Term[smt.RealSort] {
 	if fast.integerToReal {
-		return smt.IntToReal(fast.integerTerm)
+		integer := smt.IntToReal(fast.integerTerm)
+		if fast.integerOffset.Sign() == 0 {
+			return integer
+		}
+		return smt.RealAdd{Values: []smt.Term[smt.RealSort]{
+			integer,
+			smt.Real{Value: fast.integerOffset},
+		}}
 	}
 	if fast.eufValid {
 		if fast.eufArity == 3 {
@@ -2843,6 +2921,9 @@ func fastOr(values []BoolExpr) BoolExpr {
 	allConstants, result := len(values) > 0, false
 	for _, value := range values {
 		constant, ok := value.term.(smt.Bool)
+		if ok && value.fast.kind == booleanFastNone && constant.Value {
+			return boolExprValue{contextID: context, term: smt.Bool{Value: true}}
+		}
 		if !ok || value.fast.kind != booleanFastNone {
 			allConstants = false
 			break
@@ -2885,6 +2966,9 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	allConstants, result := len(values) > 0, true
 	for _, value := range values {
 		constant, ok := value.term.(smt.Bool)
+		if ok && value.fast.kind == booleanFastNone && !constant.Value {
+			return boolExprValue{contextID: context, term: smt.Bool{Value: false}}
+		}
 		if !ok || value.fast.kind != booleanFastNone {
 			allConstants = false
 			break
@@ -3509,6 +3593,25 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		ends = append(ends, len(literals))
 	}
 	return boolExprValue{contextID: context, term: smt.BooleanCNF{Literals: literals, ClauseEnds: ends}}
+}
+
+func fastAndPair(left, right BoolExpr) BoolExpr {
+	if left.contextID != right.contextID {
+		panic("gosmt: erased Boolean expression context mismatch")
+	}
+	if constant, ok := left.term.(smt.Bool); ok && left.fast.kind == booleanFastNone {
+		if !constant.Value {
+			return left
+		}
+		return right
+	}
+	if constant, ok := right.term.(smt.Bool); ok && right.fast.kind == booleanFastNone {
+		if !constant.Value {
+			return right
+		}
+		return left
+	}
+	return fastAnd([]BoolExpr{left, right})
 }
 
 func compactConditionalIntegerSystem(

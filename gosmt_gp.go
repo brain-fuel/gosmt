@@ -3004,6 +3004,11 @@ func And(values ...BoolExpr) BoolExpr {
 	return fastAnd(values)
 }
 
+//goplus:dep AndPair(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c]
+func AndPair(left BoolExpr, right BoolExpr) BoolExpr {
+	return fastAndPair(left, right)
+}
+
 //goplus:dep Or(0 c nat, values ...BoolExpr[c]) BoolExpr[c]
 func Or(values ...BoolExpr) BoolExpr {
 	return fastOr(values)

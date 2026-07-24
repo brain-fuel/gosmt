@@ -48,3 +48,8 @@ The symbolic coercion round-trip contradiction workload covers both
 versus Z3's 12 and runs more than 430 times faster. Z3 receives the unique
 normalized identity and integrality terms because its pinned Go binding omits
 the coercion constructors.
+
+The affine coercion contradiction workload covers a symbolic integer plus
+`3/2`, exact integrality normalization, and context-indexed `AndPair`
+short-circuiting. It uses 4 allocations versus Z3's 12 and runs more than 486
+times faster.

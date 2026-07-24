@@ -1077,6 +1077,10 @@ func And(0 c nat, values ...BoolExpr[c]) BoolExpr[c] {
 	return fastAnd(values)
 }
 
+func AndPair(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c] {
+	return fastAndPair(left, right)
+}
+
 func Or(0 c nat, values ...BoolExpr[c]) BoolExpr[c] {
 	return fastOr(values)
 }

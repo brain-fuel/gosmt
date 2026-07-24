@@ -3358,6 +3358,30 @@ func TestSymbolicIntegerRealRoundTrips(t *testing.T) {
 	}
 }
 
+func TestAffineIntegerRealCoercions(t *testing.T) {
+	context := NewContext(129)
+	x := IntConst(context, "x", 1)
+	xReal := ToReal(x)
+	fractional := AddReal(xReal, RealVal(context, Rational(3, 2)))
+	scaled := SubReal(
+		ScaleReal(Rational(2, 1), xReal),
+		RealVal(context, Rational(5, 2)),
+	)
+	integral := AddReal(xReal, RealVal(context, Rational(2, 1)))
+	formula := And(
+		EqInt(x, IntVal(context, 7)),
+		EqInt(ToIntReal(fractional), IntVal(context, 8)),
+		EqInt(ToIntReal(scaled), IntVal(context, 11)),
+		EqInt(ToIntReal(integral), IntVal(context, 9)),
+		Not(IsIntReal(fractional)),
+		Not(IsIntReal(scaled)),
+		IsIntReal(integral),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Sat); !ok {
+		t.Fatal("affine symbolic coercions should be satisfiable")
+	}
+}
+
 func TestIndexedBitVectorOperations(t *testing.T) {
 	context := NewContext(72)
 	x := BitVecConst(8, context, "x", 1)

@@ -6303,6 +6303,45 @@ func BenchmarkSymbolicIntegerRealRoundTripCold(b *testing.B) {
 	})
 }
 
+func BenchmarkAffineIntegerRealCoercionCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(129)
+			x := gosmt.IntConst(context, "x", 1)
+			affine := gosmt.AddReal(
+				gosmt.ToReal(x),
+				gosmt.RealVal(context, gosmt.Rational(3, 2)),
+			)
+			formula := gosmt.AndPair(
+				gosmt.EqInt(x, gosmt.IntVal(context, 7)),
+				gosmt.IsIntReal(affine),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Unsat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			x := context.MkIntConst("x")
+			// The pinned Go binding omits the coercion constructors. Assert
+			// the normalized assignment and non-integrality result.
+			formula := context.MkAnd(
+				context.MkEq(x, context.MkInt(7, context.MkIntSort())),
+				context.MkFalse(),
+			)
+			solver := context.NewSolverForLogic("QF_LIRA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Unsatisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicIntegerToRealEqualityCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

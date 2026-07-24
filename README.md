@@ -50,6 +50,11 @@ Exact symbolic round trips normalize before solving:
 `ToIntReal(ToReal(x))` is `x`, and `IsIntReal(ToReal(x))` is true for every
 integer expression. Reflexive integer equality and constant Boolean
 disjunctions likewise fold in the façade.
+Affine expressions built from coerced integers, exact rational offsets,
+addition/subtraction, and integral scaling also normalize exactly:
+`to_int(n+r)` becomes `n+floor(r)`, while `is_int(n+r)` depends only on the
+exact offset. `AndPair` provides a context-indexed, allocation-free
+short-circuit path for two Boolean expressions.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive
