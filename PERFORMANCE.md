@@ -1220,6 +1220,15 @@ uses 9 allocations and 4.868–5.551 us versus the complete parser's 204
 allocations and 15.082–15.200 us: 95.6% fewer allocations and over 2.71x
 conservative-endpoint throughput.
 
+The all-aliased FMA workload solves `fma(x,x,x) = 0.75` by reversing both
+roots of `x²+x=0.75` and validating the exact fused result. GoSMT uses 5
+allocations and 4.962–4.994 us versus pinned Z3's 13 allocations and
+58.056–72.045 ms: 61.5% fewer allocations and over 11,626x
+conservative-endpoint throughput. The SMT-LIB streaming workload uses 7
+allocations and 4.445–4.460 us versus the complete parser's 109 allocations
+and 9.662–11.150 us: 93.6% fewer allocations and over 2.16x
+conservative-endpoint throughput.
+
 The floating-point fused multiply-add workload fixes three binary32 symbols
 to values whose exact product-plus-addend is `0x337ffffe`, while separately
 rounded multiplication and addition produce zero. SMT-LIB streaming execution

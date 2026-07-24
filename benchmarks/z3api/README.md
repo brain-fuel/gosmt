@@ -118,6 +118,12 @@ symbols. Across five Apple M5 Max runs it uses 5 allocations versus Z3's 17
 (70.6% fewer) and takes 4.764–5.672 µs versus 13.982–14.297 ms, more than
 2,465 times faster at conservative endpoints.
 
+The all-aliased fused-multiply-add workload solves `fma(x,x,x) = 0.75` and
+validates the synthesized binary32 source. Across five Apple M5 Max runs it
+uses 5 allocations versus Z3's 13 (61.5% fewer) and takes 4.962–4.994 µs
+versus 58.056–72.045 ms, more than 11,626 times faster at conservative
+endpoints.
+
 The shared floating-point equality-graph workload combines a positive
 equivalence, a cross-class disequality, and a NaN-backed self-disequality,
 then validates all synthesized models. Across five Apple M5 Max runs it uses

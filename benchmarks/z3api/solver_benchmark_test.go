@@ -8765,6 +8765,67 @@ func BenchmarkRepeatedOperandFloatingPointFMACold(b *testing.B) {
 	})
 }
 
+func BenchmarkAllAliasedFloatingPointFMACold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(1093)
+			source := gosmt.FloatingPointConst(
+				8, 24, context, "source", 1,
+			)
+			fused := gosmt.FloatingPointFMA(
+				gosmt.RoundNearestTiesToEven(), source, source, source,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context),
+				gosmt.EqBitVec(
+					gosmt.FloatingPointBits(fused),
+					gosmt.BitVecValue(32, context, 0x3f400000),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			sourceBits, found := gosmt.ModelFloatingPointBits(
+				result.Value, source,
+			)
+			actual := smt.FloatingPointFMA(
+				smt.RoundNearestTiesToEven(),
+				smt.FloatingPointFromBits(8, 24, sourceBits),
+				smt.FloatingPointFromBits(8, 24, sourceBits),
+				smt.FloatingPointFromBits(8, 24, sourceBits),
+			)
+			actualBits, inline := smt.FloatingPointBits(actual).Uint64()
+			if !found || !inline || actualBits != 0x3f400000 {
+				b.Fatal("invalid all-aliased model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			source := context.MkConst(
+				context.MkStringSymbol("source"), sort,
+			)
+			fused := z3FloatingPointFMA(
+				context, 0, source, source, source,
+			)
+			target := context.MkFPNumeral("0.75", sort)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkFPEq(fused, target))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(source, true); !found {
+				b.Fatal("invalid source model")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicFloatingPointSqrtCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

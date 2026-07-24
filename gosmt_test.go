@@ -790,10 +790,12 @@ func TestContextIndexedRepeatedOperandFloatingPointFMA(t *testing.T) {
 	for _, test := range []struct {
 		name                string
 		left, right, addend FloatingPointExpr
+		target              uint64
 	}{
-		{"repeated-multiplicand", first, first, second},
-		{"left-is-addend", first, second, first},
-		{"right-is-addend", second, first, first},
+		{"repeated-multiplicand", first, first, second, 0x3fc00000},
+		{"left-is-addend", first, second, first, 0x3fc00000},
+		{"right-is-addend", second, first, first, 0x3fc00000},
+		{"all-three", first, first, first, 0x3f400000},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fused := FloatingPointFMA(
@@ -804,7 +806,7 @@ func TestContextIndexedRepeatedOperandFloatingPointFMA(t *testing.T) {
 				1, NewSolver(context),
 				EqBitVec(
 					FloatingPointBits(fused),
-					BitVecValue(32, context, 0x3fc00000),
+					BitVecValue(32, context, test.target),
 				),
 			)).(Sat)
 			if !ok {
@@ -829,7 +831,7 @@ func TestContextIndexedRepeatedOperandFloatingPointFMA(t *testing.T) {
 				smt.FloatingPointFromBits(8, 24, addendBits),
 			)
 			actualBits, inline := smt.FloatingPointBits(actual).Uint64()
-			if !inline || actualBits != 0x3fc00000 {
+			if !inline || actualBits != test.target {
 				t.Fatal("repeated-operand fp.fma model misses target")
 			}
 		})

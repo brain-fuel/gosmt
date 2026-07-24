@@ -43,7 +43,10 @@ Distinct unconstrained `fp.fma` operands similarly use the exact
 `fma(result, 1, signed-zero)` witness without decomposing the fused operation.
 When exactly two FMA operands alias, compact identities use
 `fma(0,0,result)` or `fma(result,0,result)` and forward-validate the exact
-target; the all-three-equal quadratic case retains the complete fallback.
+target. The all-three-equal `fma(x,x,x)` form reverses `x²+x=result` through
+both quadratic roots in every rounding mode, probes adjacent representations,
+and commits only an exact fused-operation witness; remaining image points
+retain the complete fallback.
 Unconstrained `fp.sqrt` sources use exact kernel-validated rounded-square and
 adjacent preimages; negative nonzero result patterns are proved impossible,
 while image points without a validated compact witness remain unknown.
