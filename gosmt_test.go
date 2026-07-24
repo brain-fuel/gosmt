@@ -844,6 +844,28 @@ func TestContextIndexedFloatingPointToReal(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointToRealSynthesizesSource(t *testing.T) {
+	context := NewContext(781)
+	source := FloatingPointConst(8, 24, context, "source", 1)
+	converted := FloatingPointToReal(source)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqReal(converted, RealVal(context, Rational(3, 2))),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected fp.to_real to synthesize an unconstrained source")
+	}
+	bits, found := ModelFloatingPointBits(result.Value, source)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x3fc00000 {
+		t.Fatalf("source bits=%#x, found=%v", raw, found)
+	}
+	value, found := EvalReal(result.Value, converted)
+	if !found || CompareRational(value, Rational(3, 2)) != 0 {
+		t.Fatalf("converted value=%s, found=%v", value, found)
+	}
+}
+
 func TestContextIndexedAffineFloatingPointToReal(t *testing.T) {
 	context := NewContext(772)
 	left := FloatingPointConst(8, 24, context, "left", 1)

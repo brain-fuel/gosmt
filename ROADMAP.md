@@ -45,7 +45,9 @@
    symbols, exact rational coefficients and offsets, equality/order, and model
    extraction. Assigned FP symbols now bridge into otherwise unconstrained
    Real variables with exact combined models and contradiction propagation;
-   solving wholly unconstrained `fp.to_real` sources remains planned.
+   single-term equalities now synthesize wholly unconstrained `fp.to_real`
+   sources for exactly representable rational targets. Unrepresentable and
+   interacting multi-term preimages remain planned.
    Unconstrained `fp.roundToIntegral` sources now synthesize exact models when
    constrained to a value in the operator's image and prove non-fixed result
    patterns unsatisfiable across all five rounding modes.

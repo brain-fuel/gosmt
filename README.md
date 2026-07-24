@@ -68,7 +68,9 @@ affine relations for rational scaling, addition/subtraction, equality, all
 four orders, and model evaluation; NaN and infinities use a stable zero
 convention for SMT-LIB's unspecified result. Assigned floating-point values
 also bridge into otherwise unconstrained Real symbols and merge exact FP/LRA
-models; solving conversions of wholly unconstrained FP symbols remains staged.
+models. Single-term equalities also synthesize wholly unconstrained FP sources
+when the solved rational target is exactly representable; unrepresentable and
+interacting multi-term preimages remain staged.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Remaining unconstrained symbolic

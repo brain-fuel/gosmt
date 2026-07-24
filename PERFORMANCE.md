@@ -1262,6 +1262,16 @@ allocations and 12.331–12.378 us versus pinned Z3's 26 visible Go allocations
 and 1.323–1.407 ms: exactly 50% fewer allocations and over 106x
 conservative-endpoint throughput.
 
+The unconstrained floating-point-to-real workload fixes only the exact
+rational result to `3/2` and synthesizes a binary32 source model. GoSMT's
+validated exact-preimage path uses 6 allocations and 4.263–4.367 us versus
+pinned Z3's 12 visible Go allocations and 2.310–2.583 ms: exactly 50% fewer
+allocations and over 528x conservative-endpoint throughput. The four-image
+SMT-LIB workload exercises the full inline relation capacity, using 45
+allocations and 7.015–8.958 us versus the complete parser's 284 allocations
+and 18.557–22.292 us: 84.2% fewer allocations and over 2.07x
+conservative-endpoint throughput.
+
 The affine floating-point-to-real workload scales and subtracts two exact
 converted binary32 symbols, adds a rational offset, checks equality and strict
 order, and evaluates the resulting affine term. SMT-LIB streaming execution
