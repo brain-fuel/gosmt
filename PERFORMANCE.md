@@ -1065,6 +1065,15 @@ conservative-endpoint throughput. The corresponding typed ordering workload
 remains independently gated at 10 versus Z3's 20 allocations and more than
 150x conservative-endpoint throughput.
 
+The SMT-LIB floating-point minimum workload fixes binary32 symbols to `-1`
+and `+1`, then constrains `fp.min` to the exact `-1` IEEE pattern. Streaming
+execution uses 11 allocations and 3.958–4.028 us versus the complete parser's
+269 allocations and 12.014–12.230 us. This is 95.9% fewer allocations and
+over 2.98x conservative-endpoint throughput. The corresponding typed minimum
+workload uses 10 allocations and 8.324–8.380 us versus pinned Z3's 22 visible
+Go allocations and 1.288–1.383 ms: 54.5% fewer allocations and over 153x
+conservative-endpoint throughput.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on
