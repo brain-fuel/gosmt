@@ -21,9 +21,12 @@ Solver-neutral std relations synthesize classification models directly, retain
 sign masking/toggling, and validate assigned symbolic FP order, selection, and
 round-to-integral constraints without materializing a general SAT graph;
 nested bit-vector conditionals provide the complete ordering and selection
-fallback. Broader unconstrained symbolic rounding, rounded arithmetic,
-conversions, SMT-LIB FP execution, and general QF_FP/QF_FPBV solving remain
-future work.
+fallback. SMT-LIB execution now accepts indexed floating-point sorts,
+bit-vector reinterpretation through `(_ to_fp e s)` and `fp.to_ieee_bv`, all
+short and long rounding-mode names, and ground or assigned-symbol
+`fp.roundToIntegral`. Broader unconstrained symbolic rounding, rounded
+arithmetic, numeric conversions, the remaining SMT-LIB FP operators, and
+general QF_FP/QF_FPBV solving remain future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:
 sorted terms, exhaustive results, context-indexed models and proofs, checked

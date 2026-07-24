@@ -6999,6 +6999,69 @@ func TestSymbolicFloatingPointRoundToIntegralAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSMTLibFloatingPointRoundToIntegralAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modes := []struct {
+		name string
+		core smt.FloatingPointRoundingMode
+	}{
+		{"RNE", smt.RoundNearestTiesToEven()},
+		{"RNA", smt.RoundNearestTiesToAway()},
+		{"RTP", smt.RoundTowardPositive()},
+		{"RTN", smt.RoundTowardNegative()},
+		{"RTZ", smt.RoundTowardZero()},
+	}
+	random := rand.New(rand.NewSource(0x534d5446))
+	for example := 0; example < 64; example++ {
+		pattern := uint64(random.Uint32())
+		if pattern&0x7f800000 == 0x7f800000 && pattern&0x007fffff != 0 {
+			pattern &= 0xff800000
+		}
+		switch example % 16 {
+		case 0:
+			pattern = 0
+		case 1:
+			pattern = 0x80000000
+		case 2:
+			pattern = 0x3fc00000
+		case 3:
+			pattern = 0xbfc00000
+		case 4:
+			pattern = 0x7f800000
+		case 5:
+			pattern = 0xff800000
+		}
+		mode := modes[example%len(modes)]
+		source := smt.FloatingPointFromUint64(8, 24, pattern)
+		expected := smt.FloatingPointRoundToIntegral(mode.core, source)
+		expectedBits, _ := smt.FloatingPointBits(expected).Uint64()
+		assertion := fmt.Sprintf(
+			"(= (fp.to_ieee_bv (fp.roundToIntegral %s source)) #x%08x)",
+			mode.name, uint32(expectedBits),
+		)
+		if example%4 >= 2 {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const source (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv source) #x%08x))\n(assert %s)\n(check-sat)\n",
+			uint32(pattern), assertion,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d (%s): gosmt=%s z3=%s\n%s", example, mode.name, got, want, script)
+		}
+	}
+}
+
 func floatingPointResultStatus(result Result) string {
 	switch result.(type) {
 	case Sat:
