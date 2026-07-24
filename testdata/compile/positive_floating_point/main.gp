@@ -9,6 +9,18 @@ func AcceptedFloatingPoint() {
 	_ = gosmt.FloatingPointEqual(left, right)
 	_ = gosmt.FloatingPointBits(left)
 	symbolic := gosmt.FloatingPointConst(8, 24, context, "x", 1)
+	constructed := gosmt.FloatingPointFromComponents(
+		8, 23,
+		gosmt.BitVecValue(1, context, 0),
+		gosmt.BitVecValue(8, context, 0x7f),
+		gosmt.BitVecValue(23, context, 0),
+	)
+	_ = gosmt.FloatingPointBits(constructed)
+	_ = gosmt.FloatingPointPositiveZero(8, 24, context)
+	_ = gosmt.FloatingPointNegativeZero(8, 24, context)
+	_ = gosmt.FloatingPointPositiveInfinity(8, 24, context)
+	_ = gosmt.FloatingPointNegativeInfinity(8, 24, context)
+	_ = gosmt.FloatingPointNaN(8, 24, context)
 	_ = gosmt.FloatingPointIsNormal(symbolic)
 	_ = gosmt.FloatingPointAbs(symbolic)
 	_ = gosmt.FloatingPointNeg(symbolic)

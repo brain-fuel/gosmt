@@ -1074,6 +1074,16 @@ workload uses 10 allocations and 8.324–8.380 us versus pinned Z3's 22 visible
 Go allocations and 1.288–1.383 ms: 54.5% fewer allocations and over 153x
 conservative-endpoint throughput.
 
+The floating-point construction workload covers native sign/exponent/trailing-
+significand assembly plus positive and negative zero, positive and negative
+infinity, and NaN. The SMT-LIB streaming path uses 9 allocations and
+3.165–3.250 us versus the complete parser's 267 allocations and
+28.331–28.641 us: 96.6% fewer allocations and over 8.71x
+conservative-endpoint throughput. The separately gated typed Go+ workload
+uses 4 allocations and 4.664–4.688 us versus pinned Z3's 19 visible Go
+allocations and 916.827–1,041.692 us: 78.9% fewer allocations and over 195x
+conservative-endpoint throughput.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on

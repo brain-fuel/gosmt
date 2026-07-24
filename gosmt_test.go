@@ -61,6 +61,39 @@ func TestContextIndexedGroundFloatingPoint(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointConstruction(t *testing.T) {
+	context := NewContext(710)
+	one := FloatingPointFromComponents(
+		8, 23,
+		BitVecValue(1, context, 0),
+		BitVecValue(8, context, 0x7f),
+		BitVecValue(23, context, 0),
+	)
+	values := []struct {
+		name  string
+		value FloatingPointExpr
+		bits  uint64
+	}{
+		{"components", one, 0x3f800000},
+		{"+zero", FloatingPointPositiveZero(8, 24, context), 0x00000000},
+		{"-zero", FloatingPointNegativeZero(8, 24, context), 0x80000000},
+		{"+oo", FloatingPointPositiveInfinity(8, 24, context), 0x7f800000},
+		{"-oo", FloatingPointNegativeInfinity(8, 24, context), 0xff800000},
+		{"NaN", FloatingPointNaN(8, 24, context), 0x7fc00000},
+	}
+	for _, test := range values {
+		t.Run(test.name, func(t *testing.T) {
+			expression := EqBitVec(
+				FloatingPointBits(test.value),
+				BitVecValue(32, context, test.bits),
+			)
+			if _, ok := Check(Assert(1, NewSolver(context), expression)).(Sat); !ok {
+				t.Fatalf("%s construction was not satisfiable", test.name)
+			}
+		})
+	}
+}
+
 func TestContextIndexedSymbolicFloatingPoint(t *testing.T) {
 	context := NewContext(72)
 	tests := []struct {

@@ -2219,6 +2219,12 @@ func materializeBitVector(term smt.Term[smt.BitVecSort], fast bitVectorFast) smt
 
 func concatBitVector(firstWidth, secondWidth int, first, second BitVecExpr) BitVecExpr {
 	context := bitVectorContext(first, second)
+	if first.fast.kind == bitVectorFastValue && second.fast.kind == bitVectorFastValue {
+		return exactBitVectorExpr(
+			context,
+			smt.ConcatBitVectorValue(first.fast.value, second.fast.value),
+		)
+	}
 	return bitVecExprValue{contextID: context, term: smt.BitVecConcat(firstWidth, secondWidth, materializeBitVector(first.term, first.fast), materializeBitVector(second.term, second.fast))}
 }
 
@@ -2297,6 +2303,25 @@ func validateFloatingPointFormat(exponentBits, significandBits int) {
 	}
 	if significandBits < 2 {
 		panic("gosmt: floating-point significand width must be at least 2")
+	}
+}
+
+func floatingPointFromComponents(
+	exponentBits, significandBits int,
+	sign, exponent, significand BitVecExpr,
+) FloatingPointExpr {
+	validateFloatingPointFormat(exponentBits, significandBits)
+	context := bitVectorContext(sign, exponent)
+	if context != bitVectorExprContext(significand) {
+		panic("gosmt: erased floating-point component context mismatch")
+	}
+	bits := concatBitVector(
+		1, exponentBits+significandBits-1, sign,
+		concatBitVector(exponentBits, significandBits-1, exponent, significand),
+	)
+	return floatingPointExprValue{
+		contextID: context, exponentBits: exponentBits,
+		significandBits: significandBits, bits: bits,
 	}
 }
 

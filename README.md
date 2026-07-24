@@ -22,6 +22,8 @@ sign masking/toggling, and validate assigned symbolic FP order, selection, and
 round-to-integral constraints without materializing a general SAT graph;
 nested bit-vector conditionals provide the complete ordering and selection
 fallback. SMT-LIB execution now accepts indexed floating-point sorts,
+native `(fp sign exponent significand)` construction, all five indexed
+special values (`+zero`, `-zero`, `+oo`, `-oo`, and `NaN`),
 bit-vector reinterpretation through `(_ to_fp e s)` and `fp.to_ieee_bv`, all
 short and long rounding-mode names, and ground or assigned-symbol
 `fp.roundToIntegral`, plus all seven ground and symbolic classification

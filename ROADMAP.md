@@ -24,12 +24,15 @@
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
    Floating-point values now retain context, exponent, and significand widths
    as Go+ indices with a computed-width IEEE bit vector. Exact arbitrary-format
-   ground and symbolic constants implement NaN/infinity/zero/subnormal/normal/
-   sign classification, exact model bits, and `fp.eq` signed-zero/NaN
-   semantics. Solver-neutral compact std relations synthesize symbolic
-   classification models directly, while source-width-safe interior extracts
-   preserve the general QF_FPBV fallback. Rounding modes, arithmetic,
-   conversions, SMT-LIB FP execution, and general QF_FP/QF_FPBV solving remain.
+   ground and symbolic constants implement native component construction,
+   indexed special values, NaN/infinity/zero/subnormal/normal/sign
+   classification, exact model bits, equality/order, sign transforms,
+   min/max, and round-to-integral semantics. Solver-neutral compact std
+   relations and arbitrary-term bit-vector constructors preserve the general
+   QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline
+   streaming execution with full-parser fallback. Rounded arithmetic,
+   numeric conversions, unconstrained symbolic rounding, and general
+   QF_FP/QF_FPBV solving remain.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,
    recognizers, graph acyclicity, exact n-ary models, and SMT-LIB execution are

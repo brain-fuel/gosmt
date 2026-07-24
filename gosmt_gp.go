@@ -3566,6 +3566,40 @@ func FloatingPointFromUint64(exponentBits int, significandBits int, context Cont
 	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointFromUint64(exponentBits, significandBits, bits)))
 }
 
+// FloatingPointFromComponents mirrors SMT-LIB's
+// (fp sign exponent significand) constructor. trailingBits excludes the hidden
+// leading significand bit, so the result format is [exponentBits,trailingBits+1].
+//
+//goplus:dep FloatingPointFromComponents(exponentBits nat, trailingBits nat, 0 c nat, sign BitVecExpr[c, 1], exponent BitVecExpr[c, exponentBits], significand BitVecExpr[c, trailingBits]) FloatingPointExpr[c, exponentBits, trailingBits+1]
+func FloatingPointFromComponents(exponentBits int, trailingBits int, sign BitVecExpr, exponent BitVecExpr, significand BitVecExpr) FloatingPointExpr {
+	return floatingPointFromComponents(int(exponentBits), int(trailingBits+1), sign, exponent, significand)
+}
+
+//goplus:dep FloatingPointPositiveZero(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits]
+func FloatingPointPositiveZero(exponentBits int, significandBits int, context Context) FloatingPointExpr {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointPositiveZero(exponentBits, significandBits)))
+}
+
+//goplus:dep FloatingPointNegativeZero(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits]
+func FloatingPointNegativeZero(exponentBits int, significandBits int, context Context) FloatingPointExpr {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointNegativeZero(exponentBits, significandBits)))
+}
+
+//goplus:dep FloatingPointPositiveInfinity(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits]
+func FloatingPointPositiveInfinity(exponentBits int, significandBits int, context Context) FloatingPointExpr {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointPositiveInfinity(exponentBits, significandBits)))
+}
+
+//goplus:dep FloatingPointNegativeInfinity(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits]
+func FloatingPointNegativeInfinity(exponentBits int, significandBits int, context Context) FloatingPointExpr {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointNegativeInfinity(exponentBits, significandBits)))
+}
+
+//goplus:dep FloatingPointNaN(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits]
+func FloatingPointNaN(exponentBits int, significandBits int, context Context) FloatingPointExpr {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointNaN(exponentBits, significandBits)))
+}
+
 //goplus:dep FloatingPointConst(exponentBits nat, significandBits nat, 0 c nat, context Context[c], name string, id int) FloatingPointExpr[c, exponentBits, significandBits]
 func FloatingPointConst(exponentBits int, significandBits int, context Context, name string, id int) FloatingPointExpr {
 	switch __gp_m202 := any(context).(type) {

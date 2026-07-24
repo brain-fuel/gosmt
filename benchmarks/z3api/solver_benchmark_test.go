@@ -7388,6 +7388,67 @@ func BenchmarkGroundFloatingPointPredicatesCold(b *testing.B) {
 	})
 }
 
+func BenchmarkFloatingPointConstructionCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(140)
+			one := gosmt.FloatingPointFromComponents(
+				8, 23,
+				gosmt.BitVecValue(1, context, 0),
+				gosmt.BitVecValue(8, context, 0x7f),
+				gosmt.BitVecValue(23, context, 0),
+			)
+			positiveZero := gosmt.FloatingPointPositiveZero(8, 24, context)
+			negativeZero := gosmt.FloatingPointNegativeZero(8, 24, context)
+			positiveInfinity := gosmt.FloatingPointPositiveInfinity(8, 24, context)
+			negativeInfinity := gosmt.FloatingPointNegativeInfinity(8, 24, context)
+			nan := gosmt.FloatingPointNaN(8, 24, context)
+			formula := gosmt.And(
+				gosmt.EqBitVec(
+					gosmt.FloatingPointBits(one),
+					gosmt.BitVecValue(32, context, 0x3f800000),
+				),
+				gosmt.FloatingPointIsZero(positiveZero),
+				gosmt.FloatingPointIsNegative(negativeZero),
+				gosmt.FloatingPointIsInfinite(positiveInfinity),
+				gosmt.FloatingPointIsNegative(negativeInfinity),
+				gosmt.FloatingPointIsNaN(nan),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), formula,
+			)).(gosmt.Sat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			one := context.MkFPNumeral("1.0", sort)
+			positiveZero := context.MkFPZero(sort, false)
+			negativeZero := context.MkFPZero(sort, true)
+			positiveInfinity := context.MkFPInf(sort, false)
+			negativeInfinity := context.MkFPInf(sort, true)
+			nan := context.MkFPNaN(sort)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkAnd(
+				context.MkFPEq(one, context.MkFPNumeral("1.0", sort)),
+				context.MkFPIsZero(positiveZero),
+				context.MkFPIsZero(negativeZero),
+				context.MkFPIsInf(positiveInfinity),
+				context.MkFPIsInf(negativeInfinity),
+				context.MkFPIsNaN(nan),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicFloatingPointNaNCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

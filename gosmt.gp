@@ -1359,6 +1359,33 @@ func FloatingPointFromUint64(exponentBits nat, significandBits nat, 0 c nat, con
 	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointFromUint64(exponentBits, significandBits, bits)))
 }
 
+// FloatingPointFromComponents mirrors SMT-LIB's
+// (fp sign exponent significand) constructor. trailingBits excludes the hidden
+// leading significand bit, so the result format is [exponentBits,trailingBits+1].
+func FloatingPointFromComponents(exponentBits nat, trailingBits nat, 0 c nat, sign BitVecExpr[c, 1], exponent BitVecExpr[c, exponentBits], significand BitVecExpr[c, trailingBits]) FloatingPointExpr[c, exponentBits, trailingBits+1] {
+	return floatingPointFromComponents(int(exponentBits), int(trailingBits+1), sign, exponent, significand)
+}
+
+func FloatingPointPositiveZero(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits] {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointPositiveZero(exponentBits, significandBits)))
+}
+
+func FloatingPointNegativeZero(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits] {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointNegativeZero(exponentBits, significandBits)))
+}
+
+func FloatingPointPositiveInfinity(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits] {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointPositiveInfinity(exponentBits, significandBits)))
+}
+
+func FloatingPointNegativeInfinity(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits] {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointNegativeInfinity(exponentBits, significandBits)))
+}
+
+func FloatingPointNaN(exponentBits nat, significandBits nat, 0 c nat, context Context[c]) FloatingPointExpr[c, exponentBits, significandBits] {
+	return FloatingPointFromBits(exponentBits, significandBits, context, smt.FloatingPointBits(smt.FloatingPointNaN(exponentBits, significandBits)))
+}
+
 func FloatingPointConst(exponentBits nat, significandBits nat, 0 c nat, context Context[c], name string, id int) FloatingPointExpr[c, exponentBits, significandBits] {
 	match context { case contextValue(contextID):
 		validateFloatingPointFormat(int(exponentBits), int(significandBits))
