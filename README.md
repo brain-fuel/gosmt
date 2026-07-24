@@ -25,6 +25,8 @@ sources from fixed result bits and proves non-integral result patterns
 impossible. Distinct unconstrained `fp.add`, `fp.sub`, `fp.mul`, and `fp.div`
 operands use exact, kernel-validated result-plus/minus-signed-zero,
 result-times-one, or result-divided-by-one models for ordinary result patterns.
+Distinct unconstrained `fp.fma` operands similarly use the exact
+`fma(result, 1, signed-zero)` witness without decomposing the fused operation.
 Nested bit-vector conditionals provide the complete ordering and selection
 fallback. SMT-LIB execution now accepts indexed floating-point sorts,
 native `(fp sign exponent significand)` construction, all five indexed
@@ -40,7 +42,7 @@ Exact arbitrary-format `fp.add`, `fp.sub`, `fp.mul`, `fp.div`, single-rounding
 arithmetic for ground values and compact assigned-symbol constraints.
 `fp.add`, `fp.sub`, `fp.mul`, and `fp.div` additionally synthesize two
 distinct unconstrained operands from a fixed ordinary result across every
-rounding mode. Indexed
+rounding mode; `fp.fma` synthesizes three. Indexed
 `fp.to_ubv` and `fp.to_sbv` perform exact five-mode conversion into
 arbitrary-width bit vectors, with compact assigned-symbol validation and a
 stable zero model for SMT-LIB's unspecified out-of-range cases.

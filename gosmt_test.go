@@ -577,6 +577,41 @@ func TestContextIndexedFloatingPointFMA(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointFMASynthesizesOperands(t *testing.T) {
+	context := NewContext(775)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	addend := FloatingPointConst(8, 24, context, "addend", 3)
+	fused := FloatingPointFMA(
+		RoundNearestTiesToEven(), left, right, addend,
+	)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(
+			FloatingPointBits(fused),
+			BitVecValue(32, context, 0x337ffffe),
+		),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected fp.fma to synthesize unconstrained operands")
+	}
+	leftBits, leftFound := ModelFloatingPointBits(result.Value, left)
+	rightBits, rightFound := ModelFloatingPointBits(result.Value, right)
+	addendBits, addendFound := ModelFloatingPointBits(result.Value, addend)
+	leftValue, leftInline := leftBits.Uint64()
+	rightValue, rightInline := rightBits.Uint64()
+	addendValue, addendInline := addendBits.Uint64()
+	if !leftFound || !rightFound || !addendFound ||
+		!leftInline || !rightInline || !addendInline ||
+		leftValue != 0x337ffffe || rightValue != 0x3f800000 ||
+		addendValue != 0 {
+		t.Fatalf(
+			"unexpected synthesized operands: left=%#x right=%#x addend=%#x",
+			leftValue, rightValue, addendValue,
+		)
+	}
+}
+
 func TestContextIndexedFloatingPointSqrt(t *testing.T) {
 	context := NewContext(765)
 	valueBits := FloatingPointFromUint64(8, 24, context, 0x40000000)

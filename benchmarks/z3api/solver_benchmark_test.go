@@ -8270,6 +8270,82 @@ func BenchmarkSymbolicFloatingPointFMACold(b *testing.B) {
 	})
 }
 
+func BenchmarkUnconstrainedFloatingPointFMACold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(776)
+			left := gosmt.FloatingPointConst(8, 24, context, "left", 1)
+			right := gosmt.FloatingPointConst(8, 24, context, "right", 2)
+			addend := gosmt.FloatingPointConst(8, 24, context, "addend", 3)
+			fused := gosmt.FloatingPointFMA(
+				gosmt.RoundNearestTiesToEven(), left, right, addend,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context),
+				gosmt.EqBitVec(
+					gosmt.FloatingPointBits(fused),
+					gosmt.BitVecValue(32, context, 0x337ffffe),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			leftBits, leftFound := gosmt.ModelFloatingPointBits(
+				result.Value, left,
+			)
+			rightBits, rightFound := gosmt.ModelFloatingPointBits(
+				result.Value, right,
+			)
+			addendBits, addendFound := gosmt.ModelFloatingPointBits(
+				result.Value, addend,
+			)
+			leftValue, leftInline := leftBits.Uint64()
+			rightValue, rightInline := rightBits.Uint64()
+			addendValue, addendInline := addendBits.Uint64()
+			if !leftFound || !rightFound || !addendFound ||
+				!leftInline || !rightInline || !addendInline ||
+				leftValue != 0x337ffffe || rightValue != 0x3f800000 ||
+				addendValue != 0 {
+				b.Fatal("invalid synthesized operand model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			left := context.MkConst(context.MkStringSymbol("left"), sort)
+			right := context.MkConst(context.MkStringSymbol("right"), sort)
+			addend := context.MkConst(
+				context.MkStringSymbol("addend"), sort,
+			)
+			target := context.MkFPNumeral(
+				"5.96046376699632673989981412888e-08", sort,
+			)
+			fused := z3FloatingPointFMA(
+				context, 0, left, right, addend,
+			)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkEq(fused, target))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(left, true); !found {
+				b.Fatal("invalid left model")
+			}
+			if _, found := model.Eval(right, true); !found {
+				b.Fatal("invalid right model")
+			}
+			if _, found := model.Eval(addend, true); !found {
+				b.Fatal("invalid addend model")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicFloatingPointSqrtCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

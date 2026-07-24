@@ -53,6 +53,8 @@
    now synthesize canonical exact result-plus/minus-signed-zero,
    result-times-one, or result-divided-by-one models, validated through the
    arithmetic kernel for every format and rounding mode.
+   Distinct unconstrained `fp.fma` operands use the exact canonical
+   `fma(result, 1, signed-zero)` witness, preserving single-rounding semantics.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline

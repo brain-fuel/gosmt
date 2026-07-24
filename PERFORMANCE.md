@@ -1183,6 +1183,16 @@ allocations and 4.822–4.893 us versus the complete parser's 200 allocations
 and 14.510–14.593 us: 95.5% fewer allocations and over 2.96x
 conservative-endpoint throughput.
 
+The unconstrained fused-multiply-add workload fixes only the exact binary32
+result to `0x337ffffe`, synthesizes three operand models, and evaluates all
+three. GoSMT's validated `fma(result, 1, +0)` path uses 5 allocations and
+4.807–4.822 us versus pinned Z3's 21 visible Go allocations and
+51.552–62.389 ms: 76.2% fewer allocations and over 10,600x
+conservative-endpoint throughput. The SMT-LIB workload uses 7 allocations and
+4.139–4.847 us versus the complete parser's 146 allocations and
+10.298–10.358 us: 95.2% fewer allocations and over 2.12x
+conservative-endpoint throughput.
+
 The floating-point fused multiply-add workload fixes three binary32 symbols
 to values whose exact product-plus-addend is `0x337ffffe`, while separately
 rounded multiplication and addition produce zero. SMT-LIB streaming execution
