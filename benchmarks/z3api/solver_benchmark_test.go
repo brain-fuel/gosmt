@@ -7451,6 +7451,63 @@ func BenchmarkNonlinearIntegerSquareIntervalCold(b *testing.B) {
 	})
 }
 
+func BenchmarkNonlinearIntegerProductIntervalCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(244)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			product := gosmt.MulInt(x, y)
+			formula := gosmt.And(
+				gosmt.Lt(gosmt.IntVal(context, 20), product),
+				gosmt.Le(product, gosmt.IntVal(context, 30)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), formula,
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			xValue, xFound := gosmt.EvalInt(result.Value, x)
+			yValue, yFound := gosmt.EvalInt(result.Value, y)
+			if !xFound || !yFound ||
+				xValue*yValue <= 20 || xValue*yValue > 30 {
+				b.Fatal("invalid product interval model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			y := context.MkIntConst("y")
+			product := context.MkMul(x, y)
+			solver := context.NewSolverForLogic("QF_NIA")
+			solver.Assert(context.MkAnd(
+				context.MkLt(
+					context.MkInt(20, intSort), product,
+				),
+				context.MkLe(
+					product, context.MkInt(30, intSort),
+				),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, ok := model.Eval(x, true); !ok {
+				b.Fatal("missing x model")
+			}
+			if _, ok := model.Eval(y, true); !ok {
+				b.Fatal("missing y model")
+			}
+		}
+	})
+}
+
 func BenchmarkLinearIntegerMultiRowModelCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

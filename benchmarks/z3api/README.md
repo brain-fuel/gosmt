@@ -42,6 +42,11 @@ the integer model. GoSMT takes 6.78–7.20 µs and 7 allocations versus Z3's
 1.253–1.683 ms and 18 allocations: more than 173× faster at conservative
 endpoints with 61.1% fewer allocations.
 
+The bounded bilinear workload constrains `20 < x*y <= 30` and validates both
+integer model values. GoSMT takes 7.04–7.10 µs and 9 allocations versus Z3's
+1.181–1.319 ms and 23 allocations: more than 166× faster at conservative
+endpoints with 60.9% fewer allocations.
+
 The conditional integer-EUF cold workload uses exact guarded equalities on the
 Z3 side because the pinned official Go binding does not expose `Z3_mk_ite`.
 GoSMT's compact `IfInt` path uses 13 allocations versus Z3's 34 and is more

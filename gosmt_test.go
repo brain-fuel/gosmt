@@ -4144,6 +4144,51 @@ func TestNonlinearIntegerSelfSquareBounds(t *testing.T) {
 	}
 }
 
+func TestNonlinearIntegerProductBounds(t *testing.T) {
+	context := NewContext(107)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	product := MulInt(x, y)
+	interval := And(
+		Lt(IntVal(context, 20), product),
+		Le(product, IntVal(context, 30)),
+	)
+	result, ok := Check(Assert(
+		1, NewSolver(context), interval,
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected product interval model")
+	}
+	xValue, xFound := EvalInt(result.Value, x)
+	yValue, yFound := EvalInt(result.Value, y)
+	if !xFound || !yFound ||
+		xValue*yValue <= 20 || xValue*yValue > 30 {
+		t.Fatalf("product model x=%d/%v y=%d/%v", xValue, xFound, yValue, yFound)
+	}
+
+	negated := Not(Le(product, IntVal(context, 20)))
+	result, ok = Check(Assert(2, NewSolver(context), negated)).(Sat)
+	if !ok {
+		t.Fatal("expected negated product model")
+	}
+	xValue, xFound = EvalInt(result.Value, x)
+	yValue, yFound = EvalInt(result.Value, y)
+	if !xFound || !yFound || xValue*yValue <= 20 {
+		t.Fatalf("negated product model x=%d y=%d", xValue, yValue)
+	}
+
+	boundedConflict := And(
+		Le(MulInt(x, x), IntVal(context, 4)),
+		Le(MulInt(y, y), IntVal(context, 4)),
+		Lt(IntVal(context, 4), product),
+	)
+	if _, ok := Check(Assert(
+		3, NewSolver(context), boundedConflict,
+	)).(Unsat); !ok {
+		t.Fatal("bounded product conflict must be unsatisfiable")
+	}
+}
+
 func TestBooleanLinearIntegerArithmetic(t *testing.T) {
 	context := NewContext(106)
 	x := IntConst(context, "x", 1)

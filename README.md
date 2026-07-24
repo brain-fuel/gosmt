@@ -19,8 +19,12 @@ witnesses, enumerate exact upper-bound domains of up to 63 integers, compose
 into intervals, normalize negation, and retain arbitrary-precision bounds.
 Larger finite domains remain sound by returning `unknown` when the available
 candidates cannot decide them.
-Problems beyond the documented eight-symbol, eight-relation, 4,096-search
-boundary return `unknown` rather than an unsound answer.
+Strict and non-strict bilinear bounds over `x*y` construct exact witnesses for
+positive, negative, and arbitrary-precision intervals. Negation normalizes to
+the opposite bound, and bilinear atoms compose with exhaustive square domains
+to prove finite contradictions rather than merely finding models.
+Problems beyond the documented eight-symbol, eight-relations-per-family, or
+4,096-search boundary return `unknown` rather than an unsound answer.
 
 Width-indexed bit-vector arrays now retain finite models for symbolic
 addresses. The Go+ `BitVecArrayReadAt` abstraction constrains an address and

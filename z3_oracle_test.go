@@ -5934,6 +5934,66 @@ func TestRandomNonlinearIntegerSquareBoundsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomNonlinearIntegerProductBoundsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x42494c494e454152))
+	for example := 0; example < 64; example++ {
+		first := random.Intn(20) + 1
+		second := first + random.Intn(20) + 1
+		var assertions string
+		switch example % 4 {
+		case 0:
+			assertions = fmt.Sprintf(
+				"(assert (< %d (* x y)))\n(assert (<= (* x y) %d))",
+				first, second,
+			)
+		case 1:
+			assertions = fmt.Sprintf(
+				"(assert (not (<= (* x y) %d)))", first,
+			)
+		case 2:
+			xLimit := random.Intn(8) + 1
+			yLimit := random.Intn(8) + 1
+			assertions = fmt.Sprintf(
+				"(assert (<= (* x x) %d))\n"+
+					"(assert (<= (* y y) %d))\n"+
+					"(assert (< %d (* x y)))",
+				xLimit*xLimit, yLimit*yLimit, xLimit*yLimit,
+			)
+		case 3:
+			assertions = fmt.Sprintf(
+				"(assert (<= (- %d) (* x y)))\n"+
+					"(assert (< (* x y) (- %d)))",
+				second, first,
+			)
+		}
+		script := fmt.Sprintf(`(set-logic QF_NIA)
+(declare-const x Int)
+(declare-const y Int)
+%s
+(check-sat)`, assertions)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf(
+				"example %d: Z3: %v\n%s\n%s",
+				example, err, output, script,
+			)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d: gosmt=%s z3=%s\n%s",
+				example, got, want, script,
+			)
+		}
+	}
+}
+
 func TestRandomLinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {
