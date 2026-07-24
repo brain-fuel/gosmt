@@ -5994,6 +5994,75 @@ func TestRandomNonlinearIntegerProductBoundsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomNonlinearIntegerAffineProductsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x414646494e454e49))
+	for example := 0; example < 64; example++ {
+		var assertion string
+		switch example % 4 {
+		case 0:
+			x := random.Intn(21) - 10
+			y := random.Intn(21) - 10
+			leftOffset := random.Intn(9) + 1
+			rightOffset := random.Intn(9) + 1
+			target := (x + leftOffset) * (y - rightOffset)
+			assertion = fmt.Sprintf(
+				"(assert (= (* (+ x %d) (- y %d)) %s))",
+				leftOffset, rightOffset,
+				sequenceIntegerLiteral(int64(target)),
+			)
+		case 1:
+			target := 2 * (random.Intn(30) + 1)
+			assertion = fmt.Sprintf(
+				"(assert (= (* (+ (* 2 x) 1) (+ (* 2 y) 1)) %d))",
+				target,
+			)
+		case 2:
+			root := random.Intn(30) + 1
+			offset := random.Intn(9) + 1
+			assertion = fmt.Sprintf(
+				"(assert (= (* (+ x %d) (+ x %d)) %d))",
+				offset, offset, root*root+1,
+			)
+		case 3:
+			x := random.Intn(21) - 10
+			y := random.Intn(21) - 10
+			leftOffset := random.Intn(9) + 1
+			rightOffset := random.Intn(9) + 1
+			target := (3*x + leftOffset) * (2*y + rightOffset)
+			assertion = fmt.Sprintf(
+				"(assert (= (* (+ (* 3 x) %d) (+ (* 2 y) %d)) %s))",
+				leftOffset, rightOffset,
+				sequenceIntegerLiteral(int64(target)),
+			)
+		}
+		script := fmt.Sprintf(`(set-logic QF_NIA)
+(declare-const x Int)
+(declare-const y Int)
+%s
+(check-sat)`, assertion)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf(
+				"example %d: Z3: %v\n%s\n%s",
+				example, err, output, script,
+			)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d: gosmt=%s z3=%s\n%s",
+				example, got, want, script,
+			)
+		}
+	}
+}
+
 func TestRandomLinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

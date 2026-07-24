@@ -4189,6 +4189,69 @@ func TestNonlinearIntegerProductBounds(t *testing.T) {
 	}
 }
 
+func TestNonlinearIntegerAffineFactorProducts(t *testing.T) {
+	context := NewContext(108)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	left := Add(x, IntVal(context, 2))
+	right := Sub(y, IntVal(context, 3))
+	product := MulInt(left, right)
+	result, ok := Check(Assert(
+		1, NewSolver(context), EqInt(product, IntVal(context, 20)),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected affine product model")
+	}
+	xValue, xFound := EvalInt(result.Value, x)
+	yValue, yFound := EvalInt(result.Value, y)
+	if !xFound || !yFound || (xValue+2)*(yValue-3) != 20 {
+		t.Fatalf("affine product model x=%d/%v y=%d/%v", xValue, xFound, yValue, yFound)
+	}
+
+	oddLeft := Add(ScaleInt64(2, x), IntVal(context, 1))
+	oddRight := Add(ScaleInt64(2, y), IntVal(context, 1))
+	if _, ok := Check(Assert(
+		2, NewSolver(context),
+		EqInt(MulInt(oddLeft, oddRight), IntVal(context, 2)),
+	)).(Unsat); !ok {
+		t.Fatal("odd affine factors cannot multiply to two")
+	}
+
+	shifted := Add(x, IntVal(context, 2))
+	result, ok = Check(Assert(
+		3, NewSolver(context),
+		EqInt(MulInt(shifted, shifted), IntVal(context, 49)),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected shifted square model")
+	}
+	xValue, xFound = EvalInt(result.Value, x)
+	if !xFound || (xValue+2)*(xValue+2) != 49 {
+		t.Fatalf("shifted square model x=%d/%v", xValue, xFound)
+	}
+
+	wide, err := smt.ParseIntegerValue("1267650600228229401496703205376")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, ok = Check(Assert(
+		4, NewSolver(context),
+		EqInt(product, IntValExact(context, wide)),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected wide affine product model")
+	}
+	wideX, xFound := EvalIntExact(result.Value, x)
+	wideY, yFound := EvalIntExact(result.Value, y)
+	wideLeft := smt.AddIntegerValue(wideX, smt.NewIntegerValue(2))
+	wideRight := smt.AddIntegerValue(wideY, smt.NewIntegerValue(-3))
+	if !xFound || !yFound || smt.CompareIntegerValue(
+		smt.MultiplyIntegerValue(wideLeft, wideRight), wide,
+	) != 0 {
+		t.Fatalf("wide affine model x=%v y=%v", wideX, wideY)
+	}
+}
+
 func TestBooleanLinearIntegerArithmetic(t *testing.T) {
 	context := NewContext(106)
 	x := IntConst(context, "x", 1)

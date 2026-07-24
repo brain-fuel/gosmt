@@ -23,6 +23,11 @@ Strict and non-strict bilinear bounds over `x*y` construct exact witnesses for
 positive, negative, and arbitrary-precision intervals. Negation normalizes to
 the opposite bound, and bilinear atoms compose with exhaustive square domains
 to prove finite contradictions rather than merely finding models.
+Factored equalities normalize one-symbol affine operands, so
+`(a*x+b)*(c*y+d)=k` enumerates exact divisors and maps them back through exact
+integer divisibility. This covers shifted squares, scaled residue
+contradictions, negative coefficients, and arbitrary-precision constants
+without expanding the polynomial.
 Problems beyond the documented eight-symbol, eight-relations-per-family, or
 4,096-search boundary return `unknown` rather than an unsound answer.
 

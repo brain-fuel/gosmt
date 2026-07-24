@@ -83,6 +83,8 @@ type integerFast struct {
 	coefficient      smt.IntegerValue
 	offset           smt.IntegerValue
 	divisor          smt.IntegerValue
+	productLeft      smt.IntegerAffineFactor
+	productRight     smt.IntegerAffineFactor
 }
 
 type integerConditionalBranchFast struct {
@@ -187,6 +189,7 @@ const (
 	booleanFastIntegerDivModRelation
 	booleanFastIntegerDivModSystem
 	booleanFastIntegerProduct
+	booleanFastIntegerAffineProduct
 	booleanFastIntegerProductSystem
 	booleanFastIntegerSquareBound
 	booleanFastIntegerSquareSystem
@@ -255,6 +258,7 @@ type booleanFast struct {
 	integerDivModRelation         smt.IntegerDivModRelation
 	integerDivModSystem           smt.IntegerDivModSystem
 	integerProduct                smt.IntegerProductRelation
+	integerAffineProduct          smt.IntegerAffineProductRelation
 	integerProductSystem          smt.IntegerProductSystem
 	integerSquareBound            smt.IntegerSquareBound
 	integerSquareSystem           smt.IntegerSquareSystem
@@ -2498,6 +2502,8 @@ func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 		product, constant, productOnLeft = right, left, false
 	}
 	if product.fast.kind == integerFastProduct &&
+		directIntegerAffineFactor(product.fast.productLeft) &&
+		directIntegerAffineFactor(product.fast.productRight) &&
 		product.fast.symbolID == product.fast.argumentID {
 		if bound, ok := fastIntegerConstant(constant); ok {
 			return boolExprValue{contextID: left.contextID, fast: booleanFast{
@@ -2511,7 +2517,9 @@ func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 			}}
 		}
 	}
-	if product.fast.kind == integerFastProduct {
+	if product.fast.kind == integerFastProduct &&
+		directIntegerAffineFactor(product.fast.productLeft) &&
+		directIntegerAffineFactor(product.fast.productRight) {
 		if bound, ok := fastIntegerConstant(constant); ok {
 			return boolExprValue{contextID: left.contextID, fast: booleanFast{
 				kind: booleanFastIntegerProductBound,
@@ -5122,6 +5130,11 @@ func fastNot(value BoolExpr) BoolExpr {
 		value.fast.integerProduct.Negated = !value.fast.integerProduct.Negated
 		return value
 	}
+	if value.fast.kind == booleanFastIntegerAffineProduct {
+		value.fast.integerAffineProduct.Negated =
+			!value.fast.integerAffineProduct.Negated
+		return value
+	}
 	if value.fast.kind == booleanFastIntegerSquareBound {
 		value.fast.integerSquareBound.Lower =
 			!value.fast.integerSquareBound.Lower
@@ -6241,6 +6254,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.integerDivModSystem
 	case booleanFastIntegerProduct:
 		return fast.integerProduct
+	case booleanFastIntegerAffineProduct:
+		return fast.integerAffineProduct
 	case booleanFastIntegerProductSystem:
 		return fast.integerProductSystem
 	case booleanFastIntegerSquareBound:
@@ -6292,6 +6307,16 @@ func fastEqInteger(left, right IntExpr) BoolExpr {
 	if product.fast.kind == integerFastProduct &&
 		constant.fast.kind == integerFastNone {
 		if target, ok := smt.ExactIntegerConstant(constant.term); ok {
+			if !directIntegerAffineFactor(product.fast.productLeft) ||
+				!directIntegerAffineFactor(product.fast.productRight) {
+				return boolExprValue{contextID: left.contextID, fast: booleanFast{
+					kind: booleanFastIntegerAffineProduct,
+					integerAffineProduct: smt.IntegerAffineProductRelation{
+						Left: product.fast.productLeft, Right: product.fast.productRight,
+						Target: target,
+					},
+				}}
+			}
 			return boolExprValue{contextID: left.contextID, fast: booleanFast{
 				kind: booleanFastIntegerProduct,
 				integerProduct: smt.IntegerProductRelation{
@@ -6510,8 +6535,8 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 	}
 	if fast.kind == integerFastProduct {
 		return smt.MultiplyInteger(
-			smt.IntegerVariable(fast.symbolID),
-			smt.IntegerVariable(fast.argumentID),
+			materializeIntegerAffineFactor(fast.productLeft),
+			materializeIntegerAffineFactor(fast.productRight),
 		)
 	}
 	panic("gosmt: invalid erased integer expression")
@@ -6521,11 +6546,13 @@ func fastMultiplyInteger(left, right IntExpr) IntExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer multiplication context mismatch")
 	}
-	leftID, _, leftOK := directIntegerExprSymbol(left)
-	rightID, _, rightOK := directIntegerExprSymbol(right)
+	leftFactor, leftOK := compactIntegerAffineExpr(left)
+	rightFactor, rightOK := compactIntegerAffineExpr(right)
 	if leftOK && rightOK {
 		return intExprValue{contextID: left.contextID, fast: integerFast{
-			kind: integerFastProduct, symbolID: leftID, argumentID: rightID,
+			kind:     integerFastProduct,
+			symbolID: leftFactor.SymbolID, argumentID: rightFactor.SymbolID,
+			productLeft: leftFactor, productRight: rightFactor,
 		}}
 	}
 	return intExprValue{
@@ -6535,6 +6562,36 @@ func fastMultiplyInteger(left, right IntExpr) IntExpr {
 			materializeInteger(right.term, right.fast),
 		),
 	}
+}
+
+func compactIntegerAffineExpr(value IntExpr) (smt.IntegerAffineFactor, bool) {
+	if id, _, ok := directIntegerExprSymbol(value); ok {
+		return smt.IntegerAffineFactor{
+			SymbolID: id, Coefficient: smt.NewIntegerValue(1),
+		}, true
+	}
+	if value.fast.kind != integerFastNone || value.fast.eufValid ||
+		value.fast.conditional.valid {
+		return smt.IntegerAffineFactor{}, false
+	}
+	return smt.CompactIntegerAffineFactor(value.term)
+}
+
+func directIntegerAffineFactor(factor smt.IntegerAffineFactor) bool {
+	return smt.CompareIntegerValue(
+		factor.Coefficient, smt.NewIntegerValue(1),
+	) == 0 &&
+		smt.CompareIntegerValue(factor.Offset, smt.IntegerValue{}) == 0
+}
+
+func materializeIntegerAffineFactor(
+	factor smt.IntegerAffineFactor,
+) smt.Term[smt.IntSort] {
+	return affineIntegerNumerator(
+		smt.IntegerVariable(factor.SymbolID),
+		factor.Coefficient,
+		factor.Offset,
+	)
 }
 
 func materializeIntegerConditionalBranch(
