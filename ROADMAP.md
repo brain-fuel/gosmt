@@ -28,7 +28,8 @@
    indexed special values, NaN/infinity/zero/subnormal/normal/sign
    classification, exact model bits, equality/order, sign transforms,
    min/max, round-to-integral, and exact five-mode
-   `fp.add`/`fp.sub`/`fp.mul`/`fp.div`/`fp.fma`/`fp.sqrt` semantics.
+   `fp.add`/`fp.sub`/`fp.mul`/`fp.div`/`fp.fma`/`fp.sqrt` semantics plus exact
+   nearest-even-quotient `fp.rem`.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline

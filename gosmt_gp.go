@@ -3751,6 +3751,11 @@ func FloatingPointSqrt(mode smt.FloatingPointRoundingMode, value FloatingPointEx
 	return floatingPointSqrt(mode, value)
 }
 
+//goplus:dep FloatingPointRem(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s]
+func FloatingPointRem(left FloatingPointExpr, right FloatingPointExpr) FloatingPointExpr {
+	return floatingPointRem(left, right)
+}
+
 //goplus:dep ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool)
 func ModelFloatingPointBits(model Model, value FloatingPointExpr) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)

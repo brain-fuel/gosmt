@@ -190,6 +190,12 @@ static void *gosmt_z3_mk_fpa_sqrt(void *context, int mode, void *value) {
 	);
 }
 
+static void *gosmt_z3_mk_fpa_rem(void *context, void *left, void *right) {
+	return Z3_mk_fpa_rem(
+		(Z3_context)context, (Z3_ast)left, (Z3_ast)right
+	);
+}
+
 static void gosmt_z3_inc_ref(void *context, void *value) {
 	Z3_inc_ref((Z3_context)context, (Z3_ast)value);
 }
@@ -340,6 +346,21 @@ func z3FloatingPointSqrt(
 		contextPointer,
 		C.gosmt_z3_mk_fpa_sqrt(
 			contextPointer, C.int(mode), valuePointer,
+		),
+	)
+}
+
+func z3FloatingPointRem(
+	context *z3.Context, left, right *z3.Expr,
+) *z3.Expr {
+	contextPointer := *(*unsafe.Pointer)(unsafe.Pointer(context))
+	leftPointer := (*z3ExpressionLayout)(unsafe.Pointer(left)).pointer
+	rightPointer := (*z3ExpressionLayout)(unsafe.Pointer(right)).pointer
+	return z3ManagedExpression(
+		context,
+		contextPointer,
+		C.gosmt_z3_mk_fpa_rem(
+			contextPointer, leftPointer, rightPointer,
 		),
 	)
 }

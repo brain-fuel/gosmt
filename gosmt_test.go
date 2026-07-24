@@ -449,6 +449,30 @@ func TestContextIndexedFloatingPointSqrt(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointRem(t *testing.T) {
+	context := NewContext(766)
+	leftValue := FloatingPointFromUint64(8, 24, context, 0x40400000)
+	rightValue := FloatingPointFromUint64(8, 24, context, 0x40000000)
+	expected := FloatingPointFromUint64(8, 24, context, 0xbf800000)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	remainder := FloatingPointRem(left, right)
+	formula := And(
+		EqBitVec(FloatingPointBits(left), FloatingPointBits(leftValue)),
+		EqBitVec(FloatingPointBits(right), FloatingPointBits(rightValue)),
+		EqBitVec(FloatingPointBits(remainder), FloatingPointBits(expected)),
+	)
+	result, ok := Check(Assert(3, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("symbolic fp.rem result=%T", Check(Assert(3, NewSolver(context), formula)))
+	}
+	bits, found := ModelFloatingPointBits(result.Value, remainder)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0xbf800000 {
+		t.Fatalf("remainder bits=%#x,%v,%v", raw, inline, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

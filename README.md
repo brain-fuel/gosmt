@@ -30,8 +30,8 @@ short and long rounding-mode names, and ground or assigned-symbol
 predicates, exact `fp.eq`, `fp.lt`, `fp.leq`, `fp.gt`, and `fp.geq`, exact
 `fp.abs`/`fp.neg`, and operand-selecting `fp.min`/`fp.max`.
 Exact arbitrary-format `fp.add`, `fp.sub`, `fp.mul`, `fp.div`, single-rounding
-`fp.fma`, and `fp.sqrt` cover all five rounding modes for ground values and
-compact assigned-symbol constraints.
+`fp.fma`, `fp.sqrt`, and nearest-even-quotient `fp.rem` cover the core rounded
+arithmetic for ground values and compact assigned-symbol constraints.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Broader unconstrained symbolic
