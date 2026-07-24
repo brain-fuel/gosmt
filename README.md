@@ -41,8 +41,11 @@ participate in fixed-point QF_UFLRA congruence.
 Ground `Int`/`Real` coercions are exact and arbitrary precision: `ToReal`
 preserves every integer, `ToIntReal` implements SMT-LIB floor semantics, and
 `IsIntReal` decides exact integrality. Their Go+ façade retains the context
-index. Symbolic `to_real`, `to_int`, and `is_int` deliberately remain
-`unknown` until mixed LIA/LRA integrality solving is complete.
+index. Symbolic `to_real` is exact when direct coerced integer terms are
+compared with another coerced integer or an exact rational constant, including
+floor/ceiling normalization of fractional bounds. Other symbolic mixed
+expressions, `to_int`, and `is_int` deliberately remain `unknown` until broader
+mixed LIA/LRA integrality solving is complete.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive

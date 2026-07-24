@@ -2160,6 +2160,8 @@ type realCoefficient struct {
 
 type realFast struct {
 	valid            bool
+	integerToReal    bool
+	integerTerm      smt.Term[smt.IntSort]
 	eufValid         bool
 	eufArity         uint8
 	functionID       int
@@ -2369,6 +2371,25 @@ func applyRealTernaryFunction(
 
 func fastEqReal(left, right RealExpr) BoolExpr {
 	context := realPairContext(left, right)
+	if left.fast.integerToReal && right.fast.integerToReal {
+		leftInteger := intExprValue{contextID: context, term: left.fast.integerTerm}
+		rightInteger := intExprValue{contextID: context, term: right.fast.integerTerm}
+		return fastEqInteger(leftInteger, rightInteger)
+	}
+	coercion, constant := left, right
+	if !coercion.fast.integerToReal {
+		coercion, constant = right, left
+	}
+	if coercion.fast.integerToReal {
+		if value, ok := fastRealConstant(constant.fast); ok {
+			if !value.IsInteger() {
+				return boolExprValue{contextID: context, term: smt.Bool{Value: false}}
+			}
+			integer := intExprValue{contextID: context, term: coercion.fast.integerTerm}
+			bound := intExprValue{contextID: context, term: exactIntegerTerm(smt.FloorRational(value))}
+			return fastEqInteger(integer, bound)
+		}
+	}
 	if left.fast.eufValid && right.fast.eufValid && left.fast.eufArity == 1 && right.fast.eufArity == 1 {
 		return fastBooleanAtom(context, smt.RealUnaryEquality{
 			LeftFunctionID: left.fast.functionID, LeftArgumentID: left.fast.argumentID,
@@ -2384,6 +2405,13 @@ func fastEqReal(left, right RealExpr) BoolExpr {
 		Left:  materializeReal(left.term, left.fast),
 		Right: materializeReal(right.term, right.fast),
 	})
+}
+
+func exactIntegerTerm(value smt.IntegerValue) smt.Term[smt.IntSort] {
+	if small, ok := value.Int64(); ok {
+		return smt.Integer{Value: small}
+	}
+	return smt.IntegerTerm(value)
 }
 
 func fastRealSymbolID(value realFast) (int, bool) {
@@ -2447,7 +2475,10 @@ func fastToReal(context int, term smt.Term[smt.IntSort], fast integerFast) RealE
 	if value, ok := smt.ExactIntegerConstant(materialized); ok {
 		return fastRealValue(context, smt.RationalFromInteger(value))
 	}
-	return realExprValue{contextID: context, term: smt.IntToReal(materialized)}
+	return realExprValue{contextID: context, fast: realFast{
+		integerToReal: true,
+		integerTerm:   materialized,
+	}}
 }
 
 func fastToIntReal(context int, term smt.Term[smt.RealSort], fast realFast) IntExpr {
@@ -2499,6 +2530,9 @@ func fastScaleReal(coefficient smt.Rational, value RealExpr) RealExpr {
 
 func fastRealRelation(left, right RealExpr, strict bool) BoolExpr {
 	context := realPairContext(left, right)
+	if relation, ok := fastIntegerToRealRelation(left, right, strict); ok {
+		return relation
+	}
 	if left.fast.eufValid {
 		if bound, ok := fastRealConstant(right.fast); ok {
 			if left.fast.eufArity == 3 {
@@ -2583,6 +2617,44 @@ func fastRealRelation(left, right RealExpr, strict bool) BoolExpr {
 	return boolExprValue{contextID: context, term: smt.RealLessEqual{Left: leftTerm, Right: rightTerm}}
 }
 
+func fastIntegerToRealRelation(left, right RealExpr, strict bool) (BoolExpr, bool) {
+	leftInteger := intExprValue{contextID: left.contextID, term: left.fast.integerTerm}
+	rightInteger := intExprValue{contextID: right.contextID, term: right.fast.integerTerm}
+	if left.fast.integerToReal && right.fast.integerToReal {
+		return compareInteger(leftInteger, rightInteger, strict), true
+	}
+	if left.fast.integerToReal {
+		constant, ok := fastRealConstant(right.fast)
+		if !ok {
+			return boolExprValue{}, false
+		}
+		floor := smt.FloorRational(constant)
+		bound := intExprValue{contextID: left.contextID, term: exactIntegerTerm(floor)}
+		if strict && constant.IsInteger() {
+			return compareInteger(leftInteger, bound, true), true
+		}
+		return compareInteger(leftInteger, bound, false), true
+	}
+	if right.fast.integerToReal {
+		constant, ok := fastRealConstant(left.fast)
+		if !ok {
+			return boolExprValue{}, false
+		}
+		floor := smt.FloorRational(constant)
+		if strict {
+			bound := intExprValue{contextID: right.contextID, term: exactIntegerTerm(floor)}
+			return compareInteger(bound, rightInteger, true), true
+		}
+		ceiling := floor
+		if !constant.IsInteger() {
+			ceiling = smt.AddIntegerValue(ceiling, smt.NewIntegerValue(1))
+		}
+		bound := intExprValue{contextID: right.contextID, term: exactIntegerTerm(ceiling)}
+		return compareInteger(bound, rightInteger, false), true
+	}
+	return boolExprValue{}, false
+}
+
 func realContext(values []RealExpr) int {
 	if len(values) == 0 {
 		return 0
@@ -2604,6 +2676,9 @@ func realPairContext(left, right RealExpr) int {
 }
 
 func materializeReal(term smt.Term[smt.RealSort], fast realFast) smt.Term[smt.RealSort] {
+	if fast.integerToReal {
+		return smt.IntToReal(fast.integerTerm)
+	}
 	if fast.eufValid {
 		if fast.eufArity == 3 {
 			function := smt.DeclareRealTernaryFunction(fast.functionID, "")
@@ -2988,7 +3063,7 @@ func fastAnd(values []BoolExpr) BoolExpr {
 			allDivMod = false
 		}
 	}
-	if allDivMod && divModCount > 0 && equalityCount <= 4 && divModCount <= 4 {
+	if allDivMod && equalityCount > 0 && equalityCount <= 4 && divModCount <= 4 {
 		system := smt.IntegerDivModSystem{EqualityCount: equalityCount, RelationCount: divModCount}
 		equalityIndex, relationIndex := 0, 0
 		for _, value := range values {

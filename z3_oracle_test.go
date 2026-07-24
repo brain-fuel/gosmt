@@ -4308,6 +4308,49 @@ func TestRandomGroundIntegerRealCoercionsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomSymbolicIntegerToRealComparisonsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x53594d544f524541))
+	for example := 0; example < 64; example++ {
+		lower := random.Intn(31) - 15
+		upper := lower + random.Intn(4)
+		fractional := example&1 != 0
+		right := fmt.Sprintf("%d.0", upper)
+		if upper < 0 {
+			right = fmt.Sprintf("(- %d.0)", -upper)
+		}
+		if fractional {
+			if upper >= 0 {
+				right = fmt.Sprintf("%d.5", upper)
+			} else {
+				right = fmt.Sprintf("(- %d.5)", -upper)
+			}
+		}
+		lowerText := fmt.Sprintf("%d.0", lower)
+		if lower < 0 {
+			lowerText = fmt.Sprintf("(- %d.0)", -lower)
+		}
+		script := fmt.Sprintf(`(set-logic QF_LIRA)
+(declare-const x Int)
+(assert (<= %s (to_real x)))
+(assert (< (to_real x) %s))
+(check-sat)`, lowerText, right)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestRandomConditionalIntegerApplicationsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

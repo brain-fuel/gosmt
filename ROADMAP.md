@@ -7,9 +7,11 @@
    difference logic, branch-and-bound QF_LIA, and bounded Boolean-QF_LIA
    foundations plus nonzero constant-divisor Euclidean div/mod are
    implemented. Exact arbitrary-precision ground `to_real`, floor-correct
-   `to_int`, and `is_int` are implemented in typed and SMT-LIB surfaces;
-   symbolic mixed LIA/LRA coercions, cutting planes, and full shared-theory
-   exchange remain.
+   `to_int`, and `is_int` are implemented in typed and SMT-LIB surfaces.
+   Direct symbolic `to_real` equality and order against another coerced
+   integer or exact rational constant lower exactly to LIA, including
+   fractional-bound rounding. Broader symbolic mixed LIA/LRA coercions,
+   cutting planes, and full shared-theory exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,

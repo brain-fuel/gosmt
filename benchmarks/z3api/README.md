@@ -36,3 +36,9 @@ The exact ground Int/Real coercion construction workload uses 1 allocation
 versus Z3's 4 and runs more than 2 times faster. The pinned official Go binding
 does not expose Z3's three arithmetic-coercion constructors, so its side
 constructs the unique normalized ground results for the same four operations.
+
+The symbolic `to_real` equality workload uses three independent exact
+coercions and validates satisfiability after normalization. It uses 8
+allocations versus Z3's 21 and runs more than 225 times faster. The pinned Go
+binding omits `Z3_mk_int2real`, so Z3 receives the same unique normalized
+integer equalities.

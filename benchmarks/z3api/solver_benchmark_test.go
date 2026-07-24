@@ -6266,6 +6266,49 @@ func BenchmarkGroundIntegerRealCoercionConstruction(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicIntegerToRealEqualityCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(127)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			z := gosmt.IntConst(context, "z", 3)
+			formula := gosmt.And(
+				gosmt.EqReal(gosmt.ToReal(x), gosmt.RealVal(context, gosmt.Rational(2, 1))),
+				gosmt.EqReal(gosmt.ToReal(y), gosmt.RealVal(context, gosmt.Rational(-3, 1))),
+				gosmt.EqReal(gosmt.ToReal(z), gosmt.RealVal(context, gosmt.Rational(5, 1))),
+			)
+			_, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			x := context.MkIntConst("x")
+			y := context.MkIntConst("y")
+			z := context.MkIntConst("z")
+			integerSort := context.MkIntSort()
+			// The pinned Go binding omits Z3_mk_int2real. These are the exact
+			// normalized integer terms of the three symbolic equalities.
+			formula := context.MkAnd(
+				context.MkEq(x, context.MkInt(2, integerSort)),
+				context.MkEq(y, context.MkInt(-3, integerSort)),
+				context.MkEq(z, context.MkInt(5, integerSort)),
+			)
+			solver := context.NewSolverForLogic("QF_LIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkBitVectorCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -3310,6 +3310,35 @@ func TestGroundIntegerRealCoercions(t *testing.T) {
 	}
 }
 
+func TestSymbolicIntegerToRealComparisons(t *testing.T) {
+	context := NewContext(127)
+	x := IntConst(context, "x", 1)
+	formula := And(
+		LeReal(
+			RealVal(context, Rational(3, 2)),
+			ToReal(x),
+		),
+		LtReal(
+			ToReal(x),
+			RealVal(context, Rational(5, 2)),
+		),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), formula)))
+	}
+	if value, found := EvalIntExact(result.Value, x); !found {
+		t.Fatal("x model value not found")
+	} else if expected, _ := ParseInteger("2"); smt.CompareIntegerValue(value, expected) != 0 {
+		t.Fatalf("x=%v", value)
+	}
+
+	fractional := EqReal(ToReal(x), RealVal(context, Rational(3, 2)))
+	if _, ok := Check(Assert(2, NewSolver(context), fractional)).(Unsat); !ok {
+		t.Fatal("an integer cannot coerce to a fractional real")
+	}
+}
+
 func TestIndexedBitVectorOperations(t *testing.T) {
 	context := NewContext(72)
 	x := BitVecConst(8, context, "x", 1)
