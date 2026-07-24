@@ -6266,6 +6266,43 @@ func BenchmarkGroundIntegerRealCoercionConstruction(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicIntegerRealRoundTripCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(128)
+			x := gosmt.IntConst(context, "x", 1)
+			coerced := gosmt.ToReal(x)
+			formula := gosmt.Or(
+				gosmt.NeInt(gosmt.ToIntReal(coerced), x),
+				gosmt.Not(gosmt.IsIntReal(coerced)),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Unsat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			// The pinned Go binding omits the arithmetic coercion constructors.
+			// Assert the disjunction of the negated normalized identity and
+			// integrality results.
+			x := context.MkIntConst("x")
+			formula := context.MkOr(
+				context.MkNot(context.MkEq(x, x)),
+				context.MkNot(context.MkTrue()),
+			)
+			solver := context.NewSolverForLogic("QF_LIRA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Unsatisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicIntegerToRealEqualityCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

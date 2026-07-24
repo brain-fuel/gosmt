@@ -2482,6 +2482,9 @@ func fastToReal(context int, term smt.Term[smt.IntSort], fast integerFast) RealE
 }
 
 func fastToIntReal(context int, term smt.Term[smt.RealSort], fast realFast) IntExpr {
+	if fast.integerToReal {
+		return intExprValue{contextID: context, term: fast.integerTerm}
+	}
 	if value, ok := fastRealConstant(fast); ok {
 		return intExprValue{contextID: context, term: smt.IntegerTerm(smt.FloorRational(value))}
 	}
@@ -2489,6 +2492,9 @@ func fastToIntReal(context int, term smt.Term[smt.RealSort], fast realFast) IntE
 }
 
 func fastIsIntReal(context int, term smt.Term[smt.RealSort], fast realFast) BoolExpr {
+	if fast.integerToReal {
+		return boolExprValue{contextID: context, term: smt.Bool{Value: true}}
+	}
 	if value, ok := fastRealConstant(fast); ok {
 		return boolExprValue{contextID: context, term: smt.Bool{Value: value.IsInteger()}}
 	}
@@ -2834,6 +2840,18 @@ func fastNot(value BoolExpr) BoolExpr {
 
 func fastOr(values []BoolExpr) BoolExpr {
 	context := booleanContext(values)
+	allConstants, result := len(values) > 0, false
+	for _, value := range values {
+		constant, ok := value.term.(smt.Bool)
+		if !ok || value.fast.kind != booleanFastNone {
+			allConstants = false
+			break
+		}
+		result = result || constant.Value
+	}
+	if allConstants {
+		return boolExprValue{contextID: context, term: smt.Bool{Value: result}}
+	}
 	if formula, ok := combineCompactStringBooleanValues(values, false); ok {
 		return boolExprValue{contextID: context, fast: booleanFast{
 			kind: booleanFastStringBooleanFormula, stringBooleanFormula: formula,
@@ -3755,6 +3773,11 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 func fastEqInteger(left, right IntExpr) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
+	}
+	if leftID, _, leftOK := directIntegerExprSymbol(left); leftOK {
+		if rightID, _, rightOK := directIntegerExprSymbol(right); rightOK && leftID == rightID {
+			return boolExprValue{contextID: left.contextID, term: smt.Bool{Value: true}}
+		}
 	}
 	if left.fast.eufValid || right.fast.eufValid {
 		if leftCompact, leftOK := compactIntegerEUFTerm(left); leftOK {

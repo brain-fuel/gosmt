@@ -42,3 +42,9 @@ coercions and validates satisfiability after normalization. It uses 8
 allocations versus Z3's 21 and runs more than 225 times faster. The pinned Go
 binding omits `Z3_mk_int2real`, so Z3 receives the same unique normalized
 integer equalities.
+
+The symbolic coercion round-trip contradiction workload covers both
+`to_int(to_real(x)) = x` and `is_int(to_real(x))`. It uses 4 allocations
+versus Z3's 12 and runs more than 430 times faster. Z3 receives the unique
+normalized identity and integrality terms because its pinned Go binding omits
+the coercion constructors.

@@ -10,7 +10,9 @@
    `to_int`, and `is_int` are implemented in typed and SMT-LIB surfaces.
    Direct symbolic `to_real` equality and order against another coerced
    integer or exact rational constant lower exactly to LIA, including
-   fractional-bound rounding. Broader symbolic mixed LIA/LRA coercions,
+   fractional-bound rounding. Symbolic `to_int(to_real(x))` and
+   `is_int(to_real(x))` normalize to `x` and true respectively. Broader
+   symbolic mixed LIA/LRA coercions,
    cutting planes, and full shared-theory exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with

@@ -3339,6 +3339,25 @@ func TestSymbolicIntegerToRealComparisons(t *testing.T) {
 	}
 }
 
+func TestSymbolicIntegerRealRoundTrips(t *testing.T) {
+	context := NewContext(128)
+	x := IntConst(context, "x", 1)
+	roundTrip := ToIntReal(ToReal(x))
+	formula := And(
+		EqInt(roundTrip, x),
+		IsIntReal(ToReal(x)),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Sat); !ok {
+		t.Fatal("symbolic coercion round-trip should be satisfiable")
+	}
+	if _, ok := Check(Assert(2, NewSolver(context), NeInt(roundTrip, x))).(Unsat); !ok {
+		t.Fatal("symbolic coercion round-trip should be an identity")
+	}
+	if _, ok := Check(Assert(3, NewSolver(context), Not(IsIntReal(ToReal(x))))).(Unsat); !ok {
+		t.Fatal("an integer coerced to Real should remain integral")
+	}
+}
+
 func TestIndexedBitVectorOperations(t *testing.T) {
 	context := NewContext(72)
 	x := BitVecConst(8, context, "x", 1)

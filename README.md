@@ -46,6 +46,10 @@ compared with another coerced integer or an exact rational constant, including
 floor/ceiling normalization of fractional bounds. Other symbolic mixed
 expressions, `to_int`, and `is_int` deliberately remain `unknown` until broader
 mixed LIA/LRA integrality solving is complete.
+Exact symbolic round trips normalize before solving:
+`ToIntReal(ToReal(x))` is `x`, and `IsIntReal(ToReal(x))` is true for every
+integer expression. Reflexive integer equality and constant Boolean
+disjunctions likewise fold in the façade.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive
