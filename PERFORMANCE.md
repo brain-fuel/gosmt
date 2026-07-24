@@ -1057,6 +1057,14 @@ conservative-endpoint throughput while retaining automatic fallback. The
 corresponding typed symbolic NaN workload remains independently gated against
 pinned Z3.
 
+The SMT-LIB floating-point ordering workload fixes binary32 symbols to `-1`
+and `+1`, then proves `fp.lt`. Streaming execution uses 11 allocations and
+3.869–3.966 us versus the complete parser's 163 allocations and
+10.251–10.299 us. This is 93.3% fewer allocations and over 2.58x
+conservative-endpoint throughput. The corresponding typed ordering workload
+remains independently gated at 10 versus Z3's 20 allocations and more than
+150x conservative-endpoint throughput.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on

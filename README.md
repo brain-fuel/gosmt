@@ -25,7 +25,8 @@ fallback. SMT-LIB execution now accepts indexed floating-point sorts,
 bit-vector reinterpretation through `(_ to_fp e s)` and `fp.to_ieee_bv`, all
 short and long rounding-mode names, and ground or assigned-symbol
 `fp.roundToIntegral`, plus all seven ground and symbolic classification
-predicates. The supported QF_FP fragment executes through a
+predicates and exact `fp.eq`, `fp.lt`, `fp.leq`, `fp.gt`, and `fp.geq`.
+The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Broader unconstrained symbolic
 rounding, rounded arithmetic, numeric conversions, the remaining SMT-LIB FP
