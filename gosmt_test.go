@@ -399,6 +399,35 @@ func TestContextIndexedFloatingPointDiv(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointFMA(t *testing.T) {
+	context := NewContext(764)
+	leftValue := FloatingPointFromUint64(8, 24, context, 0x3f800001)
+	rightValue := FloatingPointFromUint64(8, 24, context, 0x3f7fffff)
+	addendValue := FloatingPointFromUint64(8, 24, context, 0xbf800000)
+	expected := FloatingPointFromUint64(8, 24, context, 0x337ffffe)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	addend := FloatingPointConst(8, 24, context, "addend", 3)
+	fused := FloatingPointFMA(
+		RoundNearestTiesToEven(), left, right, addend,
+	)
+	formula := And(
+		EqBitVec(FloatingPointBits(left), FloatingPointBits(leftValue)),
+		EqBitVec(FloatingPointBits(right), FloatingPointBits(rightValue)),
+		EqBitVec(FloatingPointBits(addend), FloatingPointBits(addendValue)),
+		EqBitVec(FloatingPointBits(fused), FloatingPointBits(expected)),
+	)
+	result, ok := Check(Assert(4, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("symbolic fp.fma result=%T", Check(Assert(4, NewSolver(context), formula)))
+	}
+	bits, found := ModelFloatingPointBits(result.Value, fused)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x337ffffe {
+		t.Fatalf("fused bits=%#x,%v,%v", raw, inline, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

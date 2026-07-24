@@ -1492,6 +1492,10 @@ func FloatingPointDiv(0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingM
 	return floatingPointDiv(mode, left, right)
 }
 
+func FloatingPointFMA(0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingMode, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s], addend FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s] {
+	return floatingPointFMA(mode, left, right, addend)
+}
+
 func ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)
 }

@@ -28,13 +28,13 @@
    indexed special values, NaN/infinity/zero/subnormal/normal/sign
    classification, exact model bits, equality/order, sign transforms,
    min/max, round-to-integral, and exact five-mode
-   `fp.add`/`fp.sub`/`fp.mul`/`fp.div` semantics.
+   `fp.add`/`fp.sub`/`fp.mul`/`fp.div`/`fp.fma` semantics.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline
    streaming execution with full-parser fallback. Remaining rounded
-   arithmetic, numeric conversions, unconstrained symbolic rounding, FMA,
-   square root, and general QF_FP/QF_FPBV solving remain.
+   arithmetic, numeric conversions, unconstrained symbolic rounding, square
+   root, and general QF_FP/QF_FPBV solving remain.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,
    recognizers, graph acyclicity, exact n-ary models, and SMT-LIB execution are

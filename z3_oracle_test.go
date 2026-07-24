@@ -7445,6 +7445,156 @@ func TestSMTLibSymbolicFloatingPointDivAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSMTLibFloatingPointFMAAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modes := []struct {
+		name string
+		core smt.FloatingPointRoundingMode
+	}{
+		{"RNE", smt.RoundNearestTiesToEven()},
+		{"RNA", smt.RoundNearestTiesToAway()},
+		{"RTP", smt.RoundTowardPositive()},
+		{"RTN", smt.RoundTowardNegative()},
+		{"RTZ", smt.RoundTowardZero()},
+	}
+	random := rand.New(rand.NewSource(0x4650464d))
+	for example := 0; example < 160; example++ {
+		leftPattern, rightPattern, addendPattern :=
+			random.Uint32(), random.Uint32(), random.Uint32()
+		switch example % 32 {
+		case 0:
+			leftPattern, rightPattern, addendPattern =
+				0x3f800001, 0x3f7fffff, 0xbf800000
+		case 1:
+			leftPattern, rightPattern, addendPattern =
+				0x00000001, 0x3f000000, 0x00000001
+		case 2:
+			leftPattern, rightPattern, addendPattern =
+				0x7f7fffff, 0x40000000, 0xff7fffff
+		case 3:
+			leftPattern, rightPattern, addendPattern =
+				0x7f800000, 0x00000000, 0x3f800000
+		case 4:
+			leftPattern, rightPattern, addendPattern =
+				0x7f800000, 0x3f800000, 0xff800000
+		case 5:
+			leftPattern, rightPattern, addendPattern =
+				0x7fc12345, 0x3f800000, 0x3f800000
+		}
+		mode := modes[example%len(modes)]
+		fused := smt.FloatingPointFMA(
+			mode.core,
+			smt.FloatingPointFromUint64(8, 24, uint64(leftPattern)),
+			smt.FloatingPointFromUint64(8, 24, uint64(rightPattern)),
+			smt.FloatingPointFromUint64(8, 24, uint64(addendPattern)),
+		)
+		expression := fmt.Sprintf(
+			"(fp.fma %s ((_ to_fp 8 24) #x%08x) ((_ to_fp 8 24) #x%08x) ((_ to_fp 8 24) #x%08x))",
+			mode.name, leftPattern, rightPattern, addendPattern,
+		)
+		assertion := "(fp.isNaN " + expression + ")"
+		if !smt.FloatingPointIsNaN(fused) {
+			bits, _ := smt.FloatingPointBits(fused).Uint64()
+			assertion = fmt.Sprintf(
+				"(= (fp.to_ieee_bv %s) #x%08x)", expression, uint32(bits),
+			)
+		}
+		if example%16 >= 8 {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(assert %s)\n(check-sat)\n",
+			assertion,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d (%s): gosmt=%s z3=%s\n%s",
+				example, mode.name, got, want, script,
+			)
+		}
+	}
+}
+
+func TestSMTLibSymbolicFloatingPointFMAAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modes := []struct {
+		name string
+		core smt.FloatingPointRoundingMode
+	}{
+		{"RNE", smt.RoundNearestTiesToEven()},
+		{"RNA", smt.RoundNearestTiesToAway()},
+		{"RTP", smt.RoundTowardPositive()},
+		{"RTN", smt.RoundTowardNegative()},
+		{"RTZ", smt.RoundTowardZero()},
+	}
+	random := rand.New(rand.NewSource(0x46504653))
+	for example := 0; example < 64; example++ {
+		leftPattern, rightPattern, addendPattern :=
+			random.Uint32(), random.Uint32(), random.Uint32()
+		for _, pattern := range []*uint32{&leftPattern, &rightPattern, &addendPattern} {
+			if *pattern&0x7f800000 == 0x7f800000 &&
+				*pattern&0x007fffff != 0 {
+				*pattern &= 0xff800000
+			}
+		}
+		mode := modes[example%len(modes)]
+		fused := smt.FloatingPointFMA(
+			mode.core,
+			smt.FloatingPointFromUint64(8, 24, uint64(leftPattern)),
+			smt.FloatingPointFromUint64(8, 24, uint64(rightPattern)),
+			smt.FloatingPointFromUint64(8, 24, uint64(addendPattern)),
+		)
+		if smt.FloatingPointIsNaN(fused) {
+			leftPattern, rightPattern, addendPattern =
+				0x3f800001, 0x3f7fffff, 0xbf800000
+			fused = smt.FloatingPointFMA(
+				mode.core,
+				smt.FloatingPointFromUint64(8, 24, uint64(leftPattern)),
+				smt.FloatingPointFromUint64(8, 24, uint64(rightPattern)),
+				smt.FloatingPointFromUint64(8, 24, uint64(addendPattern)),
+			)
+		}
+		expected, _ := smt.FloatingPointBits(fused).Uint64()
+		assertion := fmt.Sprintf(
+			"(= (fp.to_ieee_bv (fp.fma %s left right addend)) #x%08x)",
+			mode.name, uint32(expected),
+		)
+		if example%8 >= 4 {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n(declare-const right (_ FloatingPoint 8 24))\n(declare-const addend (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv left) #x%08x))\n(assert (= (fp.to_ieee_bv right) #x%08x))\n(assert (= (fp.to_ieee_bv addend) #x%08x))\n(assert %s)\n(check-sat)\n",
+			leftPattern, rightPattern, addendPattern, assertion,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d (%s): gosmt=%s z3=%s\n%s",
+				example, mode.name, got, want, script,
+			)
+		}
+	}
+}
+
 func TestSymbolicFloatingPointEqualityAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

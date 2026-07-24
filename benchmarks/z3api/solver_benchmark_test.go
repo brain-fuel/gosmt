@@ -7918,6 +7918,70 @@ func BenchmarkSymbolicFloatingPointDivCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicFloatingPointFMACold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(145)
+			left := gosmt.FloatingPointConst(8, 24, context, "left", 1)
+			right := gosmt.FloatingPointConst(8, 24, context, "right", 2)
+			addend := gosmt.FloatingPointConst(8, 24, context, "addend", 3)
+			leftValue := gosmt.FloatingPointFromUint64(8, 24, context, 0x3f800001)
+			rightValue := gosmt.FloatingPointFromUint64(8, 24, context, 0x3f7fffff)
+			addendValue := gosmt.FloatingPointFromUint64(8, 24, context, 0xbf800000)
+			expected := gosmt.FloatingPointFromUint64(8, 24, context, 0x337ffffe)
+			fused := gosmt.FloatingPointFMA(
+				gosmt.RoundNearestTiesToEven(), left, right, addend,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), gosmt.And(
+				gosmt.EqBitVec(gosmt.FloatingPointBits(left), gosmt.FloatingPointBits(leftValue)),
+				gosmt.EqBitVec(gosmt.FloatingPointBits(right), gosmt.FloatingPointBits(rightValue)),
+				gosmt.EqBitVec(gosmt.FloatingPointBits(addend), gosmt.FloatingPointBits(addendValue)),
+				gosmt.EqBitVec(gosmt.FloatingPointBits(fused), gosmt.FloatingPointBits(expected)),
+			))).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			bits, found := gosmt.ModelFloatingPointBits(result.Value, fused)
+			raw, inline := bits.Uint64()
+			if !found || !inline || raw != 0x337ffffe {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			left := context.MkConst(context.MkStringSymbol("left"), sort)
+			right := context.MkConst(context.MkStringSymbol("right"), sort)
+			addend := context.MkConst(context.MkStringSymbol("addend"), sort)
+			leftValue := context.MkFPNumeral("1.00000011920928955078125", sort)
+			rightValue := context.MkFPNumeral("0.999999940395355224609375", sort)
+			addendValue := context.MkFPNumeral("-1", sort)
+			expected := z3FloatingPointFMA(
+				context, 0, leftValue, rightValue, addendValue,
+			)
+			fused := z3FloatingPointFMA(context, 0, left, right, addend)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkAnd(
+				context.MkEq(left, leftValue),
+				context.MkEq(right, rightValue),
+				context.MkEq(addend, addendValue),
+				context.MkFPEq(fused, expected),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(fused, true); !found {
+				b.Fatal("invalid fused model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
