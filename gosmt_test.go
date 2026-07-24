@@ -121,6 +121,46 @@ func TestContextIndexedSymbolicFloatingPointEquality(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointAbsAndNeg(t *testing.T) {
+	context := NewContext(136)
+	value := FloatingPointConst(8, 24, context, "x", 1)
+	fixed := FloatingPointFromUint64(8, 24, context, 0xbf812345)
+	absolute := FloatingPointAbs(value)
+	negated := FloatingPointNeg(value)
+	for name, transformed := range map[string]BitVecExpr{
+		"abs": FloatingPointBits(absolute),
+		"neg": FloatingPointBits(negated),
+	} {
+		probe := Check(Assert(1, NewSolver(context), And(
+			EqBitVec(FloatingPointBits(value), FloatingPointBits(fixed)),
+			EqBitVec(transformed, BitVecValue(32, context, 0x3f812345)),
+		)))
+		if _, ok := probe.(Sat); !ok {
+			t.Fatalf("symbolic fp.%s probe: %#v", name, probe)
+		}
+	}
+	formula := And(
+		EqBitVec(FloatingPointBits(value), FloatingPointBits(fixed)),
+		EqBitVec(FloatingPointBits(absolute), BitVecValue(32, context, 0x3f812345)),
+		EqBitVec(FloatingPointBits(negated), BitVecValue(32, context, 0x3f812345)),
+	)
+	checked := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checked.(Sat)
+	if !ok {
+		t.Fatalf("expected exact symbolic fp.abs/fp.neg constraints to be satisfiable: %#v", checked)
+	}
+	bits, found := ModelFloatingPointBits(result.Value, value)
+	if got, ok := bits.Uint64(); !found || !ok || got != 0xbf812345 {
+		t.Fatalf("model bits = %#x, found=%v, want 0xbf812345", got, found)
+	}
+
+	nan := FloatingPointFromUint64(8, 24, context, 0xffc12345)
+	absoluteNaN, ok := FloatingPointBits(FloatingPointAbs(nan)).fast.value.Uint64()
+	if !ok || absoluteNaN != 0x7fc12345 {
+		t.Fatalf("fp.abs must preserve the NaN payload: %#x", absoluteNaN)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

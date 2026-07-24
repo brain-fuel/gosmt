@@ -6717,6 +6717,61 @@ func TestSymbolicFloatingPointEqualityAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSymbolicFloatingPointAbsAndNegAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x4650554e))
+	for example := 0; example < 64; example++ {
+		pattern := uint64(random.Uint32())
+		operation, expected := "fp.abs", pattern&0x7fffffff
+		apply := FloatingPointAbs
+		if example%2 != 0 {
+			operation, expected = "fp.neg", pattern^0x80000000
+			apply = FloatingPointNeg
+		}
+		positive := example%4 < 2
+		context := NewContext(370 + example)
+		value := FloatingPointConst(8, 24, context, "x", 1)
+		transformed := apply(value)
+		relation := EqBitVec(
+			FloatingPointBits(transformed),
+			BitVecValue(32, context, expected),
+		)
+		if !positive {
+			relation = Not(relation)
+		}
+		formula := And(
+			EqBitVec(
+				FloatingPointBits(value),
+				FloatingPointBits(FloatingPointFromUint64(8, 24, context, pattern)),
+			),
+			relation,
+		)
+		ours := floatingPointResultStatus(Check(Assert(1, NewSolver(context), formula)))
+		assertion := fmt.Sprintf(
+			"(= (fp.to_ieee_bv (%s x)) #x%08x)", operation, uint32(expected),
+		)
+		if !positive {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FPBV)\n(declare-const x (_ FloatingPoint 8 24))\n(assert (= x ((_ to_fp 8 24) #x%08x)))\n(assert %s)\n(check-sat)\n",
+			uint32(pattern), assertion,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, ours, want, script)
+		}
+	}
+}
+
 func floatingPointResultStatus(result Result) string {
 	switch result.(type) {
 	case Sat:

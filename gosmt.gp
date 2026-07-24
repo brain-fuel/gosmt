@@ -1342,8 +1342,8 @@ func EvalIntSequence(0 c nat, 0 a nat, model Model[c, a], expression IntSequence
 
 // FloatingPointExpr is an IEEE/SMT-LIB value backed by an exact bit-vector.
 // Its context, exponent width, and significand width are all retained as Go+
-// indices. Classification and fp.eq are symbolic; FP arithmetic and rounding
-// modes remain deliberately outside this QF_FPBV foundation.
+// indices. Classification, fp.eq, fp.abs, and fp.neg are symbolic; rounded FP
+// arithmetic remains deliberately outside this QF_FPBV foundation.
 //goplus:derive off
 //goplus:repr transparent
 type FloatingPointExpr[c nat, e nat, s nat] enum { floatingPointExprValue(ContextID int, ExponentBits int, SignificandBits int, Bits BitVecExpr[c, e+s]) FloatingPointExpr[c, e, s] }
@@ -1373,6 +1373,14 @@ func FloatingPointFromIEEEBitVec(exponentBits nat, significandBits nat, 0 c nat,
 
 func FloatingPointBits(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BitVecExpr[c, e+s] {
 	match value { case floatingPointExprValue(_, _, _, bits): return bits }
+}
+
+func FloatingPointAbs(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s] {
+	return floatingPointAbs(value)
+}
+
+func FloatingPointNeg(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s] {
+	return floatingPointNeg(value)
 }
 
 func FloatingPointIsNaN(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c] {

@@ -1006,6 +1006,13 @@ versus Z3's 360 and is at least 13.6x faster. The harder 7-into-6 workload uses
 23 allocations versus 1,078 and 326.05–326.89 us versus 2.962–3.068 ms, at
 least 9.0x faster. Both results include public expression construction.
 
+The symbolic floating-point unary workload fixes one binary32 symbol to `-1`,
+constrains both `fp.abs(x)` and `fp.neg(x)` to the exact `+1` IEEE pattern,
+solves, and extracts the original model bits. GoSMT uses 7 allocations and
+6.204–6.243 us versus pinned Z3's 18 visible Go allocations and
+1.257–1.358 ms. This is 61.1% fewer allocations and over 201x
+conservative-endpoint throughput.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on

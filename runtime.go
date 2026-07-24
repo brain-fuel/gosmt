@@ -1662,8 +1662,11 @@ func fastAndBitVector(left, right BitVecExpr) BitVecExpr {
 
 func binaryBitVector(left, right BitVecExpr, operation uint8) BitVecExpr {
 	context := bitVectorContext(left, right)
-	if left.fast.kind == bitVectorFastSymbol && right.fast.kind == bitVectorFastValue && operation >= 4 {
+	if left.fast.kind == bitVectorFastSymbol && right.fast.kind == bitVectorFastValue && (operation == 3 || operation >= 4) {
 		compactOperation := operation - 3
+		if operation == 3 {
+			compactOperation = 17
+		}
 		return bitVecExprValue{contextID: context, fast: bitVectorFast{kind: bitVectorFastAppliedSymbol, width: left.fast.width, id: left.fast.id, name: left.fast.name, operation: compactOperation, operand: right.fast.value}}
 	}
 	leftTerm, rightTerm := materializeBitVector(left.term, left.fast), materializeBitVector(right.term, right.fast)
@@ -2100,6 +2103,8 @@ func materializeBitVector(term smt.Term[smt.BitVecSort], fast bitVectorFast) smt
 			return smt.BitVecRotateLeft(fast.parameterA, symbol)
 		case 15:
 			return smt.BitVecRotateRight(fast.parameterA, symbol)
+		case 17:
+			return smt.BitVecXor(symbol, operand)
 		default:
 			return smt.BitVecRepeat(fast.parameterA, symbol)
 		}
@@ -2210,6 +2215,59 @@ func floatingPointParts(value FloatingPointExpr) (exponent, significand, sign Bi
 	significand = extractBitVector(value.significandBits-2, 0, value.bits)
 	sign = extractBitVector(total-1, total-1, value.bits)
 	return
+}
+
+func floatingPointSignMask(total int) smt.BitVectorValue {
+	return smt.ConcatBitVectorValue(
+		smt.NewBitVectorUint64(1, 1),
+		smt.NewBitVectorUint64(total-1, 0),
+	)
+}
+
+func floatingPointAbs(value FloatingPointExpr) FloatingPointExpr {
+	if ground, ok := floatingPointGroundValue(value); ok {
+		return floatingPointExprValue{
+			contextID: value.contextID, exponentBits: value.exponentBits,
+			significandBits: value.significandBits,
+			bits: exactBitVectorExpr(
+				value.contextID,
+				smt.FloatingPointBits(smt.FloatingPointAbs(ground)),
+			),
+		}
+	}
+	total := value.exponentBits + value.significandBits
+	sign := floatingPointSignMask(total)
+	bits := fastAndBitVector(
+		value.bits,
+		exactBitVectorExpr(value.contextID, smt.NotBitVectorValue(sign)),
+	)
+	return floatingPointExprValue{
+		contextID: value.contextID, exponentBits: value.exponentBits,
+		significandBits: value.significandBits, bits: bits,
+	}
+}
+
+func floatingPointNeg(value FloatingPointExpr) FloatingPointExpr {
+	if ground, ok := floatingPointGroundValue(value); ok {
+		return floatingPointExprValue{
+			contextID: value.contextID, exponentBits: value.exponentBits,
+			significandBits: value.significandBits,
+			bits: exactBitVectorExpr(
+				value.contextID,
+				smt.FloatingPointBits(smt.FloatingPointNeg(ground)),
+			),
+		}
+	}
+	total := value.exponentBits + value.significandBits
+	bits := binaryBitVector(
+		value.bits,
+		exactBitVectorExpr(value.contextID, floatingPointSignMask(total)),
+		3,
+	)
+	return floatingPointExprValue{
+		contextID: value.contextID, exponentBits: value.exponentBits,
+		significandBits: value.significandBits, bits: bits,
+	}
 }
 
 func floatingPointZero(context, width int) BitVecExpr {

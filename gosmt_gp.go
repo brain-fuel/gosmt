@@ -3530,8 +3530,8 @@ func EvalIntSequence(model Model, expression IntSequenceExpr) (smt.IntegerSequen
 
 // FloatingPointExpr is an IEEE/SMT-LIB value backed by an exact bit-vector.
 // Its context, exponent width, and significand width are all retained as Go+
-// indices. Classification and fp.eq are symbolic; FP arithmetic and rounding
-// modes remain deliberately outside this QF_FPBV foundation.
+// indices. Classification, fp.eq, fp.abs, and fp.neg are symbolic; rounded FP
+// arithmetic remains deliberately outside this QF_FPBV foundation.
 //
 //goplus:enum FloatingPointExpr[c nat, e nat, s nat]
 //goplus:derive off
@@ -3594,6 +3594,16 @@ func FloatingPointBits(value FloatingPointExpr) BitVecExpr {
 	default:
 		panic("goplus: impossible enum value in match")
 	}
+}
+
+//goplus:dep FloatingPointAbs(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s]
+func FloatingPointAbs(value FloatingPointExpr) FloatingPointExpr {
+	return floatingPointAbs(value)
+}
+
+//goplus:dep FloatingPointNeg(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s]
+func FloatingPointNeg(value FloatingPointExpr) FloatingPointExpr {
+	return floatingPointNeg(value)
 }
 
 //goplus:dep FloatingPointIsNaN(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c]

@@ -10,10 +10,11 @@ width as Go+ indices; their IEEE bit-vector width is computed as `e+s`. Exact
 IEEE/SMT-LIB bit-pattern construction and round trips cover arbitrary valid
 formats. Ground and symbolic constants support NaN, infinity, zero, subnormal,
 normal, positive, and negative classification plus exact `fp.eq` semantics for
-NaNs and signed zeros, with exact symbolic model bits. Compact solver-neutral
-std relations synthesize classification models directly while derived
-bit-vector expressions retain the general bit-blasted fallback. Rounding
-modes, arithmetic, conversions, SMT-LIB FP execution, and general
+NaNs and signed zeros, exact `fp.abs`/`fp.neg` sign-bit transformations, and
+exact symbolic model bits. Compact solver-neutral std relations synthesize
+classification models directly and retain sign masking/toggling without
+materializing a general FP term. Rounded arithmetic, conversions, SMT-LIB FP
+execution, and general
 QF_FP/QF_FPBV solving remain future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:

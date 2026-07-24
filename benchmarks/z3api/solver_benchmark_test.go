@@ -7423,6 +7423,53 @@ func BenchmarkSymbolicFloatingPointNaNCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicFloatingPointAbsNegCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(136)
+			value := gosmt.FloatingPointConst(8, 24, context, "x", 1)
+			fixed := gosmt.FloatingPointFromUint64(8, 24, context, 0xbf800000)
+			expected := gosmt.BitVecValue(32, context, 0x3f800000)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), gosmt.And(
+				gosmt.EqBitVec(gosmt.FloatingPointBits(value), gosmt.FloatingPointBits(fixed)),
+				gosmt.EqBitVec(gosmt.FloatingPointBits(gosmt.FloatingPointAbs(value)), expected),
+				gosmt.EqBitVec(gosmt.FloatingPointBits(gosmt.FloatingPointNeg(value)), expected),
+			))).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			bits, found := gosmt.ModelFloatingPointBits(result.Value, value)
+			got, inline := bits.Uint64()
+			if !found || !inline || got != 0xbf800000 {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			value := context.MkConst(context.MkStringSymbol("x"), sort)
+			negativeOne := context.MkFPNumeral("-1.0", sort)
+			positiveOne := context.MkFPNumeral("1.0", sort)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkAnd(
+				context.MkEq(value, negativeOne),
+				context.MkFPEq(context.MkFPAbs(value), positiveOne),
+				context.MkFPEq(context.MkFPNeg(value), positiveOne),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, found := solver.Model().Eval(value, true); !found {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
