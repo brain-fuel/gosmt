@@ -1512,6 +1512,14 @@ func FloatingPointToSignedBitVector(width nat, 0 c nat, 0 e nat, 0 s nat, mode s
 	return floatingPointToBitVector(int(width), mode, value, true)
 }
 
+func FloatingPointFromUnsignedBitVector(exponentBits nat, significandBits nat, 0 c nat, width nat, mode smt.FloatingPointRoundingMode, value BitVecExpr[c, width]) FloatingPointExpr[c, exponentBits, significandBits] {
+	return floatingPointFromBitVector(int(exponentBits), int(significandBits), int(width), mode, value, false)
+}
+
+func FloatingPointFromSignedBitVector(exponentBits nat, significandBits nat, 0 c nat, width nat, mode smt.FloatingPointRoundingMode, value BitVecExpr[c, width]) FloatingPointExpr[c, exponentBits, significandBits] {
+	return floatingPointFromBitVector(int(exponentBits), int(significandBits), int(width), mode, value, true)
+}
+
 func ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)
 }

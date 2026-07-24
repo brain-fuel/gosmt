@@ -35,6 +35,10 @@ arithmetic for ground values and compact assigned-symbol constraints. Indexed
 `fp.to_ubv` and `fp.to_sbv` perform exact five-mode conversion into
 arbitrary-width bit vectors, with compact assigned-symbol validation and a
 stable zero model for SMT-LIB's unspecified out-of-range cases.
+The reverse numeric bridge accepts arbitrary-width bit vectors through the
+signed two-argument `(_ to_fp e s)` overload and `(_ to_fp_unsigned e s)`.
+Both preserve exact five-mode rounding, including wide two's-complement inputs,
+and remain distinct from one-argument IEEE bit-pattern reinterpretation.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Broader unconstrained symbolic

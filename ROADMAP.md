@@ -31,7 +31,11 @@
    `fp.add`/`fp.sub`/`fp.mul`/`fp.div`/`fp.fma`/`fp.sqrt` semantics plus exact
    nearest-even-quotient `fp.rem`. Exact arbitrary-width `fp.to_ubv` and
    `fp.to_sbv` cover all five rounding modes, including compact assigned-symbol
-   constraints and explicit unspecified-result handling.
+   constraints and explicit unspecified-result handling. Exact signed
+   `(_ to_fp e s) rm bv` and unsigned `(_ to_fp_unsigned e s) rm bv`
+   conversions cover arbitrary source widths, all five modes, compact
+   assigned-symbol constraints, and preserve the separate IEEE-reinterpretation
+   overload.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline

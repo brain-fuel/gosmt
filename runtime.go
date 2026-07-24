@@ -155,6 +155,7 @@ const (
 	booleanFastFloatingPointMinMax
 	booleanFastFloatingPointRoundToIntegral
 	booleanFastFloatingPointToBitVector
+	booleanFastFloatingPointFromBitVector
 	booleanFastFloatingPointAdd
 	booleanFastFloatingPointSub
 	booleanFastFloatingPointMul
@@ -210,6 +211,7 @@ type booleanFast struct {
 	floatingPointMinMax          smt.FloatingPointMinMaxRelation
 	floatingPointRoundToIntegral smt.FloatingPointRoundToIntegralRelation
 	floatingPointToBitVector     smt.FloatingPointToBitVectorRelation
+	floatingPointFromBitVector   smt.FloatingPointFromBitVectorRelation
 	floatingPointAdd             smt.FloatingPointAddRelation
 	floatingPointSub             smt.FloatingPointSubRelation
 	floatingPointMul             smt.FloatingPointMulRelation
@@ -581,6 +583,11 @@ func assertBoolean(assertion int, solver smt.Solver, term smt.Term[smt.BoolSort]
 			assertion, solver, fast.floatingPointToBitVector,
 		)
 	}
+	if fast.kind == booleanFastFloatingPointFromBitVector {
+		return smt.AssertFloatingPointFromBitVectorRelation(
+			assertion, solver, fast.floatingPointFromBitVector,
+		)
+	}
 	if fast.kind == booleanFastFloatingPointAdd {
 		return smt.AssertFloatingPointAddRelation(
 			assertion, solver, fast.floatingPointAdd,
@@ -665,6 +672,23 @@ func modelFloatingPointBits(model smt.Model, term smt.Term[smt.BitVecSort], fast
 			fast.width, fast.roundingMode, value,
 		)
 		return converted, true
+	}
+	if fast.kind == bitVectorFastFloatingPointFromBitVector {
+		bits, found := smt.BitVecModelValue(
+			model, smt.BitVecConst(fast.sourceWidth, fast.id, fast.name),
+		)
+		if !found {
+			return smt.BitVectorValue{}, false
+		}
+		value := smt.FloatingPointFromUnsignedBitVector(
+			fast.parameterA, fast.parameterB, fast.roundingMode, bits,
+		)
+		if fast.signed {
+			value = smt.FloatingPointFromSignedBitVector(
+				fast.parameterA, fast.parameterB, fast.roundingMode, bits,
+			)
+		}
+		return smt.FloatingPointBits(value), true
 	}
 	if fast.kind == bitVectorFastFloatingPointAdd {
 		leftBits, leftFound := smt.FloatingPointSymbolModelBits(model, fast.id)
@@ -1536,6 +1560,7 @@ const (
 	bitVectorFastFloatingPointMinMax
 	bitVectorFastFloatingPointRoundToIntegral
 	bitVectorFastFloatingPointToBitVector
+	bitVectorFastFloatingPointFromBitVector
 	bitVectorFastFloatingPointAdd
 	bitVectorFastFloatingPointSub
 	bitVectorFastFloatingPointMul
@@ -1979,6 +2004,18 @@ func fastEqBitVector(left, right BitVecExpr) BoolExpr {
 			floatingPointToBitVector: relation,
 		}}
 	}
+	if relation, ok := compactFloatingPointFromBitVectorRelation(left.fast, right.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind:                       booleanFastFloatingPointFromBitVector,
+			floatingPointFromBitVector: relation,
+		}}
+	}
+	if relation, ok := compactFloatingPointFromBitVectorRelation(right.fast, left.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind:                       booleanFastFloatingPointFromBitVector,
+			floatingPointFromBitVector: relation,
+		}}
+	}
 	if relation, ok := compactFloatingPointAddRelation(left.fast, right.fast); ok {
 		return boolExprValue{contextID: context, fast: booleanFast{
 			kind: booleanFastFloatingPointAdd, floatingPointAdd: relation,
@@ -2103,6 +2140,20 @@ func compactFloatingPointToBitVectorRelation(
 	return smt.NewFloatingPointToBitVectorRelation(
 		expression.parameterA, expression.parameterB,
 		expression.width, expression.id, expression.roundingMode,
+		expression.signed, constant.value,
+	), true
+}
+
+func compactFloatingPointFromBitVectorRelation(
+	expression, constant bitVectorFast,
+) (smt.FloatingPointFromBitVectorRelation, bool) {
+	if expression.kind != bitVectorFastFloatingPointFromBitVector ||
+		constant.kind != bitVectorFastValue {
+		return smt.FloatingPointFromBitVectorRelation{}, false
+	}
+	return smt.NewFloatingPointFromBitVectorRelation(
+		expression.parameterA, expression.parameterB,
+		expression.sourceWidth, expression.id, expression.roundingMode,
 		expression.signed, constant.value,
 	), true
 }
@@ -2610,6 +2661,20 @@ func materializeBitVector(term smt.Term[smt.BitVecSort], fast bitVectorFast) smt
 		}
 		return smt.FloatingPointToUnsignedBitVectorTerm(
 			fast.parameterA, fast.parameterB, fast.width,
+			value, fast.roundingMode,
+		)
+	case bitVectorFastFloatingPointFromBitVector:
+		value := smt.BitVecConst(
+			fast.sourceWidth, fast.id, fast.name,
+		)
+		if fast.signed {
+			return smt.FloatingPointFromSignedBitVectorTerm(
+				fast.parameterA, fast.parameterB, fast.sourceWidth,
+				value, fast.roundingMode,
+			)
+		}
+		return smt.FloatingPointFromUnsignedBitVectorTerm(
+			fast.parameterA, fast.parameterB, fast.sourceWidth,
 			value, fast.roundingMode,
 		)
 	case bitVectorFastUnaryApplication:
@@ -3413,6 +3478,70 @@ func floatingPointToBitVector(
 		)
 	}
 	return bitVecExprValue{contextID: value.contextID, term: term}
+}
+
+func floatingPointFromBitVector(
+	exponentBits, significandBits, width int,
+	mode smt.FloatingPointRoundingMode,
+	value BitVecExpr,
+	signed bool,
+) FloatingPointExpr {
+	validateFloatingPointFormat(exponentBits, significandBits)
+	if width <= 0 {
+		panic("gosmt: bit-vector source width must be positive")
+	}
+	if value.fast.kind == bitVectorFastValue {
+		var converted smt.FloatingPointValue
+		if signed {
+			converted = smt.FloatingPointFromSignedBitVector(
+				exponentBits, significandBits, mode, value.fast.value,
+			)
+		} else {
+			converted = smt.FloatingPointFromUnsignedBitVector(
+				exponentBits, significandBits, mode, value.fast.value,
+			)
+		}
+		return floatingPointExprValue{
+			contextID:    value.contextID,
+			exponentBits: exponentBits, significandBits: significandBits,
+			bits: exactBitVectorExpr(
+				value.contextID, smt.FloatingPointBits(converted),
+			),
+		}
+	}
+	if value.fast.kind == bitVectorFastSymbol {
+		return floatingPointExprValue{
+			contextID:    value.contextID,
+			exponentBits: exponentBits, significandBits: significandBits,
+			bits: bitVecExprValue{
+				contextID: value.contextID,
+				fast: bitVectorFast{
+					kind:        bitVectorFastFloatingPointFromBitVector,
+					width:       exponentBits + significandBits,
+					sourceWidth: width,
+					id:          value.fast.id, name: value.fast.name,
+					parameterA: exponentBits, parameterB: significandBits,
+					roundingMode: mode, signed: signed,
+				},
+			},
+		}
+	}
+	bits := materializeBitVector(value.term, value.fast)
+	var converted smt.Term[smt.BitVecSort]
+	if signed {
+		converted = smt.FloatingPointFromSignedBitVectorTerm(
+			exponentBits, significandBits, width, bits, mode,
+		)
+	} else {
+		converted = smt.FloatingPointFromUnsignedBitVectorTerm(
+			exponentBits, significandBits, width, bits, mode,
+		)
+	}
+	return floatingPointExprValue{
+		contextID:    value.contextID,
+		exponentBits: exponentBits, significandBits: significandBits,
+		bits: bitVecExprValue{contextID: value.contextID, term: converted},
+	}
 }
 
 func compactFloatingPointComparison(
@@ -4324,6 +4453,11 @@ func fastNot(value BoolExpr) BoolExpr {
 	if value.fast.kind == booleanFastFloatingPointToBitVector {
 		value.fast.floatingPointToBitVector.Negated =
 			!value.fast.floatingPointToBitVector.Negated
+		return value
+	}
+	if value.fast.kind == booleanFastFloatingPointFromBitVector {
+		value.fast.floatingPointFromBitVector.Negated =
+			!value.fast.floatingPointFromBitVector.Negated
 		return value
 	}
 	if value.fast.kind == booleanFastFloatingPointAdd {
@@ -5344,6 +5478,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.floatingPointRoundToIntegral
 	case booleanFastFloatingPointToBitVector:
 		return fast.floatingPointToBitVector
+	case booleanFastFloatingPointFromBitVector:
+		return fast.floatingPointFromBitVector
 	case booleanFastFloatingPointAdd:
 		return fast.floatingPointAdd
 	case booleanFastFloatingPointSub:

@@ -492,6 +492,46 @@ func TestContextIndexedFloatingPointToBitVector(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointFromBitVector(t *testing.T) {
+	context := NewContext(768)
+	signedInput := BitVecConst(8, context, "signed", 1)
+	unsignedInput := BitVecConst(8, context, "unsigned", 2)
+	signed := FloatingPointFromSignedBitVector(
+		8, 24, 8, RoundNearestTiesToEven(), signedInput,
+	)
+	unsigned := FloatingPointFromUnsignedBitVector(
+		8, 24, 8, RoundNearestTiesToEven(), unsignedInput,
+	)
+	solver := Assert(1, NewSolver(context), And(
+		EqBitVec(signedInput, BitVecValue(8, context, 0xfd)),
+		EqBitVec(unsignedInput, BitVecValue(8, context, 0xfd)),
+		EqBitVec(
+			FloatingPointBits(signed),
+			FloatingPointBits(
+				FloatingPointFromUint64(8, 24, context, 0xc0400000),
+			),
+		),
+		EqBitVec(
+			FloatingPointBits(unsigned),
+			FloatingPointBits(
+				FloatingPointFromUint64(8, 24, context, 0x437d0000),
+			),
+		),
+	))
+	result, ok := Check(solver).(Sat)
+	if !ok {
+		t.Fatalf("expected sat conversion constraints, got %T", Check(solver))
+	}
+	signedBits, signedFound := ModelFloatingPointBits(result.Value, signed)
+	unsignedBits, unsignedFound := ModelFloatingPointBits(result.Value, unsigned)
+	signedRaw, signedInline := signedBits.Uint64()
+	unsignedRaw, unsignedInline := unsignedBits.Uint64()
+	if !signedFound || !unsignedFound || !signedInline || !unsignedInline ||
+		signedRaw != 0xc0400000 || unsignedRaw != 0x437d0000 {
+		t.Fatalf("models signed=%#x unsigned=%#x", signedRaw, unsignedRaw)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

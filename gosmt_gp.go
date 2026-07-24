@@ -3766,6 +3766,16 @@ func FloatingPointToSignedBitVector(width int, mode smt.FloatingPointRoundingMod
 	return floatingPointToBitVector(int(width), mode, value, true)
 }
 
+//goplus:dep FloatingPointFromUnsignedBitVector(exponentBits nat, significandBits nat, 0 c nat, width nat, mode smt.FloatingPointRoundingMode, value BitVecExpr[c, width]) FloatingPointExpr[c, exponentBits, significandBits]
+func FloatingPointFromUnsignedBitVector(exponentBits int, significandBits int, width int, mode smt.FloatingPointRoundingMode, value BitVecExpr) FloatingPointExpr {
+	return floatingPointFromBitVector(int(exponentBits), int(significandBits), int(width), mode, value, false)
+}
+
+//goplus:dep FloatingPointFromSignedBitVector(exponentBits nat, significandBits nat, 0 c nat, width nat, mode smt.FloatingPointRoundingMode, value BitVecExpr[c, width]) FloatingPointExpr[c, exponentBits, significandBits]
+func FloatingPointFromSignedBitVector(exponentBits int, significandBits int, width int, mode smt.FloatingPointRoundingMode, value BitVecExpr) FloatingPointExpr {
+	return floatingPointFromBitVector(int(exponentBits), int(significandBits), int(width), mode, value, true)
+}
+
 //goplus:dep ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool)
 func ModelFloatingPointBits(model Model, value FloatingPointExpr) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)

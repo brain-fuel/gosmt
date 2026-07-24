@@ -212,6 +212,38 @@ static void *gosmt_z3_mk_fpa_to_ubv(void *context, void *value, unsigned width) 
 	);
 }
 
+static void *gosmt_z3_mk_fpa_from_bv(
+	void *context, int mode, void *value,
+	void *sort, int is_signed
+) {
+	Z3_ast rounding_mode;
+	switch (mode) {
+	case 1:
+		rounding_mode = Z3_mk_fpa_round_nearest_ties_to_away((Z3_context)context);
+		break;
+	case 2:
+		rounding_mode = Z3_mk_fpa_round_toward_positive((Z3_context)context);
+		break;
+	case 3:
+		rounding_mode = Z3_mk_fpa_round_toward_negative((Z3_context)context);
+		break;
+	case 4:
+		rounding_mode = Z3_mk_fpa_round_toward_zero((Z3_context)context);
+		break;
+	default:
+		rounding_mode = Z3_mk_fpa_round_nearest_ties_to_even((Z3_context)context);
+		break;
+	}
+	if (is_signed) {
+		return Z3_mk_fpa_to_fp_signed(
+			(Z3_context)context, rounding_mode, (Z3_ast)value, (Z3_sort)sort
+		);
+	}
+	return Z3_mk_fpa_to_fp_unsigned(
+		(Z3_context)context, rounding_mode, (Z3_ast)value, (Z3_sort)sort
+	);
+}
+
 static void gosmt_z3_inc_ref(void *context, void *value) {
 	Z3_inc_ref((Z3_context)context, (Z3_ast)value);
 }
@@ -230,6 +262,11 @@ import (
 )
 
 type z3ExpressionLayout struct {
+	context *z3.Context
+	pointer unsafe.Pointer
+}
+
+type z3SortLayout struct {
 	context *z3.Context
 	pointer unsafe.Pointer
 }
@@ -405,6 +442,30 @@ func z3FloatingPointToUnsignedBitVector(
 		contextPointer,
 		C.gosmt_z3_mk_fpa_to_ubv(
 			contextPointer, valuePointer, C.uint(width),
+		),
+	)
+}
+
+func z3FloatingPointFromBitVector(
+	context *z3.Context,
+	mode int,
+	value *z3.Expr,
+	sort *z3.Sort,
+	signed bool,
+) *z3.Expr {
+	contextPointer := *(*unsafe.Pointer)(unsafe.Pointer(context))
+	valuePointer := (*z3ExpressionLayout)(unsafe.Pointer(value)).pointer
+	sortPointer := (*z3SortLayout)(unsafe.Pointer(sort)).pointer
+	signedCode := C.int(0)
+	if signed {
+		signedCode = 1
+	}
+	return z3ManagedExpression(
+		context,
+		contextPointer,
+		C.gosmt_z3_mk_fpa_from_bv(
+			contextPointer, C.int(mode), valuePointer,
+			sortPointer, signedCode,
 		),
 	)
 }
