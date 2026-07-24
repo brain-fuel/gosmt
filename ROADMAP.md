@@ -49,11 +49,14 @@
    Unconstrained `fp.roundToIntegral` sources now synthesize exact models when
    constrained to a value in the operator's image and prove non-fixed result
    patterns unsatisfiable across all five rounding modes.
+   Distinct unconstrained `fp.add` operands now synthesize a canonical exact
+   result-plus-signed-zero model, validated through the arithmetic kernel for
+   every format and rounding mode.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline
-   streaming execution with full-parser fallback. Unconstrained symbolic
-   arithmetic, conversions, and general QF_FP/QF_FPBV solving remain.
+   streaming execution with full-parser fallback. Remaining unconstrained
+   symbolic arithmetic, conversions, and general QF_FP/QF_FPBV solving remain.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,
    recognizers, graph acyclicity, exact n-ary models, and SMT-LIB execution are

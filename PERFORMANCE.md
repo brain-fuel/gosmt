@@ -1113,6 +1113,16 @@ conservative-endpoint throughput. The separately gated typed workload uses
 allocations and 1.275–1.415 ms: 52.4% fewer allocations and over 156x
 conservative-endpoint throughput.
 
+The unconstrained floating-point addition workload fixes only the exact
+binary32 result to `3.75`, synthesizes two operand models, and evaluates both.
+GoSMT's validated result-plus-signed-zero path uses 5 allocations and
+4.274–4.361 us versus pinned Z3's 17 visible Go allocations and
+5.034–5.487 ms: 70.6% fewer allocations and over 1,154x
+conservative-endpoint throughput. The paired SMT-LIB workload uses 9
+allocations and 4.476–5.298 us versus the complete parser's 200 allocations
+and 13.935–14.795 us: 95.5% fewer allocations and over 2.63x
+conservative-endpoint throughput.
+
 The floating-point subtraction workload fixes binary32 symbols to `3.75` and
 `2.25`, subtracts under round-nearest-ties-to-even, constrains the exact `1.5`
 IEEE result, and evaluates the derived difference. SMT-LIB streaming execution

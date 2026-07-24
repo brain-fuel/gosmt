@@ -22,8 +22,9 @@ sign masking/toggling, and validate assigned symbolic FP order, selection, and
 round-to-integral constraints without materializing a general SAT graph.
 Exact image inversion also synthesizes unconstrained `fp.roundToIntegral`
 sources from fixed result bits and proves non-integral result patterns
-impossible;
-nested bit-vector conditionals provide the complete ordering and selection
+impossible. Distinct unconstrained `fp.add` operands use an exact,
+kernel-validated result-plus-signed-zero model for ordinary result patterns.
+Nested bit-vector conditionals provide the complete ordering and selection
 fallback. SMT-LIB execution now accepts indexed floating-point sorts,
 native `(fp sign exponent significand)` construction, all five indexed
 special values (`+zero`, `-zero`, `+oo`, `-oo`, and `NaN`),
@@ -35,7 +36,9 @@ predicates, exact `fp.eq`, `fp.lt`, `fp.leq`, `fp.gt`, and `fp.geq`, exact
 `fp.abs`/`fp.neg`, and operand-selecting `fp.min`/`fp.max`.
 Exact arbitrary-format `fp.add`, `fp.sub`, `fp.mul`, `fp.div`, single-rounding
 `fp.fma`, `fp.sqrt`, and nearest-even-quotient `fp.rem` cover the core rounded
-arithmetic for ground values and compact assigned-symbol constraints. Indexed
+arithmetic for ground values and compact assigned-symbol constraints.
+`fp.add` additionally synthesizes two distinct unconstrained operands from a
+fixed ordinary result across every rounding mode. Indexed
 `fp.to_ubv` and `fp.to_sbv` perform exact five-mode conversion into
 arbitrary-width bit vectors, with compact assigned-symbol validation and a
 stable zero model for SMT-LIB's unspecified out-of-range cases.
@@ -58,8 +61,8 @@ also bridge into otherwise unconstrained Real symbols and merge exact FP/LRA
 models; solving conversions of wholly unconstrained FP symbols remains staged.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
-S-expression parser for broader scripts. Unconstrained symbolic arithmetic
-and conversions, remaining SMT-LIB FP operators,
+S-expression parser for broader scripts. Remaining unconstrained symbolic
+arithmetic and conversions, remaining SMT-LIB FP operators,
 and general QF_FP/QF_FPBV solving remain future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:
