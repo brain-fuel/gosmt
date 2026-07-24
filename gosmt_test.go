@@ -275,6 +275,37 @@ func TestContextIndexedFloatingPointRoundToIntegral(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointRoundToIntegralSynthesizesSource(t *testing.T) {
+	context := NewContext(140)
+	source := FloatingPointConst(8, 24, context, "source", 1)
+	rounded := FloatingPointRoundToIntegral(
+		RoundNearestTiesToEven(), source,
+	)
+	two := FloatingPointFromUint64(8, 24, context, 0x40000000)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(FloatingPointBits(rounded), FloatingPointBits(two)),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected fp.roundToIntegral to synthesize an unconstrained source")
+	}
+	bits, found := ModelFloatingPointBits(result.Value, source)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x40000000 {
+		t.Fatalf("unexpected synthesized source: %#x/%v/%v", raw, found, inline)
+	}
+
+	oneAndHalf := FloatingPointFromUint64(8, 24, context, 0x3fc00000)
+	if _, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(
+			FloatingPointBits(rounded), FloatingPointBits(oneAndHalf),
+		),
+	)).(Unsat); !ok {
+		t.Fatal("non-integral result must have no fp.roundToIntegral preimage")
+	}
+}
+
 func TestContextIndexedFloatingPointAdd(t *testing.T) {
 	context := NewContext(760)
 	left := FloatingPointFromUint64(8, 24, context, 0x3fc00000)

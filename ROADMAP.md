@@ -45,13 +45,15 @@
    symbols, exact rational coefficients and offsets, equality/order, and model
    extraction. Assigned FP symbols now bridge into otherwise unconstrained
    Real variables with exact combined models and contradiction propagation;
-   solving wholly unconstrained FP sources remains planned.
+   solving wholly unconstrained `fp.to_real` sources remains planned.
+   Unconstrained `fp.roundToIntegral` sources now synthesize exact models when
+   constrained to a value in the operator's image and prove non-fixed result
+   patterns unsatisfiable across all five rounding modes.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline
-   streaming execution with full-parser fallback. Remaining numeric
-   Unconstrained symbolic rounding and general QF_FP/QF_FPBV
-   solving remain.
+   streaming execution with full-parser fallback. Unconstrained symbolic
+   arithmetic, conversions, and general QF_FP/QF_FPBV solving remain.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,
    recognizers, graph acyclicity, exact n-ary models, and SMT-LIB execution are

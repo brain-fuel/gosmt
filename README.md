@@ -19,13 +19,17 @@ exhaustive Go+ values, and `fp.roundToIntegral` is exact for arbitrary formats,
 including ties, directed rounding, signed zero, infinities, and NaNs.
 Solver-neutral std relations synthesize classification models directly, retain
 sign masking/toggling, and validate assigned symbolic FP order, selection, and
-round-to-integral constraints without materializing a general SAT graph;
+round-to-integral constraints without materializing a general SAT graph.
+Exact image inversion also synthesizes unconstrained `fp.roundToIntegral`
+sources from fixed result bits and proves non-integral result patterns
+impossible;
 nested bit-vector conditionals provide the complete ordering and selection
 fallback. SMT-LIB execution now accepts indexed floating-point sorts,
 native `(fp sign exponent significand)` construction, all five indexed
 special values (`+zero`, `-zero`, `+oo`, `-oo`, and `NaN`),
 bit-vector reinterpretation through `(_ to_fp e s)` and `fp.to_ieee_bv`, all
-short and long rounding-mode names, and ground or assigned-symbol
+short and long rounding-mode names, and ground, assigned-symbol, or
+fixed-result unconstrained-source
 `fp.roundToIntegral`, plus all seven ground and symbolic classification
 predicates, exact `fp.eq`, `fp.lt`, `fp.leq`, `fp.gt`, and `fp.geq`, exact
 `fp.abs`/`fp.neg`, and operand-selecting `fp.min`/`fp.max`.
@@ -54,8 +58,8 @@ also bridge into otherwise unconstrained Real symbols and merge exact FP/LRA
 models; solving conversions of wholly unconstrained FP symbols remains staged.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
-S-expression parser for broader scripts. Broader unconstrained symbolic
-rounding, remaining SMT-LIB FP operators,
+S-expression parser for broader scripts. Unconstrained symbolic arithmetic
+and conversions, remaining SMT-LIB FP operators,
 and general QF_FP/QF_FPBV solving remain future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:

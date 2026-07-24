@@ -8880,6 +8880,56 @@ func TestSymbolicFloatingPointRoundToIntegralAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestUnconstrainedFloatingPointRoundToIntegralAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modes := []string{"RNE", "RNA", "RTP", "RTN", "RTZ"}
+	random := rand.New(rand.NewSource(0x55465249))
+	for example := 0; example < 64; example++ {
+		target := random.Uint32()
+		switch example % 16 {
+		case 0:
+			target = 0
+		case 1:
+			target = 0x80000000
+		case 2:
+			target = 0x40000000
+		case 3:
+			target = 0xc0000000
+		case 4:
+			target = 0x3fc00000
+		case 5:
+			target = 0xbfc00000
+		case 6:
+			target = 0x7f800000
+		case 7:
+			target = 0xff800000
+		case 8:
+			target = 0x7fc12345
+		}
+		mode := modes[example%len(modes)]
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const source (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv (fp.roundToIntegral %s source)) #x%08x))\n(check-sat)\n",
+			mode, target,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d (%s, %#08x): gosmt=%s z3=%s\n%s",
+				example, mode, target, got, want, script,
+			)
+		}
+	}
+}
+
 func TestSMTLibFloatingPointRoundToIntegralAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

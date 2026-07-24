@@ -7694,6 +7694,58 @@ func BenchmarkSymbolicFloatingPointRoundToIntegralCold(b *testing.B) {
 	})
 }
 
+func BenchmarkUnconstrainedFloatingPointRoundToIntegralCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(140)
+			source := gosmt.FloatingPointConst(8, 24, context, "source", 1)
+			two := gosmt.FloatingPointFromUint64(
+				8, 24, context, 0x40000000,
+			)
+			rounded := gosmt.FloatingPointRoundToIntegral(
+				gosmt.RoundNearestTiesToEven(), source,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context),
+				gosmt.EqBitVec(
+					gosmt.FloatingPointBits(rounded),
+					gosmt.FloatingPointBits(two),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			bits, found := gosmt.ModelFloatingPointBits(result.Value, source)
+			raw, inline := bits.Uint64()
+			if !found || !inline || raw != 0x40000000 {
+				b.Fatal("invalid synthesized source model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			source := context.MkConst(
+				context.MkStringSymbol("source"), sort,
+			)
+			two := context.MkFPNumeral("2.0", sort)
+			rounded := z3FloatingPointRoundToIntegral(context, 0, source)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkEq(rounded, two))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(source, true); !found {
+				b.Fatal("invalid source model")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicFloatingPointAddCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

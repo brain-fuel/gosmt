@@ -1055,6 +1055,19 @@ binding does not expose an equivalent SMT-LIB execution entry point. The
 underlying typed operation is independently gated against Z3 at 9 versus 19
 allocations and more than 175x conservative-endpoint throughput.
 
+The unconstrained floating-point round-to-integral workload constrains only
+the rounded binary32 result to exact `2.0` bits, then solves and evaluates the
+synthesized source. GoSMT's fixed-point image inversion uses 5 allocations and
+3.982–4.000 us versus pinned Z3's 13 visible Go allocations and
+3.030–3.311 ms. This is 61.5% fewer allocations and over 757x
+conservative-endpoint throughput.
+
+The paired SMT-LIB unconstrained-rounding workload solves independent `2.0`
+and `-2.0` result constraints through the same public wire surface. Streaming
+execution uses 9 allocations and 4.159–4.208 us versus the complete parser's
+165 allocations and 10.866–11.001 us. This is 94.5% fewer allocations and
+over 2.58x conservative-endpoint throughput.
+
 The SMT-LIB floating-point classification workload parses and executes a
 binary32 NaN assignment plus `fp.isNaN`. Streaming execution uses 9
 allocations and 3.310–3.346 us versus the complete parser's 115 allocations
