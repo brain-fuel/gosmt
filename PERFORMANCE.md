@@ -1301,6 +1301,16 @@ allocations and 4.190–4.229 us versus the complete parser's 162 allocations
 and 9.884–9.941 us: 94.4% fewer allocations and over 2.33x
 conservative-endpoint throughput.
 
+The unconstrained floating-point minimum workload fixes only the binary32
+result to `-3` and synthesizes both operands. GoSMT's kernel-validated
+`min(target, target)` path uses 5 allocations and 4.125–4.774 us versus pinned
+Z3's 17 visible Go allocations and 1.636–1.706 ms: 70.6% fewer allocations
+and over 342x conservative-endpoint throughput. The paired SMT-LIB workload
+solves independent fixed-result minimum and maximum images, using 9
+allocations and 4.609–5.778 us versus the complete parser's 369 allocations
+and 15.678–15.707 us: 97.6% fewer allocations and over 2.71x
+conservative-endpoint throughput.
+
 The floating-point-to-real workload fixes binary32 symbols to exact `1.5` and
 `3.5` bit patterns, converts them to exact rationals, constrains those results,
 and evaluates both derived values. SMT-LIB streaming execution uses 27

@@ -9546,6 +9546,62 @@ func TestSymbolicFloatingPointMinMaxAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestUnconstrainedFloatingPointMinMaxAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x46504d55))
+	for example := 0; example < 64; example++ {
+		target := uint64(random.Uint32())
+		switch example % 16 {
+		case 0:
+			target = 0x00000000
+		case 1:
+			target = 0x80000000
+		case 2:
+			target = 0x7f800000
+		case 3:
+			target = 0xff800000
+		case 4:
+			target = 0x7fc00000
+		}
+		operation := "fp.min"
+		apply := FloatingPointMin
+		if example%2 != 0 {
+			operation = "fp.max"
+			apply = FloatingPointMax
+		}
+		context := NewContext(856 + example)
+		left := FloatingPointConst(8, 24, context, "left", 1)
+		right := FloatingPointConst(8, 24, context, "right", 2)
+		selected := apply(left, right)
+		ours := floatingPointResultStatus(Check(Assert(
+			1, NewSolver(context),
+			EqBitVec(
+				FloatingPointBits(selected),
+				BitVecValue(32, context, target),
+			),
+		)))
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n(declare-const right (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv (%s left right)) #x%08x))\n(check-sat)\n",
+			operation, uint32(target),
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf(
+				"example %d (%s, target=%#08x): gosmt=%s z3=%s\n%s",
+				example, operation, uint32(target), ours, want, script,
+			)
+		}
+	}
+}
+
 func TestSymbolicFloatingPointRoundToIntegralAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

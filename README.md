@@ -20,6 +20,9 @@ including ties, directed rounding, signed zero, infinities, and NaNs.
 Standalone and paired independent order atoms synthesize canonical
 arbitrary-format operands directly, including strict, non-strict, negated,
 and self-comparison cases, without allocating a bit-blast graph.
+Positive fixed-result `fp.min` and `fp.max` atoms likewise synthesize
+kernel-validated `target,target` operands for every IEEE pattern, including
+NaNs, signed zeros, and self operands.
 Solver-neutral std relations synthesize classification models directly, retain
 sign masking/toggling, and validate assigned symbolic FP order, selection, and
 round-to-integral constraints without materializing a general SAT graph.

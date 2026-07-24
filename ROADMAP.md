@@ -34,7 +34,9 @@
    constraints and explicit unspecified-result handling. Up to two independent
    unconstrained order atoms synthesize canonical models for strict,
    non-strict, negated, and self comparisons in arbitrary formats; shared and
-   mixed systems retain the complete solver path. Unconstrained FP
+   mixed systems retain the complete solver path. Up to two independent
+   positive fixed-result `fp.min`/`fp.max` atoms synthesize validated
+   target-identity operands for every IEEE pattern. Unconstrained FP
    sources synthesize integer-derived, forward-validated preimages for defined
    results in the conversion image. Exact signed
    `(_ to_fp e s) rm bv` and unsigned `(_ to_fp_unsigned e s) rm bv`

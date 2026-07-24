@@ -278,6 +278,40 @@ func TestContextIndexedFloatingPointMinMax(t *testing.T) {
 	}
 }
 
+func TestContextIndexedUnconstrainedFloatingPointMinMax(t *testing.T) {
+	context := NewContext(856)
+	left := FloatingPointConst(15, 113, context, "left", 1)
+	right := FloatingPointConst(15, 113, context, "right", 2)
+	minimum := FloatingPointMin(left, right)
+	target := FloatingPointFromUint64(15, 113, context, 0)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(
+			FloatingPointBits(minimum), FloatingPointBits(target),
+		),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected unconstrained minimum to synthesize operands")
+	}
+	leftBits, leftFound := ModelFloatingPointBits(result.Value, left)
+	rightBits, rightFound := ModelFloatingPointBits(result.Value, right)
+	if !leftFound || !rightFound ||
+		leftBits.Width() != 128 || rightBits.Width() != 128 {
+		t.Fatal("synthesized min model is incomplete")
+	}
+	selected := smt.FloatingPointMin(
+		smt.FloatingPointFromBits(15, 113, leftBits),
+		smt.FloatingPointFromBits(15, 113, rightBits),
+	)
+	if !smt.EqualBitVectorValue(
+		smt.FloatingPointBits(selected), smt.FloatingPointBits(
+			smt.FloatingPointPositiveZero(15, 113),
+		),
+	) {
+		t.Fatal("synthesized operands do not reproduce minimum")
+	}
+}
+
 func TestContextIndexedFloatingPointRoundToIntegral(t *testing.T) {
 	context := NewContext(139)
 	value := FloatingPointConst(8, 24, context, "value", 1)

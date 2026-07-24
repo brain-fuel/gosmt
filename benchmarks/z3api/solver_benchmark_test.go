@@ -7696,6 +7696,68 @@ func BenchmarkSymbolicFloatingPointMinCold(b *testing.B) {
 	})
 }
 
+func BenchmarkUnconstrainedFloatingPointMinCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(856)
+			left := gosmt.FloatingPointConst(
+				8, 24, context, "left", 1,
+			)
+			right := gosmt.FloatingPointConst(
+				8, 24, context, "right", 2,
+			)
+			minimum := gosmt.FloatingPointMin(left, right)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context),
+				gosmt.EqBitVec(
+					gosmt.FloatingPointBits(minimum),
+					gosmt.BitVecValue(32, context, 0xc0400000),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			leftBits, leftFound := gosmt.ModelFloatingPointBits(
+				result.Value, left,
+			)
+			rightBits, rightFound := gosmt.ModelFloatingPointBits(
+				result.Value, right,
+			)
+			leftRaw, leftInline := leftBits.Uint64()
+			rightRaw, rightInline := rightBits.Uint64()
+			if !leftFound || !rightFound || !leftInline || !rightInline ||
+				leftRaw != 0xc0400000 || rightRaw != 0xc0400000 {
+				b.Fatal("invalid synthesized minimum model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			left := context.MkConst(context.MkStringSymbol("left"), sort)
+			right := context.MkConst(context.MkStringSymbol("right"), sort)
+			target := context.MkFPNumeral("-3", sort)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkEq(
+				z3FloatingPointMin(context, left, right), target,
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(left, true); !found {
+				b.Fatal("invalid left model")
+			}
+			if _, found := model.Eval(right, true); !found {
+				b.Fatal("invalid right model")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicFloatingPointRoundToIntegralCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
