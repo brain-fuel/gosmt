@@ -31,7 +31,10 @@
    `fp.add`/`fp.sub`/`fp.mul`/`fp.div`/`fp.fma`/`fp.sqrt` semantics plus exact
    nearest-even-quotient `fp.rem`. Exact arbitrary-width `fp.to_ubv` and
    `fp.to_sbv` cover all five rounding modes, including compact assigned-symbol
-   constraints and explicit unspecified-result handling. Unconstrained FP
+   constraints and explicit unspecified-result handling. Up to two independent
+   unconstrained order atoms synthesize canonical models for strict,
+   non-strict, negated, and self comparisons in arbitrary formats; shared and
+   mixed systems retain the complete solver path. Unconstrained FP
    sources synthesize integer-derived, forward-validated preimages for defined
    results in the conversion image. Exact signed
    `(_ to_fp e s) rm bv` and unsigned `(_ to_fp_unsigned e s) rm bv`

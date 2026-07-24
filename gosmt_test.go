@@ -228,6 +228,29 @@ func TestContextIndexedFloatingPointOrdering(t *testing.T) {
 	}
 }
 
+func TestContextIndexedUnconstrainedFloatingPointOrdering(t *testing.T) {
+	context := NewContext(791)
+	left := FloatingPointConst(15, 113, context, "left", 1)
+	right := FloatingPointConst(15, 113, context, "right", 2)
+	result, ok := Check(Assert(
+		1, NewSolver(context), FloatingPointLessThan(left, right),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected unconstrained order to synthesize operands")
+	}
+	leftBits, leftFound := ModelFloatingPointBits(result.Value, left)
+	rightBits, rightFound := ModelFloatingPointBits(result.Value, right)
+	if !leftFound || !rightFound ||
+		leftBits.Width() != 128 || rightBits.Width() != 128 {
+		t.Fatal("synthesized order model is incomplete")
+	}
+	leftValue := smt.FloatingPointFromBits(15, 113, leftBits)
+	rightValue := smt.FloatingPointFromBits(15, 113, rightBits)
+	if !smt.FloatingPointLessThan(leftValue, rightValue) {
+		t.Fatal("synthesized operands violate strict order")
+	}
+}
+
 func TestContextIndexedFloatingPointMinMax(t *testing.T) {
 	context := NewContext(138)
 	left := FloatingPointConst(8, 24, context, "left", 1)

@@ -17,6 +17,9 @@ cover signed zeros, infinities, subnormals, and unordered NaNs. Compact
 NaN-payload and signed-zero choices. All five SMT-LIB rounding modes are
 exhaustive Go+ values, and `fp.roundToIntegral` is exact for arbitrary formats,
 including ties, directed rounding, signed zero, infinities, and NaNs.
+Standalone and paired independent order atoms synthesize canonical
+arbitrary-format operands directly, including strict, non-strict, negated,
+and self-comparison cases, without allocating a bit-blast graph.
 Solver-neutral std relations synthesize classification models directly, retain
 sign masking/toggling, and validate assigned symbolic FP order, selection, and
 round-to-integral constraints without materializing a general SAT graph.
