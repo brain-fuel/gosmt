@@ -49,10 +49,10 @@
    Unconstrained `fp.roundToIntegral` sources now synthesize exact models when
    constrained to a value in the operator's image and prove non-fixed result
    patterns unsatisfiable across all five rounding modes.
-   Distinct unconstrained `fp.add`, `fp.sub`, and `fp.mul` operands now
-   synthesize canonical exact result-plus/minus-signed-zero or
-   result-times-one models, validated through the arithmetic kernel for every
-   format and rounding mode.
+   Distinct unconstrained `fp.add`, `fp.sub`, `fp.mul`, and `fp.div` operands
+   now synthesize canonical exact result-plus/minus-signed-zero,
+   result-times-one, or result-divided-by-one models, validated through the
+   arithmetic kernel for every format and rounding mode.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline
