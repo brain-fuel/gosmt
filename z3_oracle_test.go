@@ -9468,6 +9468,59 @@ func TestUnconstrainedFloatingPointOrderingAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestUnconstrainedFloatingPointEqualityAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		negated := example%4 >= 2
+		same := example%2 != 0
+		context := NewContext(1088 + example)
+		left := FloatingPointConst(8, 24, context, "left", 1)
+		right := FloatingPointConst(8, 24, context, "right", 2)
+		if same {
+			right = left
+		}
+		relation := FloatingPointEqual(left, right)
+		if negated {
+			relation = Not(relation)
+		}
+		ours := floatingPointResultStatus(Check(Assert(
+			1, NewSolver(context), relation,
+		)))
+		declaration := "(declare-const right (_ FloatingPoint 8 24))\n"
+		rightName := "right"
+		if same {
+			declaration = ""
+			rightName = "left"
+		}
+		assertion := fmt.Sprintf("(fp.eq left %s)", rightName)
+		if negated {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n%s(assert %s)\n(check-sat)\n",
+			declaration, assertion,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf(
+				"example %d: run Z3: %v\n%s\n%s",
+				example, err, output, script,
+			)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf(
+				"example %d: gosmt=%s z3=%s\n%s",
+				example, ours, want, script,
+			)
+		}
+	}
+}
+
 func TestSymbolicFloatingPointMinMaxAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

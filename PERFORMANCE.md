@@ -1301,6 +1301,15 @@ allocations and 4.190–4.229 us versus the complete parser's 162 allocations
 and 9.884–9.941 us: 94.4% fewer allocations and over 2.33x
 conservative-endpoint throughput.
 
+The unconstrained floating-point equality workload synthesizes two binary32
+operands satisfying IEEE `fp.eq` and evaluates both models. GoSMT's canonical
+signed-zero-aware path uses 5 allocations and 4.298–4.407 us versus pinned
+Z3's 14 visible Go allocations and 1.373–1.493 ms: 64.3% fewer allocations
+and over 311x conservative-endpoint throughput. The paired positive/negated
+SMT-LIB workload uses 9 allocations and 4.304–4.382 us versus the complete
+parser's 162 allocations and 10.100–10.170 us: 94.4% fewer allocations and
+over 2.30x conservative-endpoint throughput.
+
 The unconstrained floating-point minimum workload fixes only the binary32
 result to `-3` and synthesizes both operands. GoSMT's kernel-validated
 `min(target, target)` path uses 5 allocations and 4.124–4.152 us versus pinned

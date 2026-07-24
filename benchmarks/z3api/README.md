@@ -93,3 +93,9 @@ the classification without generic bit-blast allocation and synthesizes a
 canonical compact model. Across five Apple M5 Max runs it uses 5 allocations
 versus Z3's 10 (exactly 50% fewer) and takes 3.890–4.030 µs versus
 1.309–1.453 ms, more than 324 times faster at conservative endpoints.
+
+The unconstrained floating-point equality workload constructs two binary32
+symbols, solves IEEE `fp.eq`, and validates both synthesized model values.
+Across five Apple M5 Max runs it uses 5 allocations versus Z3's 14 (64.3%
+fewer) and takes 4.298–4.407 µs versus 1.373–1.493 ms, more than 311 times
+faster at conservative endpoints.

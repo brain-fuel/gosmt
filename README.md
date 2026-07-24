@@ -17,9 +17,10 @@ cover signed zeros, infinities, subnormals, and unordered NaNs. Compact
 NaN-payload and signed-zero choices. All five SMT-LIB rounding modes are
 exhaustive Go+ values, and `fp.roundToIntegral` is exact for arbitrary formats,
 including ties, directed rounding, signed zero, infinities, and NaNs.
-Standalone and paired independent order atoms synthesize canonical
-arbitrary-format operands directly, including strict, non-strict, negated,
-and self-comparison cases, without allocating a bit-blast graph.
+Standalone and paired independent `fp.eq` and order atoms synthesize canonical
+arbitrary-format operands directly, including positive, negated, signed-zero,
+NaN self-disequality, strict, non-strict, and self-comparison cases, without
+allocating a bit-blast graph.
 Positive and negated fixed-result `fp.min` and `fp.max` atoms likewise
 synthesize kernel-validated equal operands for every IEEE pattern, using the
 target itself or a deterministic alternate result, including NaNs, signed

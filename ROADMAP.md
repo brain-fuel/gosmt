@@ -32,14 +32,16 @@
    nearest-even-quotient `fp.rem`. Exact arbitrary-width `fp.to_ubv` and
    `fp.to_sbv` cover all five rounding modes, including compact assigned-symbol
    constraints and explicit unspecified-result handling. Up to two independent
-   unconstrained order atoms synthesize canonical models for strict,
-   non-strict, negated, and self comparisons in arbitrary formats; shared and
-   mixed systems retain the complete solver path. Up to two independent
-   fixed-result `fp.min`/`fp.max` atoms synthesize validated target-identity or
-   alternate-result operands for positive and negated relations over every
-   IEEE pattern. Unconstrained FP
-   sources synthesize integer-derived, forward-validated preimages for defined
-   results in the conversion image. Exact signed
+   unconstrained `fp.eq` atoms synthesize canonical signed-zero, distinct
+   finite, or NaN witnesses for positive, negated, and self relations in
+   arbitrary formats. Up to two independent unconstrained order atoms
+   synthesize canonical models for strict, non-strict, negated, and self
+   comparisons; shared and mixed systems retain the complete solver path. Up
+   to two independent fixed-result `fp.min`/`fp.max` atoms synthesize validated
+   target-identity or alternate-result operands for positive and negated
+   relations over every IEEE pattern. Unconstrained FP sources synthesize
+   integer-derived, forward-validated preimages for defined results in the
+   conversion image. Exact signed
    `(_ to_fp e s) rm bv` and unsigned `(_ to_fp_unsigned e s) rm bv`
    conversions cover arbitrary source widths, all five modes, compact
    assigned-symbol constraints, and preserve the separate IEEE-reinterpretation
