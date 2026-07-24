@@ -73,4 +73,8 @@ func AcceptedFloatingPoint() {
 	_ = gosmt.FloatingPointConvertFormat(
 		5, 11, gosmt.RoundNearestTiesToEven(), symbolic,
 	)
+	_ = gosmt.FloatingPointFromReal(
+		8, 24, gosmt.RoundNearestTiesToEven(),
+		gosmt.RealVal(context, gosmt.Rational(3, 2)),
+	)
 }

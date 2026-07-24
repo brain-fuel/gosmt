@@ -37,12 +37,14 @@
    assigned-symbol constraints, and preserve the separate IEEE-reinterpretation
    overload. Exact `((_ to_fp e s) rm fp)` conversion now rounds once between
    arbitrary source and target formats across all five modes, with compact
-   assigned-symbol constraints.
+   assigned-symbol constraints. Exact `((_ to_fp e s) rm Real)` conversion
+   handles arbitrary-precision rationals and directly assigned Real symbols,
+   completing the SMT-LIB numeric conversion overload family.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline
    streaming execution with full-parser fallback. Remaining numeric
-   real-to-floating-point conversion, unconstrained symbolic rounding, and general QF_FP/QF_FPBV
+   Unconstrained symbolic rounding and general QF_FP/QF_FPBV
    solving remain.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,

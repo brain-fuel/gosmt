@@ -42,10 +42,13 @@ and remain distinct from one-argument IEEE bit-pattern reinterpretation.
 The floating-point overload `((_ to_fp e s) rm fp)` performs an exact,
 single-rounded conversion between arbitrary source and target formats,
 preserving signed zero and infinities and selecting a deterministic target NaN.
+The Real overload `((_ to_fp e s) rm Real)` rounds exact arbitrary-precision
+rationals directly, with compact directly assigned Real-symbol constraints and
+no intermediate host floating-point value.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Broader unconstrained symbolic
-rounding, real-to-floating-point conversion, remaining SMT-LIB FP operators,
+rounding, remaining SMT-LIB FP operators,
 and general QF_FP/QF_FPBV solving remain future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:

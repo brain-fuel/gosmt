@@ -62,6 +62,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | symbolic FP NaN classification + exact model bits | ~3.890–4.030 us, 15,136 B, 5 allocs | ~1.309–1.453 ms, 144 B, 10 allocs | green (>324x) | green (target ≤5 allocs; exactly 50% fewer) |
 | paired signed/unsigned symbolic BV-to-FP conversion + model evaluation | ~12.21–13.42 us, 25,376 B, 15 allocs | ~1.292–1.636 ms, 520 B, 31 allocs | green (>96x) | green (target ≤15 allocs; 51.6% fewer) |
 | paired symbolic FP-format conversion + model evaluation | ~11.87–11.93 us, 18,400 B, 11 allocs | ~1.312–1.434 ms, 456 B, 27 allocs | green (>109x) | green (target ≤13 allocs; 59.3% fewer) |
+| paired symbolic exact-Real-to-FP conversion + model evaluation | ~10.85–12.03 us, 25,088 B, 13 allocs | ~1.076–1.202 ms, 456 B, 27 allocs | green (>89x) | green (target ≤13 allocs; 51.9% fewer) |
 | QF_BV 8-bit symbol-dependent logical shift | ~588–675 ns, 1,160 B, 4 allocs | ~0.89–1.04 ms, 280 B, 18 allocs | green | green (target ≤9 allocs) |
 | QF_BV 8-bit symbol-dependent unsigned division | ~569–630 ns, 1,160 B, 4 allocs | ~0.89–1.05 ms, 280 B, 18 allocs | green | green (target ≤9 allocs) |
 | QF_BV symbol-dependent 8→4 extraction | ~563–635 ns, 1,224 B, 4 allocs | ~0.89–1.05 ms, 248 B, 16 allocs | green | green (target ≤8 allocs) |

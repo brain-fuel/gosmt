@@ -1528,6 +1528,14 @@ func FloatingPointConvertFormat(targetExponentBits nat, targetSignificandBits na
 	)
 }
 
+// FloatingPointFromReal implements SMT-LIB's ((_ to_fp e s) rm Real)
+// overload for exact values and directly constrained Real symbols.
+func FloatingPointFromReal(exponentBits nat, significandBits nat, 0 c nat, mode smt.FloatingPointRoundingMode, value RealExpr[c]) FloatingPointExpr[c, exponentBits, significandBits] {
+	return floatingPointFromReal(
+		int(exponentBits), int(significandBits), mode, value,
+	)
+}
+
 func ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)
 }

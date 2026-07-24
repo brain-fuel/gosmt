@@ -8374,6 +8374,98 @@ func BenchmarkSymbolicFloatingPointFormatConversionCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicFloatingPointFromRealCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(151)
+			evenSource := gosmt.RealConst(context, "evenSource", 1)
+			awaySource := gosmt.RealConst(context, "awaySource", 2)
+			even := gosmt.FloatingPointFromReal(
+				8, 24, gosmt.RoundNearestTiesToEven(), evenSource,
+			)
+			away := gosmt.FloatingPointFromReal(
+				8, 24, gosmt.RoundNearestTiesToAway(), awaySource,
+			)
+			sourceValue := gosmt.RealVal(
+				context, gosmt.Rational(16777217, 16777216),
+			)
+			evenExpected := gosmt.FloatingPointFromUint64(
+				8, 24, context, 0x3f800000,
+			)
+			awayExpected := gosmt.FloatingPointFromUint64(
+				8, 24, context, 0x3f800001,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), gosmt.And(
+					gosmt.EqReal(evenSource, sourceValue),
+					gosmt.EqReal(awaySource, sourceValue),
+					gosmt.EqBitVec(
+						gosmt.FloatingPointBits(even),
+						gosmt.FloatingPointBits(evenExpected),
+					),
+					gosmt.EqBitVec(
+						gosmt.FloatingPointBits(away),
+						gosmt.FloatingPointBits(awayExpected),
+					),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			evenBits, evenFound := gosmt.ModelFloatingPointBits(
+				result.Value, even,
+			)
+			awayBits, awayFound := gosmt.ModelFloatingPointBits(
+				result.Value, away,
+			)
+			evenRaw, evenInline := evenBits.Uint64()
+			awayRaw, awayInline := awayBits.Uint64()
+			if !evenFound || !awayFound || !evenInline || !awayInline ||
+				evenRaw != 0x3f800000 || awayRaw != 0x3f800001 {
+				b.Fatal("invalid conversion model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			targetSort := context.MkFPSort32()
+			evenSource := context.MkRealConst("evenSource")
+			awaySource := context.MkRealConst("awaySource")
+			sourceValue := context.MkReal(16777217, 16777216)
+			even := z3FloatingPointFromReal(
+				context, 0, evenSource, targetSort,
+			)
+			away := z3FloatingPointFromReal(
+				context, 1, awaySource, targetSort,
+			)
+			evenExpected := context.MkFPNumeral("1", targetSort)
+			awayExpected := context.MkFPNumeral(
+				"1.00000011920928955078125", targetSort,
+			)
+			solver := context.NewSolver()
+			solver.Assert(context.MkAnd(
+				context.MkEq(evenSource, sourceValue),
+				context.MkEq(awaySource, sourceValue),
+				context.MkEq(even, evenExpected),
+				context.MkEq(away, awayExpected),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(even, true); !found {
+				b.Fatal("invalid nearest-even conversion model")
+			}
+			if _, found := model.Eval(away, true); !found {
+				b.Fatal("invalid nearest-away conversion model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -555,6 +555,33 @@ func TestContextIndexedFloatingPointFormatConversion(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointFromReal(t *testing.T) {
+	context := NewContext(770)
+	source := RealConst(context, "source", 1)
+	converted := FloatingPointFromReal(
+		8, 24, RoundNearestTiesToEven(), source,
+	)
+	expected := FloatingPointFromUint64(8, 24, context, 0x3f800000)
+	solver := Assert(1, NewSolver(context), And(
+		EqReal(
+			source,
+			RealVal(context, Rational(16777217, 16777216)),
+		),
+		EqBitVec(
+			FloatingPointBits(converted), FloatingPointBits(expected),
+		),
+	))
+	result, ok := Check(solver).(Sat)
+	if !ok {
+		t.Fatalf("expected sat Real conversion, got %T", Check(solver))
+	}
+	bits, found := ModelFloatingPointBits(result.Value, converted)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x3f800000 {
+		t.Fatalf("converted bits=%#x,%v,%v", raw, inline, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
