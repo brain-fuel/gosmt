@@ -275,6 +275,45 @@ func TestContextIndexedFloatingPointRoundToIntegral(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointAdd(t *testing.T) {
+	context := NewContext(760)
+	left := FloatingPointFromUint64(8, 24, context, 0x3fc00000)
+	right := FloatingPointFromUint64(8, 24, context, 0x40100000)
+	sum := FloatingPointAdd(RoundNearestTiesToEven(), left, right)
+	if _, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(
+			FloatingPointBits(sum),
+			BitVecValue(32, context, 0x40700000),
+		),
+	)).(Sat); !ok {
+		t.Fatal("ground fp.add must be satisfiable")
+	}
+
+	symbolicLeft := FloatingPointConst(8, 24, context, "left", 1)
+	symbolicRight := FloatingPointConst(8, 24, context, "right", 2)
+	symbolicSum := FloatingPointAdd(
+		RoundNearestTiesToEven(), symbolicLeft, symbolicRight,
+	)
+	formula := And(
+		EqBitVec(FloatingPointBits(symbolicLeft), FloatingPointBits(left)),
+		EqBitVec(FloatingPointBits(symbolicRight), FloatingPointBits(right)),
+		EqBitVec(
+			FloatingPointBits(symbolicSum),
+			BitVecValue(32, context, 0x40700000),
+		),
+	)
+	result, ok := Check(Assert(3, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("symbolic fp.add result=%T", Check(Assert(3, NewSolver(context), formula)))
+	}
+	bits, found := ModelFloatingPointBits(result.Value, symbolicSum)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x40700000 {
+		t.Fatalf("sum bits=%#x,%v,%v", raw, inline, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

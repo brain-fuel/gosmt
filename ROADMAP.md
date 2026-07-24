@@ -27,12 +27,15 @@
    ground and symbolic constants implement native component construction,
    indexed special values, NaN/infinity/zero/subnormal/normal/sign
    classification, exact model bits, equality/order, sign transforms,
-   min/max, and round-to-integral semantics. Solver-neutral compact std
+   min/max, round-to-integral, and exact five-mode `fp.add` semantics.
+   Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline
    streaming execution with full-parser fallback. Rounded arithmetic,
    numeric conversions, unconstrained symbolic rounding, and general
-   QF_FP/QF_FPBV solving remain.
+   rounded subtraction/multiplication/division/FMA/square root, numeric
+   conversions, unconstrained symbolic rounding, and general QF_FP/QF_FPBV
+   solving remain.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,
    recognizers, graph acyclicity, exact n-ary models, and SMT-LIB execution are

@@ -38,4 +38,7 @@ func AcceptedFloatingPoint() {
 	_ = gosmt.FloatingPointRoundToIntegral(gosmt.RoundTowardPositive(), symbolic)
 	_ = gosmt.FloatingPointRoundToIntegral(gosmt.RoundTowardNegative(), symbolic)
 	_ = gosmt.FloatingPointRoundToIntegral(gosmt.RoundTowardZero(), symbolic)
+	_ = gosmt.FloatingPointAdd(
+		gosmt.RoundNearestTiesToEven(), symbolic, symbolic,
+	)
 }

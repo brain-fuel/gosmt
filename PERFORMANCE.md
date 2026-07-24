@@ -1084,6 +1084,16 @@ uses 4 allocations and 4.664–4.688 us versus pinned Z3's 19 visible Go
 allocations and 916.827–1,041.692 us: 78.9% fewer allocations and over 195x
 conservative-endpoint throughput.
 
+The floating-point addition workload fixes binary32 symbols to `1.5` and
+`2.25`, adds them under round-nearest-ties-to-even, constrains the exact `3.75`
+IEEE result, and evaluates the derived sum. SMT-LIB streaming execution uses
+11 allocations and 3.922–3.958 us versus the complete parser's 185
+allocations and 11.680–11.809 us: 94.1% fewer allocations and over 2.95x
+conservative-endpoint throughput. The separately gated typed workload uses
+10 allocations and 8.107–8.130 us versus pinned Z3's 21 visible Go
+allocations and 1.275–1.415 ms: 52.4% fewer allocations and over 156x
+conservative-endpoint throughput.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on
