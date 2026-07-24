@@ -237,7 +237,9 @@
    conditionals around unary applications are covered. Arity above three and
    other mixed signatures remain. Exact bounded nonlinear integer products
    now cover constant-target conjunctions, coupled factor graphs, self-square
-   image proofs, models, and explicit resource/unsupported outcomes. General
+   image proofs, finite disequality escape models, repeated-product conflict
+   proofs, per-symbol completeness, and explicit resource/unsupported
+   outcomes. General
    polynomial normalization, inequalities, and unbounded search remain. Unary Int→Bool
    and binary Int×Int→Bool predicates now
    preserve their mixed signatures in Go+, accept affine arguments, execute

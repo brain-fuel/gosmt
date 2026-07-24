@@ -32,6 +32,11 @@ GoSMT takes 10.47–10.60 µs and 11 allocations versus Z3's 1.297–1.431 ms an
 34 allocations: more than 122× faster at conservative endpoints with 67.6%
 fewer allocations.
 
+The finite product-disequality workload excludes -1, 0, and 1, then validates
+the synthesized escape model. GoSMT takes 8.87–8.94 µs and 10 allocations
+versus Z3's 1.359–1.569 ms and 28 allocations: more than 152× faster at
+conservative endpoints with 64.3% fewer allocations.
+
 The conditional integer-EUF cold workload uses exact guarded equalities on the
 Z3 side because the pinned official Go binding does not expose `Z3_mk_ite`.
 GoSMT's compact `IfInt` path uses 13 allocations versus Z3's 34 and is more

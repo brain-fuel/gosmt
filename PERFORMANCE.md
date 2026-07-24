@@ -38,6 +38,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | Boolean QF_LIA disjunction+disequality model construction + evaluation | ~7.19–7.24 us, 3,552 B, 7 allocs | ~1.28–1.41 ms, 304 B, 20 allocs | green | green (target ≤10 allocs) |
 | QF_LIA signed Euclidean div/mod model construction + two evaluations | ~1.65–1.69 us, 4,392 B, 8 allocs | ~1.27–1.40 ms, 352 B, 23 allocs | green | green (target ≤11 allocs) |
 | bounded QF_NIA coupled-product model construction + three evaluations | ~10.47–10.60 us, 37,312 B, 11 allocs | ~1.297–1.431 ms, 520 B, 34 allocs | green (>122x) | green (target ≤17 allocs; 67.6% fewer) |
+| bounded QF_NIA finite product-disequality escape + two evaluations | ~8.87–8.94 us, 30,408 B, 10 allocs | ~1.359–1.569 ms, 432 B, 28 allocs | green (>152x) | green (target ≤14 allocs; 64.3% fewer) |
 | ground QF_UF cold construct + check | ~1.330–1.341 us, 4,680 B, 8 allocs | ~0.78–1.00 ms, 304 B, 21 allocs | green | green (target ≤10 allocs) |
 | binary ground QF_UF cold construct + check | ~1.691–1.712 us, 4,824 B, 9 allocs | ~0.83–0.97 ms, 480 B, 30 allocs | green | green (target ≤15 allocs) |
 | binary Int×Int→Int QF_UFLIA congruence cold construct + check | ~4.42–4.48 us, 10,520 B, 10 allocs | ~0.95–1.05 ms, 344 B, 22 allocs | green (>212x) | green (target ≤11 allocs) |

@@ -4067,6 +4067,41 @@ func TestNonlinearIntegerProductModel(t *testing.T) {
 	)).(Unsat); !ok {
 		t.Fatal("nonsquare self-product must be unsatisfiable")
 	}
+
+	disequalities := And(
+		NeInt(MulInt(x, y), IntVal(context, -1)),
+		NeInt(MulInt(x, y), IntVal(context, 0)),
+		NeInt(MulInt(x, y), IntVal(context, 1)),
+	)
+	escapeResult, ok := Check(Assert(
+		3, NewSolver(context), disequalities,
+	)).(Sat)
+	if !ok {
+		t.Fatal("finite product disequalities need an escape model")
+	}
+	escapeX, xOK := EvalIntExact(escapeResult.Value, x)
+	escapeY, yOK := EvalIntExact(escapeResult.Value, y)
+	escapeProduct := smt.MultiplyIntegerValue(escapeX, escapeY)
+	if !xOK || !yOK {
+		t.Fatalf("escape x=%v/%v y=%v/%v", escapeX, xOK, escapeY, yOK)
+	}
+	for _, excluded := range []int64{-1, 0, 1} {
+		if smt.CompareIntegerValue(
+			escapeProduct, smt.NewIntegerValue(excluded),
+		) == 0 {
+			t.Fatalf("excluded product x=%v y=%v", escapeX, escapeY)
+		}
+	}
+
+	conflict := And(
+		EqInt(MulInt(x, y), IntVal(context, 6)),
+		EqInt(MulInt(y, x), IntVal(context, 7)),
+	)
+	if _, ok := Check(Assert(
+		4, NewSolver(context), conflict,
+	)).(Unsat); !ok {
+		t.Fatal("conflicting repeated product must be unsatisfiable")
+	}
 }
 
 func TestBooleanLinearIntegerArithmetic(t *testing.T) {

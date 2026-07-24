@@ -5825,7 +5825,8 @@ func TestRandomNonlinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
 	random := rand.New(rand.NewSource(0x4e4941464143544f))
 	for example := 0; example < 64; example++ {
 		var script string
-		if example%2 == 0 {
+		switch example % 4 {
+		case 0:
 			x := random.Intn(19) + 1
 			y := random.Intn(19) + 1
 			z := random.Intn(19) + 1
@@ -5837,12 +5838,29 @@ func TestRandomNonlinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
 (assert (= (* x z) %d))
 (assert (= (* y z) %d))
 (check-sat)`, x*y, x*z, y*z)
-		} else {
+		case 1:
 			root := random.Intn(200) + 1
 			script = fmt.Sprintf(`(set-logic QF_NIA)
 (declare-const x Int)
 (assert (= (* x x) %d))
 (check-sat)`, root*root+1)
+		case 2:
+			limit := random.Intn(20) + 1
+			script = fmt.Sprintf(`(set-logic QF_NIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (distinct (* x y) (- %d)))
+(assert (distinct (* x y) 0))
+(assert (distinct (* x y) %d))
+(check-sat)`, limit, limit)
+		case 3:
+			first := random.Intn(200) + 1
+			script = fmt.Sprintf(`(set-logic QF_NIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (= (* x y) %d))
+(assert (= (* y x) %d))
+(check-sat)`, first, first+1)
 		}
 		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
 		command := exec.Command(z3, "-in", "-smt2")
