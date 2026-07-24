@@ -3139,6 +3139,11 @@ func ScaleInt64(coefficient int64, value IntExpr) IntExpr {
 	return ScaleInt(smt.NewIntegerValue(coefficient), value)
 }
 
+//goplus:dep MulInt(0 c nat, left IntExpr[c], right IntExpr[c]) IntExpr[c]
+func MulInt(left IntExpr, right IntExpr) IntExpr {
+	return fastMultiplyInteger(left, right)
+}
+
 //goplus:dep DivInt(0 c nat, value IntExpr[c], divisor smt.IntegerValue) IntExpr[c]
 func DivInt(value IntExpr, divisor smt.IntegerValue) IntExpr {
 	switch __gp_m176 := any(value).(type) {

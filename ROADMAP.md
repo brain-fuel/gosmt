@@ -234,8 +234,11 @@
    purify applications in affine arithmetic, and exchange EUF/LIA equality to
    a fixed point. Reciprocal inequalities, affine arguments, reverse
    propagation, compact direct-symbol paths, and exact integer-valued
-   conditionals around unary applications are covered. Arity above three,
-   other mixed signatures, and nonlinear arithmetic remain. Unary Int→Bool
+   conditionals around unary applications are covered. Arity above three and
+   other mixed signatures remain. Exact bounded nonlinear integer products
+   now cover constant-target conjunctions, coupled factor graphs, self-square
+   image proofs, models, and explicit resource/unsupported outcomes. General
+   polynomial normalization, inequalities, and unbounded search remain. Unary Int→Bool
    and binary Int×Int→Bool predicates now
    preserve their mixed signatures in Go+, accept affine arguments, execute
    through SMT-LIB, and share fixed-point LIA/EUF congruence.
@@ -268,7 +271,7 @@
    and exact models share the sixteen-root inline capacity. Larger systems use
    exact overflow relations and dynamically sized global-search vectors under
    the same 4,096-resource boundary.
-6. Quantifiers, E-matching, MBQI, nonlinear arithmetic, transcendental bounds.
+6. Quantifiers, E-matching, MBQI, general nonlinear arithmetic, transcendental bounds.
 7. SMT-LIB 2.7 commands, models, proofs, cores, options, statistics.
 8. Tactics/probes, Optimize/MaxSMT, fixedpoint/Horn clauses, portfolio solving.
 9. Z3 differential farm, SMT-COMP corpus, proof/model validation, fuzz/race.

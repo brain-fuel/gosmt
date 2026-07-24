@@ -4024,6 +4024,51 @@ func TestLinearIntegerArithmeticModelAndIntegrality(t *testing.T) {
 	}
 }
 
+func TestNonlinearIntegerProductModel(t *testing.T) {
+	context := NewContext(105)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	z := IntConst(context, "z", 3)
+	formula := And(
+		EqInt(MulInt(x, y), IntVal(context, 6)),
+		EqInt(MulInt(x, z), IntVal(context, 10)),
+		EqInt(MulInt(y, z), IntVal(context, 15)),
+	)
+	checkResult := Check(Assert(1, NewSolver(context), formula))
+	result, ok := checkResult.(Sat)
+	if !ok {
+		t.Fatalf("result=%T (%v)", checkResult, checkResult)
+	}
+	xValue, xOK := EvalIntExact(result.Value, x)
+	yValue, yOK := EvalIntExact(result.Value, y)
+	zValue, zOK := EvalIntExact(result.Value, z)
+	if !xOK || !yOK || !zOK ||
+		smt.CompareIntegerValue(
+			smt.MultiplyIntegerValue(xValue, yValue),
+			smt.NewIntegerValue(6),
+		) != 0 ||
+		smt.CompareIntegerValue(
+			smt.MultiplyIntegerValue(xValue, zValue),
+			smt.NewIntegerValue(10),
+		) != 0 ||
+		smt.CompareIntegerValue(
+			smt.MultiplyIntegerValue(yValue, zValue),
+			smt.NewIntegerValue(15),
+		) != 0 {
+		t.Fatalf(
+			"x=%v/%v y=%v/%v z=%v/%v",
+			xValue, xOK, yValue, yOK, zValue, zOK,
+		)
+	}
+
+	nonsquare := EqInt(MulInt(x, x), IntVal(context, 50))
+	if _, ok := Check(Assert(
+		2, NewSolver(context), nonsquare,
+	)).(Unsat); !ok {
+		t.Fatal("nonsquare self-product must be unsatisfiable")
+	}
+}
+
 func TestBooleanLinearIntegerArithmetic(t *testing.T) {
 	context := NewContext(106)
 	x := IntConst(context, "x", 1)

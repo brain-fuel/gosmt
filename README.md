@@ -5,6 +5,15 @@ Microsoft Z3 4.16.0 (`ddb49568d3520e99799e364fb22f35fc67d887b1`, MIT).
 It does not bind to Z3: differential tests use Z3 as an oracle while released
 artifacts remain pure generated Go.
 
+An initial exact QF_NIA fragment now solves bounded conjunctions of integer
+symbol products against exact constants, including coupled factor graphs,
+self-squares, model extraction, and complete unsatisfiability proofs when
+finite divisor enumeration is exhaustive. Go+ exposes multiplication without
+erasing solver context, while the common `MulInt`/`EqInt`/`And` path compacts
+up to four relations without an intermediate expression-tree allocation.
+Problems beyond the documented eight-symbol, eight-relation, 4,096-search
+boundary return `unknown` rather than an unsound answer.
+
 Width-indexed bit-vector arrays now retain finite models for symbolic
 addresses. The Go+ `BitVecArrayReadAt` abstraction constrains an address and
 its selected value as one dependent-width relation; both the resolved address

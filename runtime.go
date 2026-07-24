@@ -63,6 +63,7 @@ const (
 	integerFastStringLength
 	integerFastStringIndexOfSymbols
 	integerFastAffineDivision
+	integerFastProduct
 )
 
 type integerFast struct {
@@ -185,6 +186,8 @@ const (
 	booleanFastIntegerLinearChoice
 	booleanFastIntegerDivModRelation
 	booleanFastIntegerDivModSystem
+	booleanFastIntegerProduct
+	booleanFastIntegerProductSystem
 	booleanFastUninterpretedEUFRelation
 	booleanFastStringRelation
 	booleanFastStringBooleanFormula
@@ -247,6 +250,8 @@ type booleanFast struct {
 	integerLinearChoice           smt.IntegerLinearChoice
 	integerDivModRelation         smt.IntegerDivModRelation
 	integerDivModSystem           smt.IntegerDivModSystem
+	integerProduct                smt.IntegerProductRelation
+	integerProductSystem          smt.IntegerProductSystem
 	uninterpretedEUFRelation      smt.UninterpretedEUFRelation
 	stringRelation                smt.CompactStringRelation
 	stringBooleanFormula          smt.CompactStringBooleanFormula
@@ -5073,6 +5078,10 @@ func fastNot(value BoolExpr) BoolExpr {
 		value.fast.integerDivModRelation.Negated = !value.fast.integerDivModRelation.Negated
 		return value
 	}
+	if value.fast.kind == booleanFastIntegerProduct {
+		value.fast.integerProduct.Negated = !value.fast.integerProduct.Negated
+		return value
+	}
 	if value.fast.kind == booleanFastUninterpretedEUFRelation {
 		value.fast.uninterpretedEUFRelation.Negated = !value.fast.uninterpretedEUFRelation.Negated
 		return value
@@ -5156,6 +5165,27 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	}
 	if allConstants {
 		return boolExprValue{contextID: context, term: smt.Bool{Value: result}}
+	}
+	allProducts := len(values) > 0
+	productSystem := smt.IntegerProductSystem{Count: len(values)}
+	if len(values) > len(productSystem.Inline) {
+		productSystem.Overflow = make([]smt.IntegerProductRelation, len(values))
+	}
+	for index, value := range values {
+		if value.fast.kind != booleanFastIntegerProduct {
+			allProducts = false
+			break
+		}
+		if productSystem.Overflow != nil {
+			productSystem.Overflow[index] = value.fast.integerProduct
+		} else {
+			productSystem.Inline[index] = value.fast.integerProduct
+		}
+	}
+	if allProducts {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastIntegerProductSystem, integerProductSystem: productSystem,
+		}}
 	}
 	fpAtomCount, fpRealCount := 0, 0
 	allFloatingPointRealBridge := len(values) > 0
@@ -6110,6 +6140,10 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.integerDivModRelation
 	case booleanFastIntegerDivModSystem:
 		return fast.integerDivModSystem
+	case booleanFastIntegerProduct:
+		return fast.integerProduct
+	case booleanFastIntegerProductSystem:
+		return fast.integerProductSystem
 	case booleanFastUninterpretedEUFRelation:
 		return fast.uninterpretedEUFRelation
 	case booleanFastStringRelation:
@@ -6143,6 +6177,22 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 func fastEqInteger(left, right IntExpr) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
+	}
+	product, constant := left, right
+	if product.fast.kind != integerFastProduct {
+		product, constant = right, left
+	}
+	if product.fast.kind == integerFastProduct &&
+		constant.fast.kind == integerFastNone {
+		if target, ok := smt.ExactIntegerConstant(constant.term); ok {
+			return boolExprValue{contextID: left.contextID, fast: booleanFast{
+				kind: booleanFastIntegerProduct,
+				integerProduct: smt.IntegerProductRelation{
+					LeftID: product.fast.symbolID, RightID: product.fast.argumentID,
+					Target: target,
+				},
+			}}
+		}
 	}
 	division, constant := left, right
 	if division.fast.kind != integerFastAffineDivision {
@@ -6351,7 +6401,33 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 		)
 		return smt.DivInteger(numerator, fast.divisor)
 	}
+	if fast.kind == integerFastProduct {
+		return smt.MultiplyInteger(
+			smt.IntegerVariable(fast.symbolID),
+			smt.IntegerVariable(fast.argumentID),
+		)
+	}
 	panic("gosmt: invalid erased integer expression")
+}
+
+func fastMultiplyInteger(left, right IntExpr) IntExpr {
+	if left.contextID != right.contextID {
+		panic("gosmt: erased integer multiplication context mismatch")
+	}
+	leftID, _, leftOK := directIntegerExprSymbol(left)
+	rightID, _, rightOK := directIntegerExprSymbol(right)
+	if leftOK && rightOK {
+		return intExprValue{contextID: left.contextID, fast: integerFast{
+			kind: integerFastProduct, symbolID: leftID, argumentID: rightID,
+		}}
+	}
+	return intExprValue{
+		contextID: left.contextID,
+		term: smt.MultiplyInteger(
+			materializeInteger(left.term, left.fast),
+			materializeInteger(right.term, right.fast),
+		),
+	}
 }
 
 func materializeIntegerConditionalBranch(

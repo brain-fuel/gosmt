@@ -1153,6 +1153,10 @@ func ScaleInt64(0 c nat, coefficient int64, value IntExpr[c]) IntExpr[c] {
 	return ScaleInt(smt.NewIntegerValue(coefficient), value)
 }
 
+func MulInt(0 c nat, left IntExpr[c], right IntExpr[c]) IntExpr[c] {
+	return fastMultiplyInteger(left, right)
+}
+
 func DivInt(0 c nat, value IntExpr[c], divisor smt.IntegerValue) IntExpr[c] {
 	match value { case intExprValue(contextID, term, fast): return intExprValue(contextID, smt.DivInteger(materializeInteger(term, fast), divisor), integerFast{}) }
 }

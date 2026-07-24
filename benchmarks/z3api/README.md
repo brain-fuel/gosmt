@@ -26,6 +26,12 @@ runs GoSMT uses 11 allocations versus Z3's 26 (57.7% fewer) and takes
 4.447–4.820 µs versus 1.074–1.338 ms, more than 222 times faster at
 conservative endpoints.
 
+The bounded QF_NIA workload solves the coupled system `x*y=6`, `x*z=10`,
+`y*z=15` and evaluates all three model values. Across five Apple M5 Max runs,
+GoSMT takes 10.47–10.60 µs and 11 allocations versus Z3's 1.297–1.431 ms and
+34 allocations: more than 122× faster at conservative endpoints with 67.6%
+fewer allocations.
+
 The conditional integer-EUF cold workload uses exact guarded equalities on the
 Z3 side because the pinned official Go binding does not expose `Z3_mk_ite`.
 GoSMT's compact `IfInt` path uses 13 allocations versus Z3's 34 and is more

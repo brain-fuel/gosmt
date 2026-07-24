@@ -7268,6 +7268,78 @@ func BenchmarkLinearIntegerModelCold(b *testing.B) {
 	})
 }
 
+func BenchmarkNonlinearIntegerProductModelCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(241)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			z := gosmt.IntConst(context, "z", 3)
+			formula := gosmt.And(
+				gosmt.EqInt(
+					gosmt.MulInt(x, y), gosmt.IntVal(context, 6),
+				),
+				gosmt.EqInt(
+					gosmt.MulInt(x, z), gosmt.IntVal(context, 10),
+				),
+				gosmt.EqInt(
+					gosmt.MulInt(y, z), gosmt.IntVal(context, 15),
+				),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), formula,
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			xValue, xOK := gosmt.EvalInt(result.Value, x)
+			yValue, yOK := gosmt.EvalInt(result.Value, y)
+			zValue, zOK := gosmt.EvalInt(result.Value, z)
+			if !xOK || !yOK || !zOK ||
+				xValue*yValue != 6 || xValue*zValue != 10 ||
+				yValue*zValue != 15 {
+				b.Fatal("invalid nonlinear model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			y := context.MkIntConst("y")
+			z := context.MkIntConst("z")
+			solver := context.NewSolverForLogic("QF_NIA")
+			solver.Assert(context.MkAnd(
+				context.MkEq(
+					context.MkMul(x, y), context.MkInt(6, intSort),
+				),
+				context.MkEq(
+					context.MkMul(x, z), context.MkInt(10, intSort),
+				),
+				context.MkEq(
+					context.MkMul(y, z), context.MkInt(15, intSort),
+				),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, ok := model.Eval(x, true); !ok {
+				b.Fatal("missing x model")
+			}
+			if _, ok := model.Eval(y, true); !ok {
+				b.Fatal("missing y model")
+			}
+			if _, ok := model.Eval(z, true); !ok {
+				b.Fatal("missing z model")
+			}
+		}
+	})
+}
+
 func BenchmarkLinearIntegerMultiRowModelCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
