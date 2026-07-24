@@ -3646,6 +3646,26 @@ func FloatingPointEqual(left FloatingPointExpr, right FloatingPointExpr) BoolExp
 	return floatingPointEqual(left, right)
 }
 
+//goplus:dep FloatingPointLessThan(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointLessThan(left FloatingPointExpr, right FloatingPointExpr) BoolExpr {
+	return floatingPointLessThan(left, right)
+}
+
+//goplus:dep FloatingPointLessOrEqual(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointLessOrEqual(left FloatingPointExpr, right FloatingPointExpr) BoolExpr {
+	return floatingPointLessOrEqual(left, right)
+}
+
+//goplus:dep FloatingPointGreaterThan(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointGreaterThan(left FloatingPointExpr, right FloatingPointExpr) BoolExpr {
+	return floatingPointLessThan(right, left)
+}
+
+//goplus:dep FloatingPointGreaterOrEqual(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointGreaterOrEqual(left FloatingPointExpr, right FloatingPointExpr) BoolExpr {
+	return floatingPointLessOrEqual(right, left)
+}
+
 //goplus:dep ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool)
 func ModelFloatingPointBits(model Model, value FloatingPointExpr) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)

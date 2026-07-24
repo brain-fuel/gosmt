@@ -161,6 +161,40 @@ func TestContextIndexedFloatingPointAbsAndNeg(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointOrdering(t *testing.T) {
+	context := NewContext(137)
+	negativeZero := FloatingPointFromUint64(8, 24, context, 0x80000000)
+	positiveZero := FloatingPointFromUint64(8, 24, context, 0x00000000)
+	negativeOne := FloatingPointFromUint64(8, 24, context, 0xbf800000)
+	positiveOne := FloatingPointFromUint64(8, 24, context, 0x3f800000)
+	nan := FloatingPointFromUint64(8, 24, context, 0x7fc00000)
+	formula := And(
+		FloatingPointLessThan(negativeOne, negativeZero),
+		Not(FloatingPointLessThan(negativeZero, positiveZero)),
+		FloatingPointLessOrEqual(negativeZero, positiveZero),
+		FloatingPointGreaterThan(positiveOne, negativeOne),
+		FloatingPointGreaterOrEqual(positiveZero, negativeZero),
+		Not(FloatingPointLessOrEqual(nan, positiveOne)),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Sat); !ok {
+		t.Fatal("expected exact ground floating-point order laws to be satisfiable")
+	}
+
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	symbolic := And(
+		EqBitVec(FloatingPointBits(left), FloatingPointBits(negativeOne)),
+		EqBitVec(FloatingPointBits(right), FloatingPointBits(positiveOne)),
+		FloatingPointLessThan(left, right),
+		FloatingPointLessOrEqual(left, right),
+		FloatingPointGreaterThan(right, left),
+		FloatingPointGreaterOrEqual(right, left),
+	)
+	if _, ok := Check(Assert(2, NewSolver(context), symbolic)).(Sat); !ok {
+		t.Fatal("expected exact symbolic floating-point order laws to be satisfiable")
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

@@ -6772,6 +6772,71 @@ func TestSymbolicFloatingPointAbsAndNegAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSymbolicFloatingPointOrderingAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	operations := []struct {
+		name  string
+		apply func(FloatingPointExpr, FloatingPointExpr) BoolExpr
+	}{
+		{"fp.lt", FloatingPointLessThan},
+		{"fp.leq", FloatingPointLessOrEqual},
+		{"fp.gt", FloatingPointGreaterThan},
+		{"fp.geq", FloatingPointGreaterOrEqual},
+	}
+	random := rand.New(rand.NewSource(0x46504f52))
+	for example := 0; example < 64; example++ {
+		leftPattern := uint64(random.Uint32())
+		rightPattern := uint64(random.Uint32())
+		if example%16 == 0 {
+			leftPattern, rightPattern = 0x80000000, 0
+		}
+		if example%16 == 4 {
+			leftPattern = 0x7fc00000
+		}
+		operation := operations[example%len(operations)]
+		positive := example%8 < 4
+		context := NewContext(470 + example)
+		left := FloatingPointConst(8, 24, context, "left", 1)
+		right := FloatingPointConst(8, 24, context, "right", 2)
+		relation := operation.apply(left, right)
+		if !positive {
+			relation = Not(relation)
+		}
+		formula := And(
+			EqBitVec(
+				FloatingPointBits(left),
+				FloatingPointBits(FloatingPointFromUint64(8, 24, context, leftPattern)),
+			),
+			EqBitVec(
+				FloatingPointBits(right),
+				FloatingPointBits(FloatingPointFromUint64(8, 24, context, rightPattern)),
+			),
+			relation,
+		)
+		ours := floatingPointResultStatus(Check(Assert(1, NewSolver(context), formula)))
+		assertion := fmt.Sprintf("(%s left right)", operation.name)
+		if !positive {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n(declare-const right (_ FloatingPoint 8 24))\n(assert (= left ((_ to_fp 8 24) #x%08x)))\n(assert (= right ((_ to_fp 8 24) #x%08x)))\n(assert %s)\n(check-sat)\n",
+			uint32(leftPattern), uint32(rightPattern), assertion,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, ours, want, script)
+		}
+	}
+}
+
 func floatingPointResultStatus(result Result) string {
 	switch result.(type) {
 	case Sat:

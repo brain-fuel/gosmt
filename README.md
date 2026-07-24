@@ -11,10 +11,12 @@ IEEE/SMT-LIB bit-pattern construction and round trips cover arbitrary valid
 formats. Ground and symbolic constants support NaN, infinity, zero, subnormal,
 normal, positive, and negative classification plus exact `fp.eq` semantics for
 NaNs and signed zeros, exact `fp.abs`/`fp.neg` sign-bit transformations, and
-exact symbolic model bits. Compact solver-neutral std relations synthesize
-classification models directly and retain sign masking/toggling without
-materializing a general FP term. Rounded arithmetic, conversions, SMT-LIB FP
-execution, and general
+exact symbolic model bits. Ordered `fp.lt`, `fp.leq`, `fp.gt`, and `fp.geq`
+cover signed zeros, infinities, subnormals, and unordered NaNs. Compact
+solver-neutral std relations synthesize classification models directly,
+retain sign masking/toggling, and validate assigned symbolic FP order without
+materializing a general SAT graph. Rounded arithmetic, conversions, SMT-LIB
+FP execution, and general
 QF_FP/QF_FPBV solving remain future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:

@@ -1013,6 +1013,14 @@ solves, and extracts the original model bits. GoSMT uses 7 allocations and
 1.257–1.358 ms. This is 61.1% fewer allocations and over 201x
 conservative-endpoint throughput.
 
+The symbolic floating-point ordering workload fixes binary32 symbols to `-1`
+and `+1`, proves `fp.lt`, and extracts both exact models. A solver-neutral
+compact std relation validates assigned IEEE values directly while retaining
+the complete bit-blasted fallback. GoSMT uses 10 allocations and
+7.911–8.020 us versus pinned Z3's 20 visible Go allocations and
+1.279–1.380 ms. This is exactly 50.0% fewer allocations and over 159x
+conservative-endpoint throughput.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on

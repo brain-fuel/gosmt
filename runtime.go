@@ -151,6 +151,7 @@ const (
 	booleanFastIntegerConditionalComparison
 	booleanFastBitVectorRelation
 	booleanFastFloatingPointRelation
+	booleanFastFloatingPointComparison
 	booleanFastBitVectorEUFRelation
 	booleanFastIntegerDifference
 	booleanFastIntegerSymbolEquality
@@ -195,6 +196,7 @@ type booleanFast struct {
 	integerConditionalComparison smt.IntegerConditionalComparison
 	bitVectorRelation            smt.BitVectorRelation
 	floatingPointRelation        smt.FloatingPointRelation
+	floatingPointComparison      smt.FloatingPointComparisonRelation
 	bitVectorEUFRelation         smt.BitVectorEUFRelation
 	integerDifference            smt.IntegerDifferenceConstraint
 	integerSymbolLeft            int
@@ -542,6 +544,9 @@ func fastEvaluateBoolean(model smt.Model, term smt.Term[smt.BoolSort], fast bool
 func assertBoolean(assertion int, solver smt.Solver, term smt.Term[smt.BoolSort], fast booleanFast) smt.Solver {
 	if fast.kind == booleanFastFloatingPointRelation {
 		return smt.AssertFloatingPointRelation(assertion, solver, fast.floatingPointRelation)
+	}
+	if fast.kind == booleanFastFloatingPointComparison {
+		return smt.AssertFloatingPointComparisonRelation(assertion, solver, fast.floatingPointComparison)
 	}
 	return smt.Assert(assertion, solver, materializeBoolean(term, fast))
 }
@@ -2416,6 +2421,93 @@ func floatingPointEqual(left, right FloatingPointExpr) BoolExpr {
 	})
 }
 
+func validateFloatingPointPair(left, right FloatingPointExpr) {
+	if left.contextID != right.contextID {
+		panic("gosmt: erased floating-point context mismatch")
+	}
+	if left.exponentBits != right.exponentBits || left.significandBits != right.significandBits {
+		panic("gosmt: erased floating-point format mismatch")
+	}
+}
+
+func floatingPointLessThan(left, right FloatingPointExpr) BoolExpr {
+	validateFloatingPointPair(left, right)
+	leftGround, leftOK := floatingPointGroundValue(left)
+	rightGround, rightOK := floatingPointGroundValue(right)
+	if leftOK && rightOK {
+		return boolExprValue{
+			contextID: left.contextID,
+			term:      smt.Bool{Value: smt.FloatingPointLessThan(leftGround, rightGround)},
+		}
+	}
+	if compact, ok := compactFloatingPointComparison(
+		left, right, smt.FloatingPointComparisonLess,
+	); ok {
+		return compact
+	}
+	_, _, leftSign := floatingPointParts(left)
+	_, _, rightSign := floatingPointParts(right)
+	leftNegative := fastEqBitVector(leftSign, floatingPointOnes(left.contextID, 1))
+	rightNegative := fastEqBitVector(rightSign, floatingPointOnes(left.contextID, 1))
+	leftPositive := fastNot(leftNegative)
+	rightPositive := fastNot(rightNegative)
+	negativeOrder := fastAnd([]BoolExpr{
+		leftNegative, rightNegative, fastOrderBitVector(right.bits, left.bits, 1),
+	})
+	positiveOrder := fastAnd([]BoolExpr{
+		leftPositive, rightPositive, fastOrderBitVector(left.bits, right.bits, 1),
+	})
+	crossSign := fastAndPair(leftNegative, rightPositive)
+	bothZero := fastAndPair(floatingPointIsZero(left), floatingPointIsZero(right))
+	return fastAnd([]BoolExpr{
+		fastNot(floatingPointIsNaN(left)),
+		fastNot(floatingPointIsNaN(right)),
+		fastNot(bothZero),
+		fastOr([]BoolExpr{crossSign, negativeOrder, positiveOrder}),
+	})
+}
+
+func floatingPointLessOrEqual(left, right FloatingPointExpr) BoolExpr {
+	validateFloatingPointPair(left, right)
+	leftGround, leftOK := floatingPointGroundValue(left)
+	rightGround, rightOK := floatingPointGroundValue(right)
+	if leftOK && rightOK {
+		return boolExprValue{
+			contextID: left.contextID,
+			term:      smt.Bool{Value: smt.FloatingPointLessOrEqual(leftGround, rightGround)},
+		}
+	}
+	if compact, ok := compactFloatingPointComparison(
+		left, right, smt.FloatingPointComparisonLessOrEqual,
+	); ok {
+		return compact
+	}
+	return fastOr([]BoolExpr{
+		floatingPointLessThan(left, right),
+		floatingPointEqual(left, right),
+	})
+}
+
+func compactFloatingPointComparison(
+	left, right FloatingPointExpr,
+	comparison uint8,
+) (BoolExpr, bool) {
+	if left.bits.fast.kind != bitVectorFastSymbol ||
+		right.bits.fast.kind != bitVectorFastSymbol {
+		return BoolExpr{}, false
+	}
+	return boolExprValue{
+		contextID: left.contextID,
+		fast: booleanFast{
+			kind: booleanFastFloatingPointComparison,
+			floatingPointComparison: smt.NewFloatingPointComparisonRelation(
+				left.exponentBits, left.significandBits,
+				left.bits.fast.id, right.bits.fast.id, comparison,
+			),
+		},
+	}, true
+}
+
 func fastBooleanAtom(context int, term smt.Term[smt.BoolSort]) BoolExpr {
 	return boolExprValue{contextID: context, term: term, fast: booleanFast{kind: booleanFastAtom}}
 }
@@ -3288,6 +3380,10 @@ func fastNot(value BoolExpr) BoolExpr {
 	}
 	if value.fast.kind == booleanFastFloatingPointRelation {
 		value.fast.floatingPointRelation.Negated = !value.fast.floatingPointRelation.Negated
+		return value
+	}
+	if value.fast.kind == booleanFastFloatingPointComparison {
+		value.fast.floatingPointComparison.Negated = !value.fast.floatingPointComparison.Negated
 		return value
 	}
 	if value.fast.kind == booleanFastBitVectorEUFRelation {
@@ -4272,6 +4368,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.bitVectorRelation
 	case booleanFastFloatingPointRelation:
 		return fast.floatingPointRelation
+	case booleanFastFloatingPointComparison:
+		return fast.floatingPointComparison
 	case booleanFastBitVectorEUFRelation:
 		return fast.bitVectorEUFRelation
 	case booleanFastIntegerDifference:

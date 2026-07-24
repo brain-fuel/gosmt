@@ -1415,6 +1415,22 @@ func FloatingPointEqual(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, 
 	return floatingPointEqual(left, right)
 }
 
+func FloatingPointLessThan(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	return floatingPointLessThan(left, right)
+}
+
+func FloatingPointLessOrEqual(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	return floatingPointLessOrEqual(left, right)
+}
+
+func FloatingPointGreaterThan(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	return floatingPointLessThan(right, left)
+}
+
+func FloatingPointGreaterOrEqual(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	return floatingPointLessOrEqual(right, left)
+}
+
 func ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)
 }
