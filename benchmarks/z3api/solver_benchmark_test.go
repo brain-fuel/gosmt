@@ -8032,6 +8032,65 @@ func BenchmarkSymbolicFloatingPointMulCold(b *testing.B) {
 	})
 }
 
+func BenchmarkUnconstrainedFloatingPointMulCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(772)
+			left := gosmt.FloatingPointConst(8, 24, context, "left", 1)
+			right := gosmt.FloatingPointConst(8, 24, context, "right", 2)
+			product := gosmt.FloatingPointMul(
+				gosmt.RoundNearestTiesToEven(), left, right,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context),
+				gosmt.EqBitVec(
+					gosmt.FloatingPointBits(product),
+					gosmt.BitVecValue(32, context, 0x40580000),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			leftBits, leftFound := gosmt.ModelFloatingPointBits(
+				result.Value, left,
+			)
+			rightBits, rightFound := gosmt.ModelFloatingPointBits(
+				result.Value, right,
+			)
+			leftValue, leftInline := leftBits.Uint64()
+			rightValue, rightInline := rightBits.Uint64()
+			if !leftFound || !rightFound || !leftInline || !rightInline ||
+				leftValue != 0x40580000 || rightValue != 0x3f800000 {
+				b.Fatal("invalid synthesized operand model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			left := context.MkConst(context.MkStringSymbol("left"), sort)
+			right := context.MkConst(context.MkStringSymbol("right"), sort)
+			target := context.MkFPNumeral("3.375", sort)
+			product := z3FloatingPointMul(context, 0, left, right)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkEq(product, target))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(left, true); !found {
+				b.Fatal("invalid left model")
+			}
+			if _, found := model.Eval(right, true); !found {
+				b.Fatal("invalid right model")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicFloatingPointDivCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
