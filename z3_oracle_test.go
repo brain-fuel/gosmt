@@ -9576,16 +9576,27 @@ func TestUnconstrainedFloatingPointMinMaxAgreesWithPinnedZ3(t *testing.T) {
 		left := FloatingPointConst(8, 24, context, "left", 1)
 		right := FloatingPointConst(8, 24, context, "right", 2)
 		selected := apply(left, right)
+		relation := EqBitVec(
+			FloatingPointBits(selected),
+			BitVecValue(32, context, target),
+		)
+		negated := example%4 >= 2
+		if negated {
+			relation = Not(relation)
+		}
 		ours := floatingPointResultStatus(Check(Assert(
-			1, NewSolver(context),
-			EqBitVec(
-				FloatingPointBits(selected),
-				BitVecValue(32, context, target),
-			),
+			1, NewSolver(context), relation,
 		)))
-		script := fmt.Sprintf(
-			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n(declare-const right (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv (%s left right)) #x%08x))\n(check-sat)\n",
+		assertion := fmt.Sprintf(
+			"(= (fp.to_ieee_bv (%s left right)) #x%08x)",
 			operation, uint32(target),
+		)
+		if negated {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n(declare-const right (_ FloatingPoint 8 24))\n(assert %s)\n(check-sat)\n",
+			assertion,
 		)
 		command := exec.Command(z3, "-in", "-smt2")
 		command.Stdin = strings.NewReader(script)

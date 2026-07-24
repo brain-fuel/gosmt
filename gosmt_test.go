@@ -310,6 +310,38 @@ func TestContextIndexedUnconstrainedFloatingPointMinMax(t *testing.T) {
 	) {
 		t.Fatal("synthesized operands do not reproduce minimum")
 	}
+
+	maxLeft := FloatingPointConst(15, 113, context, "maxLeft", 3)
+	maxRight := FloatingPointConst(15, 113, context, "maxRight", 4)
+	maximum := FloatingPointMax(maxLeft, maxRight)
+	negatedResult, ok := Check(Assert(
+		2, NewSolver(context),
+		Not(EqBitVec(
+			FloatingPointBits(maximum), FloatingPointBits(target),
+		)),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected negated maximum image to synthesize operands")
+	}
+	maxLeftBits, leftFound := ModelFloatingPointBits(
+		negatedResult.Value, maxLeft,
+	)
+	maxRightBits, rightFound := ModelFloatingPointBits(
+		negatedResult.Value, maxRight,
+	)
+	if !leftFound || !rightFound {
+		t.Fatal("negated maximum model is incomplete")
+	}
+	maxSelected := smt.FloatingPointMax(
+		smt.FloatingPointFromBits(15, 113, maxLeftBits),
+		smt.FloatingPointFromBits(15, 113, maxRightBits),
+	)
+	if smt.EqualBitVectorValue(
+		smt.FloatingPointBits(maxSelected),
+		smt.FloatingPointBits(smt.FloatingPointPositiveZero(15, 113)),
+	) {
+		t.Fatal("negated maximum model reproduces forbidden target")
+	}
 }
 
 func TestContextIndexedFloatingPointRoundToIntegral(t *testing.T) {
