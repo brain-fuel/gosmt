@@ -7340,6 +7340,63 @@ func BenchmarkRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	})
 }
 
+func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(132)
+			x := gosmt.IntConst(context, "x", 1)
+			scaled := gosmt.ScaleReal(
+				gosmt.Rational(3, 2),
+				gosmt.AddReal(
+					gosmt.ToReal(x),
+					gosmt.RealVal(context, gosmt.Rational(1, 4)),
+				),
+			)
+			formula := gosmt.And(
+				gosmt.EqInt(x, gosmt.IntVal(context, 7)),
+				gosmt.EqInt(gosmt.ToIntReal(scaled), gosmt.IntVal(context, 10)),
+				gosmt.Not(gosmt.IsIntReal(scaled)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalInt(result.Value, x); !found || value != 7 {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			numerator := context.MkAdd(
+				context.MkMul(context.MkInt(12, intSort), x),
+				context.MkInt(3, intSort),
+			)
+			denominator := context.MkInt(8, intSort)
+			quotient := context.MkDiv(numerator, denominator)
+			remainder := context.MkMod(numerator, denominator)
+			formula := context.MkAnd(
+				context.MkEq(x, context.MkInt(7, intSort)),
+				context.MkEq(quotient, context.MkInt(10, intSort)),
+				context.MkNot(context.MkEq(remainder, context.MkInt(0, intSort))),
+			)
+			solver := context.NewSolverForLogic("QF_LIRA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, ok := solver.Model().Eval(x, true); !ok {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+}
+
 func BenchmarkIntegerDivModModelCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -4557,6 +4557,73 @@ func TestRandomRationalScaledIntegerRealCoercionsAgreeWithPinnedZ3(t *testing.T)
 	}
 }
 
+func TestRandomAffineRationalScaledIntegerRealCoercionsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x4146465241545343))
+	for example := 0; example < 64; example++ {
+		integer := random.Intn(101) - 50
+		coefficientHalfUnits := 2*random.Intn(8) + 1
+		offsetHalfUnits := random.Intn(15) - 7
+		coefficient := smt.NewRational(int64(coefficientHalfUnits), 2)
+		offset := smt.NewRational(int64(offsetHalfUnits), 2)
+		affine := smt.AddRational(
+			smt.RationalFromInteger(smt.NewIntegerValue(int64(integer))),
+			offset,
+		)
+		product := smt.MultiplyRational(coefficient, affine)
+		expected := smt.FloorRational(product)
+		integerText := fmt.Sprintf("%d", integer)
+		if integer < 0 {
+			integerText = fmt.Sprintf("(- %d)", -integer)
+		}
+		coefficientText := fmt.Sprintf("%d.5", coefficientHalfUnits/2)
+		offsetAbsolute := offsetHalfUnits
+		if offsetAbsolute < 0 {
+			offsetAbsolute = -offsetAbsolute
+		}
+		offsetText := fmt.Sprintf("%d.5", offsetAbsolute/2)
+		if offsetHalfUnits&1 == 0 {
+			offsetText = fmt.Sprintf("%d.0", offsetAbsolute/2)
+		}
+		if offsetHalfUnits < 0 {
+			offsetText = fmt.Sprintf("(- %s)", offsetText)
+		}
+		expectedText := expected.String()
+		if smt.CompareIntegerValue(expected, smt.IntegerValue{}) < 0 {
+			expectedText = fmt.Sprintf("(- %s)", strings.TrimPrefix(expectedText, "-"))
+		}
+		integrality := fmt.Sprintf(
+			"(assert (is_int (* %s (+ (to_real x) %s))))",
+			coefficientText, offsetText,
+		)
+		if !product.IsInteger() {
+			integrality = fmt.Sprintf(
+				"(assert (not (is_int (* %s (+ (to_real x) %s)))))",
+				coefficientText, offsetText,
+			)
+		}
+		script := fmt.Sprintf(`(set-logic QF_LIRA)
+(declare-const x Int)
+(assert (= x %s))
+(assert (= (to_int (* %s (+ (to_real x) %s))) %s))
+%s
+(check-sat)`, integerText, coefficientText, offsetText, expectedText, integrality)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestRandomConditionalIntegerApplicationsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

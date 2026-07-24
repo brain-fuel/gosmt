@@ -64,3 +64,10 @@ Its compact scaled-dividend `div`/`mod` path uses 12 allocations versus Z3's
 25 (52% fewer). Across five Apple M5 Max runs against the released std module,
 it takes 6.34–6.65 µs versus 1.02–1.15 ms for Z3, more than 154 times faster
 at conservative endpoints.
+
+The affine rational-scaled workload adds an exact `1/4` offset before scaling
+and checks the same floor/integrality pair. Its compact coefficient-plus-offset
+dividend path uses 9 allocations versus Z3's 28 (67.9% fewer). Across five
+Apple M5 Max runs against the released std module, it takes 6.45–6.52 µs
+versus 1.009–1.108 ms for Z3, more than 154 times faster at conservative
+endpoints.

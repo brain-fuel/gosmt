@@ -62,6 +62,7 @@ const (
 	integerFastBitVectorConversion
 	integerFastStringLength
 	integerFastStringIndexOfSymbols
+	integerFastAffineDivision
 )
 
 type integerFast struct {
@@ -78,6 +79,9 @@ type integerFast struct {
 	secondArgumentID int
 	thirdArgumentID  int
 	conditional      integerConditionalFast
+	coefficient      smt.IntegerValue
+	offset           smt.IntegerValue
+	divisor          smt.IntegerValue
 }
 
 type integerConditionalBranchFast struct {
@@ -2515,10 +2519,17 @@ func fastToIntReal(context int, term smt.Term[smt.RealSort], fast realFast) IntE
 		return intExprValue{contextID: context, term: smt.IntegerTerm(smt.FloorRational(value))}
 	}
 	if fast.rationalScaled {
-		numerator := smt.ScaleInteger(smt.RationalNumerator(fast.rationalScale), fast.integerTerm)
+		coefficient, offset, denominator := rationalScaledIntegerParts(fast)
+		if symbolID, symbolic := smt.IntegerVariableID(fast.integerTerm); symbolic {
+			return intExprValue{contextID: context, fast: integerFast{
+				kind: integerFastAffineDivision, symbolID: symbolID,
+				coefficient: coefficient, offset: offset, divisor: denominator,
+			}}
+		}
+		numerator := affineIntegerNumerator(fast.integerTerm, coefficient, offset)
 		return intExprValue{
 			contextID: context,
-			term:      smt.DivInteger(numerator, smt.RationalDenominator(fast.rationalScale)),
+			term:      smt.DivInteger(numerator, denominator),
 		}
 	}
 	return intExprValue{contextID: context, term: smt.RealToInt(materializeReal(term, fast))}
@@ -2532,8 +2543,19 @@ func fastIsIntReal(context int, term smt.Term[smt.RealSort], fast realFast) Bool
 		return boolExprValue{contextID: context, term: smt.Bool{Value: value.IsInteger()}}
 	}
 	if fast.rationalScaled {
-		numerator := smt.ScaleInteger(smt.RationalNumerator(fast.rationalScale), fast.integerTerm)
-		remainder := smt.ModInteger(numerator, smt.RationalDenominator(fast.rationalScale))
+		coefficient, offset, denominator := rationalScaledIntegerParts(fast)
+		if symbolID, symbolic := smt.IntegerVariableID(fast.integerTerm); symbolic {
+			return boolExprValue{contextID: context, fast: booleanFast{
+				kind: booleanFastIntegerDivModRelation,
+				integerDivModRelation: smt.IntegerDivModRelation{
+					SymbolID: symbolID, DividendCoefficient: coefficient,
+					DividendOffset: offset, Divisor: denominator,
+					Expected: smt.IntegerValue{}, Remainder: true,
+				},
+			}}
+		}
+		numerator := affineIntegerNumerator(fast.integerTerm, coefficient, offset)
+		remainder := smt.ModInteger(numerator, denominator)
 		relation, compact := smt.CompactIntegerDivModEquality(
 			remainder,
 			smt.Integer{Value: 0},
@@ -2562,6 +2584,39 @@ func fastIsIntReal(context int, term smt.Term[smt.RealSort], fast realFast) Bool
 		}
 	}
 	return boolExprValue{contextID: context, term: integral}
+}
+
+func rationalScaledIntegerParts(fast realFast) (smt.IntegerValue, smt.IntegerValue, smt.IntegerValue) {
+	coefficientNumerator := smt.RationalNumerator(fast.rationalScale)
+	coefficientDenominator := smt.RationalDenominator(fast.rationalScale)
+	scaledOffset := smt.MultiplyRational(fast.rationalScale, fast.integerOffset)
+	offsetNumerator := smt.RationalNumerator(scaledOffset)
+	offsetDenominator := smt.RationalDenominator(scaledOffset)
+	coefficient := smt.MultiplyIntegerValue(coefficientNumerator, offsetDenominator)
+	offset := smt.MultiplyIntegerValue(offsetNumerator, coefficientDenominator)
+	denominator := smt.MultiplyIntegerValue(
+		coefficientDenominator,
+		offsetDenominator,
+	)
+	return coefficient, offset, denominator
+}
+
+func affineIntegerNumerator(
+	term smt.Term[smt.IntSort],
+	coefficient smt.IntegerValue,
+	offset smt.IntegerValue,
+) smt.Term[smt.IntSort] {
+	numerator := smt.ScaleInteger(
+		coefficient,
+		term,
+	)
+	if smt.CompareIntegerValue(offset, smt.IntegerValue{}) != 0 {
+		numerator = smt.Add{Values: []smt.Term[smt.IntSort]{
+			numerator,
+			smt.IntegerTerm(offset),
+		}}
+	}
+	return numerator
 }
 
 func fastAddReal(values []RealExpr) RealExpr {
@@ -2605,10 +2660,11 @@ func fastScaleReal(coefficient smt.Rational, value RealExpr) RealExpr {
 			integerOffset: smt.MultiplyRational(coefficient, value.fast.integerOffset),
 		}}
 	}
-	if value.fast.integerToReal && value.fast.integerOffset.Sign() == 0 {
+	if value.fast.integerToReal {
 		return realExprValue{contextID: value.contextID, fast: realFast{
 			rationalScaled: true,
 			integerTerm:    value.fast.integerTerm,
+			integerOffset:  value.fast.integerOffset,
 			rationalScale:  coefficient,
 		}}
 	}
@@ -2873,9 +2929,16 @@ func materializeReal(term smt.Term[smt.RealSort], fast realFast) smt.Term[smt.Re
 		}}
 	}
 	if fast.rationalScaled {
+		value := smt.Term[smt.RealSort](smt.IntToReal(fast.integerTerm))
+		if fast.integerOffset.Sign() != 0 {
+			value = smt.RealAdd{Values: []smt.Term[smt.RealSort]{
+				value,
+				smt.Real{Value: fast.integerOffset},
+			}}
+		}
 		return smt.RealScale{
 			Coefficient: fast.rationalScale,
-			Value:       smt.IntToReal(fast.integerTerm),
+			Value:       value,
 		}
 	}
 	if fast.eufValid {
@@ -3996,6 +4059,25 @@ func fastEqInteger(left, right IntExpr) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
 	}
+	division, constant := left, right
+	if division.fast.kind != integerFastAffineDivision {
+		division, constant = right, left
+	}
+	if division.fast.kind == integerFastAffineDivision &&
+		constant.fast.kind == integerFastNone {
+		if expected, ok := smt.ExactIntegerConstant(constant.term); ok {
+			return boolExprValue{contextID: left.contextID, fast: booleanFast{
+				kind: booleanFastIntegerDivModRelation,
+				integerDivModRelation: smt.IntegerDivModRelation{
+					SymbolID:            division.fast.symbolID,
+					DividendCoefficient: division.fast.coefficient,
+					DividendOffset:      division.fast.offset,
+					Divisor:             division.fast.divisor,
+					Expected:            expected,
+				},
+			}}
+		}
+	}
 	if leftID, _, leftOK := directIntegerExprSymbol(left); leftOK {
 		if rightID, _, rightOK := directIntegerExprSymbol(right); rightOK && leftID == rightID {
 			return boolExprValue{contextID: left.contextID, term: smt.Bool{Value: true}}
@@ -4175,6 +4257,14 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 			materializeCompactString(fast.string),
 			offset,
 		)
+	}
+	if fast.kind == integerFastAffineDivision {
+		numerator := affineIntegerNumerator(
+			smt.IntegerVariable(fast.symbolID),
+			fast.coefficient,
+			fast.offset,
+		)
+		return smt.DivInteger(numerator, fast.divisor)
 	}
 	panic("gosmt: invalid erased integer expression")
 }

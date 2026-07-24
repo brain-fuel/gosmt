@@ -3430,6 +3430,30 @@ func TestRationalScaledIntegerRealCoercions(t *testing.T) {
 	if _, ok := Check(Assert(3, NewSolver(context), negativeFractional)).(Sat); !ok {
 		t.Fatal("negative rational scale should use Euclidean floor")
 	}
+	affine := ScaleReal(
+		Rational(3, 2),
+		AddReal(ToReal(x), RealVal(context, Rational(1, 4))),
+	)
+	affineFractional := And(
+		EqInt(x, IntVal(context, 7)),
+		EqInt(ToIntReal(affine), IntVal(context, 10)),
+		Not(IsIntReal(affine)),
+	)
+	if _, ok := Check(Assert(4, NewSolver(context), affineFractional)).(Sat); !ok {
+		t.Fatal("affine rational scale should preserve its exact offset")
+	}
+	negativeAffine := ScaleReal(
+		Rational(-3, 2),
+		AddReal(ToReal(x), RealVal(context, Rational(1, 4))),
+	)
+	negativeAffineFractional := And(
+		EqInt(x, IntVal(context, 7)),
+		EqInt(ToIntReal(negativeAffine), IntVal(context, -11)),
+		Not(IsIntReal(negativeAffine)),
+	)
+	if _, ok := Check(Assert(5, NewSolver(context), negativeAffineFractional)).(Sat); !ok {
+		t.Fatal("negative affine rational scale should use Euclidean floor")
+	}
 }
 
 func TestIndexedBitVectorOperations(t *testing.T) {
