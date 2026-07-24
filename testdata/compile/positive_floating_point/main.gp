@@ -41,4 +41,7 @@ func AcceptedFloatingPoint() {
 	_ = gosmt.FloatingPointSub(
 		gosmt.RoundNearestTiesToEven(), symbolic, symbolic,
 	)
+	_ = gosmt.FloatingPointMul(
+		gosmt.RoundNearestTiesToEven(), symbolic, symbolic,
+	)
 }

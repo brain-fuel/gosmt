@@ -351,6 +351,30 @@ func TestContextIndexedFloatingPointSub(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointMul(t *testing.T) {
+	context := NewContext(762)
+	leftValue := FloatingPointFromUint64(8, 24, context, 0x3fc00000)
+	rightValue := FloatingPointFromUint64(8, 24, context, 0x40100000)
+	expected := FloatingPointFromUint64(8, 24, context, 0x40580000)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	product := FloatingPointMul(RoundNearestTiesToEven(), left, right)
+	formula := And(
+		EqBitVec(FloatingPointBits(left), FloatingPointBits(leftValue)),
+		EqBitVec(FloatingPointBits(right), FloatingPointBits(rightValue)),
+		EqBitVec(FloatingPointBits(product), FloatingPointBits(expected)),
+	)
+	result, ok := Check(Assert(3, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("symbolic fp.mul result=%T", Check(Assert(3, NewSolver(context), formula)))
+	}
+	bits, found := ModelFloatingPointBits(result.Value, product)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x40580000 {
+		t.Fatalf("product bits=%#x,%v,%v", raw, inline, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
