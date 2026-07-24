@@ -47,9 +47,10 @@ rationals directly, with compact directly assigned Real-symbol constraints and
 no intermediate host floating-point value.
 `fp.to_real` performs the inverse finite conversion exactly for arbitrary
 formats. Ground terms and directly assigned floating-point symbols use compact
-relations for equality and model evaluation; NaN and infinities use a stable
-zero convention for SMT-LIB's unspecified result. General mixed symbolic
-linear-real arithmetic over converted terms remains staged.
+affine relations for rational scaling, addition/subtraction, equality, all
+four orders, and model evaluation; NaN and infinities use a stable zero
+convention for SMT-LIB's unspecified result. Coupling converted terms to
+otherwise unconstrained Real symbols remains staged.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Broader unconstrained symbolic

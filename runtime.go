@@ -3763,13 +3763,20 @@ func floatingPointToReal(value FloatingPointExpr) RealExpr {
 		return fastRealValue(value.contextID, converted)
 	}
 	if value.bits.fast.kind == bitVectorFastSymbol {
+		coefficient := floatingPointRealCoefficient{
+			exponentBits: value.exponentBits, significandBits: value.significandBits,
+			symbolID: value.bits.fast.id, value: smt.NewRational(1, 1),
+		}
 		return realExprValue{
 			contextID: value.contextID,
 			fast: realFast{
+				valid:                        true,
 				floatingPointToReal:          true,
 				floatingPointExponentBits:    value.exponentBits,
 				floatingPointSignificandBits: value.significandBits,
 				floatingPointSymbolID:        value.bits.fast.id,
+				floatingPointCount:           1,
+				floatingPointInline:          [4]floatingPointRealCoefficient{coefficient},
 			},
 		}
 	}
@@ -3781,23 +3788,29 @@ func modelRealValue(
 	term smt.Term[smt.RealSort],
 	fast realFast,
 ) (smt.Rational, bool) {
-	if fast.floatingPointToReal {
-		bits, found := smt.FloatingPointSymbolModelBits(
-			model, fast.floatingPointSymbolID,
-		)
-		if !found {
-			return smt.Rational{}, false
+	if fast.floatingPointCount != 0 {
+		result := fast.constant
+		for _, coefficient := range fast.floatingPointCoefficients() {
+			bits, found := smt.FloatingPointSymbolModelBits(
+				model, coefficient.symbolID,
+			)
+			if !found {
+				return smt.Rational{}, false
+			}
+			value, valid := smt.FloatingPointToRational(
+				smt.FloatingPointFromBits(
+					coefficient.exponentBits,
+					coefficient.significandBits, bits,
+				),
+			)
+			if !valid {
+				value = smt.Rational{}
+			}
+			result = smt.AddRational(
+				result, smt.MultiplyRational(coefficient.value, value),
+			)
 		}
-		value, valid := smt.FloatingPointToRational(
-			smt.FloatingPointFromBits(
-				fast.floatingPointExponentBits,
-				fast.floatingPointSignificandBits, bits,
-			),
-		)
-		if !valid {
-			return smt.Rational{}, true
-		}
-		return value, true
+		return result, true
 	}
 	return smt.RealValue(model, materializeReal(term, fast))
 }
@@ -3831,6 +3844,13 @@ type realCoefficient struct {
 	value  smt.Rational
 }
 
+type floatingPointRealCoefficient struct {
+	exponentBits    int
+	significandBits int
+	symbolID        int
+	value           smt.Rational
+}
+
 type realFast struct {
 	valid                        bool
 	integerToReal                bool
@@ -3852,6 +3872,9 @@ type realFast struct {
 	floatingPointExponentBits    int
 	floatingPointSignificandBits int
 	floatingPointSymbolID        int
+	floatingPointCount           uint8
+	floatingPointInline          [4]floatingPointRealCoefficient
+	floatingPointOverflow        []floatingPointRealCoefficient
 }
 
 type realFunctionFast struct {
@@ -4067,6 +4090,10 @@ func fastEqReal(left, right RealExpr) BoolExpr {
 			floatingPointToReal: relation,
 		}}
 	}
+	if left.fast.floatingPointCount != 0 ||
+		right.fast.floatingPointCount != 0 {
+		panic("gosmt: fp.to_real mixed with unconstrained Real symbols is not yet supported")
+	}
 	if symbolID, ok := fastRealSymbolID(left.fast); ok {
 		if value, exact := fastRealConstant(right.fast); exact {
 			return boolExprValue{contextID: context, fast: booleanFast{
@@ -4130,17 +4157,43 @@ func fastEqReal(left, right RealExpr) BoolExpr {
 func compactFloatingPointToRealRelation(
 	expression, constant realFast,
 ) (smt.FloatingPointToRealRelation, bool) {
-	if !expression.floatingPointToReal {
+	return compactFloatingPointToRealAffineRelation(expression, constant, 0)
+}
+
+func compactFloatingPointToRealAffineRelation(
+	left, right realFast,
+	comparison uint8,
+) (smt.FloatingPointToRealRelation, bool) {
+	if !left.valid || !right.valid ||
+		left.count != 0 || right.count != 0 ||
+		left.floatingPointCount+right.floatingPointCount == 0 {
 		return smt.FloatingPointToRealRelation{}, false
 	}
-	value, exact := fastRealConstant(constant)
-	if !exact {
+	difference := realFast{valid: true}
+	difference.accumulate(left, smt.NewRational(1, 1))
+	difference.accumulate(right, smt.NewRational(-1, 1))
+	var inline [4]smt.FloatingPointToRealTerm
+	count := 0
+	for _, coefficient := range difference.floatingPointCoefficients() {
+		if coefficient.value.Sign() == 0 {
+			continue
+		}
+		if count == len(inline) {
+			return smt.FloatingPointToRealRelation{}, false
+		}
+		inline[count] = smt.FloatingPointToRealTerm{
+			ExponentBits:    coefficient.exponentBits,
+			SignificandBits: coefficient.significandBits,
+			SymbolID:        coefficient.symbolID,
+			Coefficient:     coefficient.value,
+		}
+		count++
+	}
+	if count == 0 {
 		return smt.FloatingPointToRealRelation{}, false
 	}
-	return smt.NewFloatingPointToRealRelation(
-		expression.floatingPointExponentBits,
-		expression.floatingPointSignificandBits,
-		expression.floatingPointSymbolID, value,
+	return smt.NewFloatingPointToRealInlineRelation(
+		inline, count, difference.constant, comparison,
 	), true
 }
 
@@ -4164,7 +4217,8 @@ func exactIntegerTerm(value smt.IntegerValue) smt.Term[smt.IntSort] {
 }
 
 func fastRealSymbolID(value realFast) (int, bool) {
-	if !value.valid || value.constant.Sign() != 0 || value.count != 1 {
+	if !value.valid || value.constant.Sign() != 0 || value.count != 1 ||
+		value.floatingPointCount != 0 {
 		return 0, false
 	}
 	coefficient := value.coefficients()[0]
@@ -4172,7 +4226,8 @@ func fastRealSymbolID(value realFast) (int, bool) {
 }
 
 func fastRealConstant(value realFast) (smt.Rational, bool) {
-	return value.constant, value.valid && value.count == 0
+	return value.constant, value.valid && value.count == 0 &&
+		value.floatingPointCount == 0
 }
 
 func (value *realFast) coefficients() []realCoefficient {
@@ -4180,6 +4235,54 @@ func (value *realFast) coefficients() []realCoefficient {
 		return value.overflow[:value.count]
 	}
 	return value.inline[:value.count]
+}
+
+func (value *realFast) floatingPointCoefficients() []floatingPointRealCoefficient {
+	if value.floatingPointOverflow != nil {
+		return value.floatingPointOverflow[:value.floatingPointCount]
+	}
+	return value.floatingPointInline[:value.floatingPointCount]
+}
+
+func (value *realFast) addFloatingPoint(
+	coefficient floatingPointRealCoefficient,
+) {
+	for index := range value.floatingPointCoefficients() {
+		existing := &value.floatingPointCoefficients()[index]
+		if existing.exponentBits == coefficient.exponentBits &&
+			existing.significandBits == coefficient.significandBits &&
+			existing.symbolID == coefficient.symbolID {
+			existing.value = smt.AddRational(existing.value, coefficient.value)
+			if existing.value.Sign() == 0 {
+				values := value.floatingPointCoefficients()
+				copy(values[index:], values[index+1:])
+				value.floatingPointCount--
+				if value.floatingPointOverflow != nil {
+					value.floatingPointOverflow =
+						value.floatingPointOverflow[:value.floatingPointCount]
+				}
+			}
+			return
+		}
+	}
+	if int(value.floatingPointCount) < len(value.floatingPointInline) &&
+		value.floatingPointOverflow == nil {
+		value.floatingPointInline[value.floatingPointCount] = coefficient
+		value.floatingPointCount++
+		return
+	}
+	if value.floatingPointOverflow == nil {
+		value.floatingPointOverflow = make(
+			[]floatingPointRealCoefficient,
+			value.floatingPointCount, int(value.floatingPointCount)*2,
+		)
+		copy(
+			value.floatingPointOverflow,
+			value.floatingPointInline[:value.floatingPointCount],
+		)
+	}
+	value.floatingPointOverflow = append(value.floatingPointOverflow, coefficient)
+	value.floatingPointCount++
 }
 
 func (value *realFast) add(symbol int, coefficient smt.Rational) {
@@ -4206,6 +4309,10 @@ func (value *realFast) accumulate(other realFast, multiplier smt.Rational) {
 	value.constant = smt.AddRational(value.constant, smt.MultiplyRational(other.constant, multiplier))
 	for _, coefficient := range other.coefficients() {
 		value.add(coefficient.symbol, smt.MultiplyRational(coefficient.value, multiplier))
+	}
+	for _, coefficient := range other.floatingPointCoefficients() {
+		coefficient.value = smt.MultiplyRational(coefficient.value, multiplier)
+		value.addFloatingPoint(coefficient)
 	}
 }
 
@@ -4449,6 +4556,22 @@ func combineFastIntegerAffineReal(values []RealExpr, subtract bool) (realFast, b
 
 func fastRealRelation(left, right RealExpr, strict bool) BoolExpr {
 	context := realPairContext(left, right)
+	comparison := uint8(1)
+	if strict {
+		comparison = 2
+	}
+	if relation, ok := compactFloatingPointToRealAffineRelation(
+		left.fast, right.fast, comparison,
+	); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind:                booleanFastFloatingPointToReal,
+			floatingPointToReal: relation,
+		}}
+	}
+	if left.fast.floatingPointCount != 0 ||
+		right.fast.floatingPointCount != 0 {
+		panic("gosmt: fp.to_real mixed with unconstrained Real symbols is not yet supported")
+	}
 	if relation, ok := fastIntegerToRealRelation(left, right, strict); ok {
 		return relation
 	}

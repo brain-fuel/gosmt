@@ -8561,6 +8561,94 @@ func BenchmarkSymbolicFloatingPointToRealCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicAffineFloatingPointToRealCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(153)
+			left := gosmt.FloatingPointConst(8, 24, context, "left", 1)
+			right := gosmt.FloatingPointConst(8, 24, context, "right", 2)
+			leftReal := gosmt.FloatingPointToReal(left)
+			rightReal := gosmt.FloatingPointToReal(right)
+			affine := gosmt.AddReal(
+				gosmt.ScaleReal(gosmt.Rational(2, 1), leftReal),
+				gosmt.ScaleReal(gosmt.Rational(-1, 1), rightReal),
+				gosmt.RealVal(context, gosmt.Rational(1, 2)),
+			)
+			difference := gosmt.SubReal(
+				gosmt.ScaleReal(gosmt.Rational(2, 1), leftReal),
+				rightReal,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), gosmt.And(
+					gosmt.EqBitVec(
+						gosmt.FloatingPointBits(left),
+						gosmt.FloatingPointBits(
+							gosmt.FloatingPointFromUint64(
+								8, 24, context, 0x3fc00000,
+							),
+						),
+					),
+					gosmt.EqBitVec(
+						gosmt.FloatingPointBits(right),
+						gosmt.FloatingPointBits(
+							gosmt.FloatingPointFromUint64(
+								8, 24, context, 0x40600000,
+							),
+						),
+					),
+					gosmt.EqReal(
+						affine,
+						gosmt.RealVal(context, gosmt.Rational(0, 1)),
+					),
+					gosmt.LtReal(
+						difference,
+						gosmt.RealVal(context, gosmt.Rational(0, 1)),
+					),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalReal(
+				result.Value, affine,
+			); !found || gosmt.CompareRational(
+				value, gosmt.Rational(0, 1),
+			) != 0 {
+				b.Fatal("invalid affine conversion model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			left := context.MkConst(context.MkStringSymbol("left"), sort)
+			right := context.MkConst(context.MkStringSymbol("right"), sort)
+			leftReal := z3FloatingPointToReal(context, left)
+			rightReal := z3FloatingPointToReal(context, right)
+			difference := context.MkSub(
+				context.MkMul(context.MkReal(2, 1), leftReal), rightReal,
+			)
+			affine := context.MkAdd(difference, context.MkReal(1, 2))
+			solver := context.NewSolver()
+			solver.Assert(context.MkAnd(
+				context.MkEq(left, context.MkFPNumeral("1.5", sort)),
+				context.MkEq(right, context.MkFPNumeral("3.5", sort)),
+				context.MkEq(affine, context.MkReal(0, 1)),
+				context.MkLt(difference, context.MkReal(0, 1)),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, found := solver.Model().Eval(affine, true); !found {
+				b.Fatal("invalid affine conversion model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

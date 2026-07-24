@@ -8389,6 +8389,103 @@ func TestSMTLibSymbolicFloatingPointToRealAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSMTLibAffineFloatingPointToRealAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x46504146))
+	operators := []string{"=", "<", "<=", ">", ">="}
+	for example := 0; example < 64; example++ {
+		leftPattern, rightPattern := random.Uint32(), random.Uint32()
+		if leftPattern&0x7f800000 == 0x7f800000 {
+			leftPattern ^= 0x00800000
+		}
+		if rightPattern&0x7f800000 == 0x7f800000 {
+			rightPattern ^= 0x00800000
+		}
+		left, leftValid := smt.FloatingPointToRational(
+			smt.FloatingPointFromUint64(8, 24, uint64(leftPattern)),
+		)
+		right, rightValid := smt.FloatingPointToRational(
+			smt.FloatingPointFromUint64(8, 24, uint64(rightPattern)),
+		)
+		if !leftValid || !rightValid {
+			t.Fatalf("finite generator produced invalid example %d", example)
+		}
+		leftCoefficient := int64(example%5 - 2)
+		if leftCoefficient == 0 {
+			leftCoefficient = 3
+		}
+		rightCoefficient := int64((example*3)%7 - 3)
+		if rightCoefficient == 0 {
+			rightCoefficient = -2
+		}
+		offset := smt.NewRational(int64(example%9-4), int64(example%5+1))
+		value := smt.AddRational(
+			smt.AddRational(
+				smt.MultiplyRational(
+					smt.NewRational(leftCoefficient, 1), left,
+				),
+				smt.MultiplyRational(
+					smt.NewRational(rightCoefficient, 1), right,
+				),
+			),
+			offset,
+		)
+		operator := operators[example%len(operators)]
+		bound := value
+		if operator == "<" {
+			bound = smt.AddRational(bound, smt.NewRational(1, 3))
+		} else if operator == ">" {
+			bound = smt.AddRational(bound, smt.NewRational(-1, 3))
+		}
+		assertion := fmt.Sprintf(
+			"(%s (+ (* %d.0 (fp.to_real x)) (* %d.0 (fp.to_real y)) %s) %s)",
+			operator, leftCoefficient, rightCoefficient,
+			smtLIBRational(offset), smtLIBRational(bound),
+		)
+		if example%8 >= 4 {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const x (_ FloatingPoint 8 24))\n(declare-const y (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv x) #x%08x))\n(assert (= (fp.to_ieee_bv y) #x%08x))\n(assert %s)\n(check-sat)\n",
+			leftPattern, rightPattern, assertion,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		z3Assertion := strings.ReplaceAll(
+			assertion, "(fp.to_real x)",
+			fmt.Sprintf("(fp.to_real ((_ to_fp 8 24) #x%08x))", leftPattern),
+		)
+		z3Assertion = strings.ReplaceAll(
+			z3Assertion, "(fp.to_real y)",
+			fmt.Sprintf("(fp.to_real ((_ to_fp 8 24) #x%08x))", rightPattern),
+		)
+		z3Script := fmt.Sprintf(
+			"(set-logic ALL)\n(assert %s)\n(check-sat)\n", z3Assertion,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(z3Script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
+func smtLIBRational(value smt.Rational) string {
+	numerator, denominator := value.Numerator(), value.Denominator()
+	if strings.HasPrefix(numerator, "-") {
+		numerator = "(- " + strings.TrimPrefix(numerator, "-") + ".0)"
+	} else {
+		numerator += ".0"
+	}
+	return fmt.Sprintf("(/ %s %s.0)", numerator, denominator)
+}
+
 func TestSymbolicFloatingPointEqualityAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

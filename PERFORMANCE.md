@@ -64,6 +64,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | paired symbolic FP-format conversion + model evaluation | ~11.87–11.93 us, 18,400 B, 11 allocs | ~1.312–1.434 ms, 456 B, 27 allocs | green (>109x) | green (target ≤13 allocs; 59.3% fewer) |
 | paired symbolic exact-Real-to-FP conversion + model evaluation | ~10.85–12.03 us, 25,088 B, 13 allocs | ~1.076–1.202 ms, 456 B, 27 allocs | green (>89x) | green (target ≤13 allocs; 51.9% fewer) |
 | paired symbolic exact-FP-to-Real conversion + model evaluation | ~12.33–12.38 us, 25,280 B, 13 allocs | ~1.323–1.407 ms, 440 B, 26 allocs | green (>106x) | green (target ≤13 allocs; exactly 50% fewer) |
+| paired symbolic affine exact-FP-to-Real solving + model evaluation | ~13.82–13.88 us, 22,784 B, 12 allocs | ~1.346–1.709 ms, 544 B, 32 allocs | green (>96x) | green (target ≤16 allocs; 62.5% fewer) |
 | QF_BV 8-bit symbol-dependent logical shift | ~588–675 ns, 1,160 B, 4 allocs | ~0.89–1.04 ms, 280 B, 18 allocs | green | green (target ≤9 allocs) |
 | QF_BV 8-bit symbol-dependent unsigned division | ~569–630 ns, 1,160 B, 4 allocs | ~0.89–1.05 ms, 280 B, 18 allocs | green | green (target ≤9 allocs) |
 | QF_BV symbol-dependent 8→4 extraction | ~563–635 ns, 1,224 B, 4 allocs | ~0.89–1.05 ms, 248 B, 16 allocs | green | green (target ≤8 allocs) |
@@ -1175,6 +1176,16 @@ and 13.402–15.156 us: 87.1% fewer allocations and over 2.22x
 conservative-endpoint throughput. The separately gated typed workload uses 13
 allocations and 12.331–12.378 us versus pinned Z3's 26 visible Go allocations
 and 1.323–1.407 ms: exactly 50% fewer allocations and over 106x
+conservative-endpoint throughput.
+
+The affine floating-point-to-real workload scales and subtracts two exact
+converted binary32 symbols, adds a rational offset, checks equality and strict
+order, and evaluates the resulting affine term. SMT-LIB streaming execution
+uses 56 allocations and 7.422–8.734 us versus the complete parser's 365
+allocations and 23.667–23.843 us: 84.7% fewer allocations and over 2.70x
+conservative-endpoint throughput. The separately gated typed workload uses 12
+allocations and 13.822–13.877 us versus pinned Z3's 32 visible Go allocations
+and 1.346–1.709 ms: 62.5% fewer allocations and over 96x
 conservative-endpoint throughput.
 
 ## SMT-LIB front-end baseline

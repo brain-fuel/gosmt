@@ -74,5 +74,9 @@ func AcceptedFloatingPoint() {
 		8, 24, gosmt.RoundNearestTiesToEven(),
 		gosmt.RealVal(context, gosmt.Rational(3, 2)),
 	)
-	_ = gosmt.FloatingPointToReal(symbolic)
+	symbolicReal := gosmt.FloatingPointToReal(symbolic)
+	_ = gosmt.AddReal(
+		gosmt.ScaleReal(gosmt.Rational(2, 1), symbolicReal),
+		gosmt.RealVal(context, gosmt.Rational(1, 2)),
+	)
 }

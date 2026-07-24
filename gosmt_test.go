@@ -604,6 +604,53 @@ func TestContextIndexedFloatingPointToReal(t *testing.T) {
 	}
 }
 
+func TestContextIndexedAffineFloatingPointToReal(t *testing.T) {
+	context := NewContext(772)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	leftReal := FloatingPointToReal(left)
+	rightReal := FloatingPointToReal(right)
+	affine := AddReal(
+		ScaleReal(Rational(2, 1), leftReal),
+		ScaleReal(Rational(-1, 1), rightReal),
+		RealVal(context, Rational(1, 2)),
+	)
+	solver := Assert(1, NewSolver(context), And(
+		EqBitVec(
+			FloatingPointBits(left),
+			FloatingPointBits(
+				FloatingPointFromUint64(8, 24, context, 0x3fc00000),
+			),
+		),
+		EqBitVec(
+			FloatingPointBits(right),
+			FloatingPointBits(
+				FloatingPointFromUint64(8, 24, context, 0x40600000),
+			),
+		),
+		EqReal(affine, RealVal(context, Rational(0, 1))),
+		LtReal(
+			SubReal(
+				ScaleReal(Rational(2, 1), leftReal),
+				rightReal,
+			),
+			RealVal(context, Rational(0, 1)),
+		),
+		EqReal(
+			SubReal(leftReal, leftReal),
+			RealVal(context, Rational(0, 1)),
+		),
+	))
+	result, ok := Check(solver).(Sat)
+	if !ok {
+		t.Fatalf("expected affine fp.to_real sat, got %T", Check(solver))
+	}
+	value, found := EvalReal(result.Value, affine)
+	if !found || CompareRational(value, Rational(0, 1)) != 0 {
+		t.Fatalf("affine value=%s,%v", value, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
