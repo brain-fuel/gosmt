@@ -69,6 +69,30 @@ static void *gosmt_z3_mk_fpa_add(void *context, int mode, void *left, void *righ
 	);
 }
 
+static void *gosmt_z3_mk_fpa_sub(void *context, int mode, void *left, void *right) {
+	Z3_ast rounding_mode;
+	switch (mode) {
+	case 1:
+		rounding_mode = Z3_mk_fpa_round_nearest_ties_to_away((Z3_context)context);
+		break;
+	case 2:
+		rounding_mode = Z3_mk_fpa_round_toward_positive((Z3_context)context);
+		break;
+	case 3:
+		rounding_mode = Z3_mk_fpa_round_toward_negative((Z3_context)context);
+		break;
+	case 4:
+		rounding_mode = Z3_mk_fpa_round_toward_zero((Z3_context)context);
+		break;
+	default:
+		rounding_mode = Z3_mk_fpa_round_nearest_ties_to_even((Z3_context)context);
+		break;
+	}
+	return Z3_mk_fpa_sub(
+		(Z3_context)context, rounding_mode, (Z3_ast)left, (Z3_ast)right
+	);
+}
+
 static void gosmt_z3_inc_ref(void *context, void *value) {
 	Z3_inc_ref((Z3_context)context, (Z3_ast)value);
 }
@@ -143,6 +167,21 @@ func z3FloatingPointAdd(
 		context,
 		contextPointer,
 		C.gosmt_z3_mk_fpa_add(
+			contextPointer, C.int(mode), leftPointer, rightPointer,
+		),
+	)
+}
+
+func z3FloatingPointSub(
+	context *z3.Context, mode int, left, right *z3.Expr,
+) *z3.Expr {
+	contextPointer := *(*unsafe.Pointer)(unsafe.Pointer(context))
+	leftPointer := (*z3ExpressionLayout)(unsafe.Pointer(left)).pointer
+	rightPointer := (*z3ExpressionLayout)(unsafe.Pointer(right)).pointer
+	return z3ManagedExpression(
+		context,
+		contextPointer,
+		C.gosmt_z3_mk_fpa_sub(
 			contextPointer, C.int(mode), leftPointer, rightPointer,
 		),
 	)

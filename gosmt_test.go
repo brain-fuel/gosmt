@@ -314,6 +314,43 @@ func TestContextIndexedFloatingPointAdd(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointSub(t *testing.T) {
+	context := NewContext(761)
+	leftValue := FloatingPointFromUint64(8, 24, context, 0x40700000)
+	rightValue := FloatingPointFromUint64(8, 24, context, 0x40100000)
+	expected := FloatingPointFromUint64(8, 24, context, 0x3fc00000)
+	difference := FloatingPointSub(
+		RoundNearestTiesToEven(), leftValue, rightValue,
+	)
+	if _, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(FloatingPointBits(difference), FloatingPointBits(expected)),
+	)).(Sat); !ok {
+		t.Fatal("ground fp.sub must be satisfiable")
+	}
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	symbolicDifference := FloatingPointSub(
+		RoundNearestTiesToEven(), left, right,
+	)
+	formula := And(
+		EqBitVec(FloatingPointBits(left), FloatingPointBits(leftValue)),
+		EqBitVec(FloatingPointBits(right), FloatingPointBits(rightValue)),
+		EqBitVec(
+			FloatingPointBits(symbolicDifference), FloatingPointBits(expected),
+		),
+	)
+	result, ok := Check(Assert(3, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("symbolic fp.sub result=%T", Check(Assert(3, NewSolver(context), formula)))
+	}
+	bits, found := ModelFloatingPointBits(result.Value, symbolicDifference)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x3fc00000 {
+		t.Fatalf("difference bits=%#x,%v,%v", raw, inline, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
