@@ -37,7 +37,11 @@
    `(_ to_fp e s) rm bv` and unsigned `(_ to_fp_unsigned e s) rm bv`
    conversions cover arbitrary source widths, all five modes, compact
    assigned-symbol constraints, and preserve the separate IEEE-reinterpretation
-   overload. Exact `((_ to_fp e s) rm fp)` conversion now rounds once between
+   overload. Wholly unconstrained signed and unsigned bit-vector sources now
+   synthesize integer or validated extremal preimages for fixed FP results,
+   including arbitrary-width and binary128 cases, while impossible noninteger,
+   NaN, negative-zero, and unsigned negative-infinity images are rejected.
+   Exact `((_ to_fp e s) rm fp)` conversion now rounds once between
    arbitrary source and target formats across all five modes, with compact
    assigned-symbol constraints. Unconstrained FP sources now synthesize
    reverse-converted, forward-validated preimages for result patterns in the
@@ -67,9 +71,10 @@
    `rem(result, +infinity)` witness, with impossible infinity results rejected.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
-   QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline
+   QF_FPBV fallback. The corresponding SMT-LIB QF_FP/QF_FPBV fragment has fixed-inline
    streaming execution with full-parser fallback. Remaining unconstrained
-   symbolic arithmetic, conversions, and general QF_FP/QF_FPBV solving remain.
+   symbolic arithmetic, conversion combinations, and general QF_FP/QF_FPBV
+   solving remain.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,
    recognizers, graph acyclicity, exact n-ary models, and SMT-LIB execution are

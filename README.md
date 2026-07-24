@@ -59,6 +59,11 @@ The reverse numeric bridge accepts arbitrary-width bit vectors through the
 signed two-argument `(_ to_fp e s)` overload and `(_ to_fp_unsigned e s)`.
 Both preserve exact five-mode rounding, including wide two's-complement inputs,
 and remain distinct from one-argument IEEE bit-pattern reinterpretation.
+When only the converted result is fixed, signed and unsigned conversions now
+synthesize an exact integer source and validate it through the forward kernel.
+Finite nonintegers, NaNs, negative zero, and unsigned negative infinity are
+proved outside the image; validated extremal sources cover rounded overflow to
+infinity.
 The floating-point overload `((_ to_fp e s) rm fp)` performs an exact,
 single-rounded conversion between arbitrary source and target formats,
 preserving signed zero and infinities and selecting a deterministic target NaN.
@@ -76,10 +81,10 @@ also bridge into otherwise unconstrained Real symbols and merge exact FP/LRA
 models. Single-term equalities also synthesize wholly unconstrained FP sources
 when the solved rational target is exactly representable; unrepresentable and
 interacting multi-term preimages remain staged.
-The supported QF_FP fragment executes through a
+The supported QF_FP/QF_FPBV fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Remaining unconstrained symbolic
-arithmetic and conversions, remaining SMT-LIB FP operators,
+arithmetic and conversion combinations, remaining SMT-LIB FP operators,
 and general QF_FP/QF_FPBV solving remain future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:

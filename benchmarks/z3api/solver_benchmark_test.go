@@ -8802,6 +8802,55 @@ func BenchmarkSymbolicFloatingPointFromBitVectorCold(b *testing.B) {
 	})
 }
 
+func BenchmarkUnconstrainedFloatingPointFromBitVectorCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(788)
+			source := gosmt.BitVecConst(8, context, "source", 1)
+			converted := gosmt.FloatingPointFromSignedBitVector(
+				8, 24, 8, gosmt.RoundNearestTiesToEven(), source,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context),
+				gosmt.EqBitVec(
+					gosmt.FloatingPointBits(converted),
+					gosmt.BitVecValue(32, context, 0xc0400000),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			sourceBits, found := gosmt.ModelBitVec(result.Value, source)
+			raw, inline := sourceBits.Uint64()
+			if !found || !inline || raw != 0xfd {
+				b.Fatal("invalid synthesized source model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			source := context.MkBVConst("source", 8)
+			sort := context.MkFPSort32()
+			converted := z3FloatingPointFromBitVector(
+				context, 0, source, sort, true,
+			)
+			target := context.MkFPNumeral("-3", sort)
+			solver := context.NewSolverForLogic("QF_FPBV")
+			solver.Assert(context.MkFPEq(converted, target))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(source, true); !found {
+				b.Fatal("invalid synthesized source model")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicFloatingPointFormatConversionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

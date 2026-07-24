@@ -830,6 +830,13 @@ func modelBitVectorValue(
 	term smt.Term[smt.BitVecSort],
 	fast bitVectorFast,
 ) (smt.BitVectorValue, bool) {
+	if fast.kind == bitVectorFastSymbol {
+		value, found := smt.DirectBitVectorSymbolModelValue(model, fast.id)
+		if !found || value.Width() != fast.width {
+			return smt.BitVectorValue{}, false
+		}
+		return value, true
+	}
 	if fast.kind == bitVectorFastFloatingPointToBitVector {
 		bits, found := smt.FloatingPointSymbolModelBits(model, fast.id)
 		if !found {
