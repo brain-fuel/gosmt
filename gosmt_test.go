@@ -410,6 +410,36 @@ func TestContextIndexedFloatingPointSub(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointSubSynthesizesOperands(t *testing.T) {
+	context := NewContext(769)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	difference := FloatingPointSub(
+		RoundNearestTiesToEven(), left, right,
+	)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(
+			FloatingPointBits(difference),
+			BitVecValue(32, context, 0x3fc00000),
+		),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected fp.sub to synthesize unconstrained operands")
+	}
+	leftBits, leftFound := ModelFloatingPointBits(result.Value, left)
+	rightBits, rightFound := ModelFloatingPointBits(result.Value, right)
+	leftValue, leftInline := leftBits.Uint64()
+	rightValue, rightInline := rightBits.Uint64()
+	if !leftFound || !rightFound || !leftInline || !rightInline ||
+		leftValue != 0x3fc00000 || rightValue != 0 {
+		t.Fatalf(
+			"unexpected synthesized operands: left=%#x/%v right=%#x/%v",
+			leftValue, leftFound, rightValue, rightFound,
+		)
+	}
+}
+
 func TestContextIndexedFloatingPointMul(t *testing.T) {
 	context := NewContext(762)
 	leftValue := FloatingPointFromUint64(8, 24, context, 0x3fc00000)
