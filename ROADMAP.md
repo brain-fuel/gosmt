@@ -151,6 +151,9 @@
    Unary Real→Bool and binary Real×Real→Bool predicates preserve their mixed
    signatures in Go+, accept affine arguments, execute through SMT-LIB, and
    share fixed-point LRA/EUF congruence.
+   Ternary Real×Real×Real→Real functions now retain their arity/context in
+   Go+, purify affine arguments, execute through SMT-LIB, and share the same
+   fixed-point LRA/EUF congruence.
    Single-symbol affine length expressions now normalize exact addition,
    subtraction, and arbitrary-precision constant scaling with divisibility,
    sign reversal, integer rounding, and cancellation.

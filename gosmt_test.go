@@ -3253,6 +3253,23 @@ func TestRealPredicatesExchangeArithmeticEquality(t *testing.T) {
 	}
 }
 
+func TestRealTernaryFunctionApplicationsInsideArithmetic(t *testing.T) {
+	context := NewContext(125)
+	x := RealConst(context, "x", 1)
+	y := RealConst(context, "y", 2)
+	z := RealConst(context, "z", 3)
+	zero := RealVal(context, Rational(0, 1))
+	function := DeclareRealTernary(context, "combine3", 4)
+	formula := And(
+		EqReal(x, y),
+		LeReal(ApplyRealTernary(function, x, y, z), zero),
+		LtReal(zero, ApplyRealTernary(function, y, x, z)),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Unsat); !ok {
+		t.Fatal("ternary applications with congruent arguments should be unsatisfiable")
+	}
+}
+
 func TestIndexedBitVectorOperations(t *testing.T) {
 	context := NewContext(72)
 	x := BitVecConst(8, context, "x", 1)

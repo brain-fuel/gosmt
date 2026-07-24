@@ -83,6 +83,9 @@ type RealBinaryFunc[c nat] enum { realBinaryFuncValue(ContextID int, Function sm
 type RealBinaryPredicate[c nat] enum { realBinaryPredicateValue(ContextID int, Function smt.SortedBinaryFunction[smt.RealSort, smt.RealSort, smt.BoolSort], Fast realBinaryPredicateFast) RealBinaryPredicate[c] }
 //goplus:derive off
 //goplus:repr transparent
+type RealTernaryFunc[c nat] enum { realTernaryFuncValue(ContextID int, Function smt.SortedTernaryFunction[smt.RealSort, smt.RealSort, smt.RealSort, smt.RealSort], Fast realTernaryFunctionFast) RealTernaryFunc[c] }
+//goplus:derive off
+//goplus:repr transparent
 type IntFunc[c nat] enum { intFuncValue(ContextID int, Function smt.SortedUnaryFunction[smt.IntSort, smt.IntSort], Fast integerFunctionFast) IntFunc[c] }
 //goplus:derive off
 //goplus:repr transparent
@@ -960,6 +963,14 @@ func DeclareRealBinaryPredicate(0 c nat, context Context[c], name string, id int
 
 func ApplyRealBinaryPredicate(0 c nat, predicate RealBinaryPredicate[c], first RealExpr[c], second RealExpr[c]) BoolExpr[c] {
 	return applyRealBinaryPredicate(predicate, first, second)
+}
+
+func DeclareRealTernary(0 c nat, context Context[c], name string, id int) RealTernaryFunc[c] {
+	match context { case contextValue(contextID): return fastRealTernaryFunction(contextID, id, name) }
+}
+
+func ApplyRealTernary(0 c nat, function RealTernaryFunc[c], first RealExpr[c], second RealExpr[c], third RealExpr[c]) RealExpr[c] {
+	return applyRealTernaryFunction(function, first, second, third)
 }
 
 func DeclareIntFunction(0 c nat, context Context[c], name string, id int) IntFunc[c] {

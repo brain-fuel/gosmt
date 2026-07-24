@@ -140,6 +140,7 @@ const (
 	booleanFastRealSymbolEquality
 	booleanFastRealUnaryComparison
 	booleanFastRealBinaryComparison
+	booleanFastRealTernaryComparison
 	booleanFastIntegerUnaryComparison
 	booleanFastIntegerBinaryComparison
 	booleanFastIntegerTernaryComparison
@@ -182,6 +183,7 @@ type booleanFast struct {
 	symbolEquality               smt.RealSymbolEquality
 	unaryComparison              smt.RealUnaryComparison
 	binaryComparison             smt.RealBinaryComparison
+	ternaryComparison            smt.RealTernaryComparison
 	integerUnaryComparison       smt.IntegerUnaryComparison
 	integerBinaryComparison      smt.IntegerBinaryComparison
 	integerTernaryComparison     smt.IntegerTernaryComparison
@@ -2163,6 +2165,7 @@ type realFast struct {
 	functionID       int
 	argumentID       int
 	secondArgumentID int
+	thirdArgumentID  int
 	count            uint8
 	inline           [4]realCoefficient
 	overflow         []realCoefficient
@@ -2188,6 +2191,12 @@ type realBinaryFunctionFast struct {
 }
 
 type realBinaryPredicateFast struct {
+	valid bool
+	id    int
+	name  string
+}
+
+type realTernaryFunctionFast struct {
 	valid bool
 	id    int
 	name  string
@@ -2320,6 +2329,44 @@ func applyRealBinaryPredicate(
 	}
 }
 
+func fastRealTernaryFunction(context, id int, name string) RealTernaryFunc {
+	return realTernaryFuncValue{
+		contextID: context,
+		fast:      realTernaryFunctionFast{valid: true, id: id, name: name},
+	}
+}
+
+func applyRealTernaryFunction(
+	function RealTernaryFunc, first, second, third RealExpr,
+) RealExpr {
+	context := realPairContext(first, second)
+	if context != third.contextID || function.contextID != context {
+		panic("gosmt: erased ternary real function context mismatch")
+	}
+	firstID, firstOK := fastRealSymbolID(first.fast)
+	secondID, secondOK := fastRealSymbolID(second.fast)
+	thirdID, thirdOK := fastRealSymbolID(third.fast)
+	if function.fast.valid && firstOK && secondOK && thirdOK {
+		return realExprValue{contextID: context, fast: realFast{
+			eufValid: true, eufArity: 3, functionID: function.fast.id,
+			argumentID: firstID, secondArgumentID: secondID, thirdArgumentID: thirdID,
+		}}
+	}
+	core := function.function
+	if function.fast.valid {
+		core = smt.DeclareRealTernaryFunction(function.fast.id, function.fast.name)
+	}
+	return realExprValue{
+		contextID: context,
+		term: smt.ApplySortedTernary(
+			core,
+			materializeReal(first.term, first.fast),
+			materializeReal(second.term, second.fast),
+			materializeReal(third.term, third.fast),
+		),
+	}
+}
+
 func fastEqReal(left, right RealExpr) BoolExpr {
 	context := realPairContext(left, right)
 	if left.fast.eufValid && right.fast.eufValid && left.fast.eufArity == 1 && right.fast.eufArity == 1 {
@@ -2432,6 +2479,18 @@ func fastRealRelation(left, right RealExpr, strict bool) BoolExpr {
 	context := realPairContext(left, right)
 	if left.fast.eufValid {
 		if bound, ok := fastRealConstant(right.fast); ok {
+			if left.fast.eufArity == 3 {
+				return boolExprValue{contextID: context, fast: booleanFast{
+					kind: booleanFastRealTernaryComparison,
+					ternaryComparison: smt.RealTernaryComparison{
+						FunctionID:       left.fast.functionID,
+						FirstArgumentID:  left.fast.argumentID,
+						SecondArgumentID: left.fast.secondArgumentID,
+						ThirdArgumentID:  left.fast.thirdArgumentID,
+						Bound:            bound, ApplicationOnLeft: true, Strict: strict,
+					},
+				}}
+			}
 			if left.fast.eufArity == 2 {
 				return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastRealBinaryComparison, binaryComparison: smt.RealBinaryComparison{
 					FunctionID: left.fast.functionID, FirstArgumentID: left.fast.argumentID, SecondArgumentID: left.fast.secondArgumentID,
@@ -2446,6 +2505,18 @@ func fastRealRelation(left, right RealExpr, strict bool) BoolExpr {
 	}
 	if right.fast.eufValid {
 		if bound, ok := fastRealConstant(left.fast); ok {
+			if right.fast.eufArity == 3 {
+				return boolExprValue{contextID: context, fast: booleanFast{
+					kind: booleanFastRealTernaryComparison,
+					ternaryComparison: smt.RealTernaryComparison{
+						FunctionID:       right.fast.functionID,
+						FirstArgumentID:  right.fast.argumentID,
+						SecondArgumentID: right.fast.secondArgumentID,
+						ThirdArgumentID:  right.fast.thirdArgumentID,
+						Bound:            bound, ApplicationOnLeft: false, Strict: strict,
+					},
+				}}
+			}
 			if right.fast.eufArity == 2 {
 				return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastRealBinaryComparison, binaryComparison: smt.RealBinaryComparison{
 					FunctionID: right.fast.functionID, FirstArgumentID: right.fast.argumentID, SecondArgumentID: right.fast.secondArgumentID,
@@ -2512,6 +2583,15 @@ func realPairContext(left, right RealExpr) int {
 
 func materializeReal(term smt.Term[smt.RealSort], fast realFast) smt.Term[smt.RealSort] {
 	if fast.eufValid {
+		if fast.eufArity == 3 {
+			function := smt.DeclareRealTernaryFunction(fast.functionID, "")
+			return smt.ApplySortedTernary(
+				function,
+				smt.RealSymbol{ID: fast.argumentID},
+				smt.RealSymbol{ID: fast.secondArgumentID},
+				smt.RealSymbol{ID: fast.thirdArgumentID},
+			)
+		}
 		if fast.eufArity == 2 {
 			function := smt.DeclareRealBinaryFunction(fast.functionID, "")
 			return smt.ApplySortedBinary(function, smt.RealSymbol{ID: fast.argumentID}, smt.RealSymbol{ID: fast.secondArgumentID})
@@ -3053,6 +3133,7 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	symbolEqualityCount := 0
 	comparisonCount := 0
 	binaryComparisonCount := 0
+	ternaryComparisonCount := 0
 	for _, value := range values {
 		switch value.fast.kind {
 		case booleanFastRealSymbolEquality:
@@ -3061,12 +3142,20 @@ func fastAnd(values []BoolExpr) BoolExpr {
 			comparisonCount++
 		case booleanFastRealBinaryComparison:
 			binaryComparisonCount++
+		case booleanFastRealTernaryComparison:
+			ternaryComparisonCount++
 		default:
 			allCompactRealTheory = false
 		}
 	}
-	if allCompactRealTheory && symbolEqualityCount != 0 && comparisonCount+binaryComparisonCount != 0 {
-		conjunction := smt.TheoryConjunction{SymbolEqualityCount: symbolEqualityCount, UnaryComparisonCount: comparisonCount, BinaryComparisonCount: binaryComparisonCount}
+	if allCompactRealTheory && symbolEqualityCount != 0 &&
+		comparisonCount+binaryComparisonCount+ternaryComparisonCount != 0 {
+		conjunction := smt.TheoryConjunction{
+			SymbolEqualityCount:    symbolEqualityCount,
+			UnaryComparisonCount:   comparisonCount,
+			BinaryComparisonCount:  binaryComparisonCount,
+			TernaryComparisonCount: ternaryComparisonCount,
+		}
 		if symbolEqualityCount > len(conjunction.SymbolEqualities) {
 			conjunction.OverflowSymbolEqualities = make([]smt.RealSymbolEquality, symbolEqualityCount)
 		}
@@ -3076,7 +3165,10 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		if binaryComparisonCount > len(conjunction.BinaryComparisons) {
 			conjunction.OverflowBinaryComparisons = make([]smt.RealBinaryComparison, binaryComparisonCount)
 		}
-		equality, comparison, binaryComparison := 0, 0, 0
+		if ternaryComparisonCount > len(conjunction.TernaryComparisons) {
+			conjunction.OverflowTernaryComparisons = make([]smt.RealTernaryComparison, ternaryComparisonCount)
+		}
+		equality, comparison, binaryComparison, ternaryComparison := 0, 0, 0, 0
 		for _, value := range values {
 			switch value.fast.kind {
 			case booleanFastRealSymbolEquality:
@@ -3100,6 +3192,15 @@ func fastAnd(values []BoolExpr) BoolExpr {
 					conjunction.BinaryComparisons[binaryComparison] = value.fast.binaryComparison
 				}
 				binaryComparison++
+			case booleanFastRealTernaryComparison:
+				if conjunction.OverflowTernaryComparisons != nil {
+					conjunction.OverflowTernaryComparisons[ternaryComparison] =
+						value.fast.ternaryComparison
+				} else {
+					conjunction.TernaryComparisons[ternaryComparison] =
+						value.fast.ternaryComparison
+				}
+				ternaryComparison++
 			}
 		}
 		return boolExprValue{contextID: context, term: conjunction}
@@ -3460,6 +3561,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.unaryComparison
 	case booleanFastRealBinaryComparison:
 		return fast.binaryComparison
+	case booleanFastRealTernaryComparison:
+		return fast.ternaryComparison
 	case booleanFastIntegerUnaryComparison:
 		return fast.integerUnaryComparison
 	case booleanFastIntegerBinaryComparison:

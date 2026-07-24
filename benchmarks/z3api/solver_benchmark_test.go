@@ -6155,6 +6155,61 @@ func BenchmarkPurifiedBinaryRealEUFArithmeticCold(b *testing.B) {
 	})
 }
 
+func BenchmarkPurifiedTernaryRealEUFArithmeticCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(125)
+			x := gosmt.RealConst(context, "x", 1)
+			y := gosmt.RealConst(context, "y", 2)
+			z := gosmt.RealConst(context, "z", 3)
+			zero := gosmt.RealVal(context, gosmt.Rational(0, 1))
+			minusOne := gosmt.RealVal(context, gosmt.Rational(-1, 1))
+			one := gosmt.RealVal(context, gosmt.Rational(1, 1))
+			function := gosmt.DeclareRealTernary(context, "combine3", 4)
+			formula := gosmt.And(
+				gosmt.EqReal(x, y),
+				gosmt.LeReal(minusOne, gosmt.ApplyRealTernary(function, x, y, z)),
+				gosmt.LeReal(gosmt.ApplyRealTernary(function, x, y, z), zero),
+				gosmt.LeReal(gosmt.ApplyRealTernary(function, x, y, z), one),
+				gosmt.LtReal(zero, gosmt.ApplyRealTernary(function, y, x, z)),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Unsat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkRealSort()
+			x := context.MkRealConst("x")
+			y := context.MkRealConst("y")
+			z := context.MkRealConst("z")
+			zero := context.MkReal(0, 1)
+			minusOne := context.MkReal(-1, 1)
+			one := context.MkReal(1, 1)
+			function := context.MkFuncDecl(
+				context.MkStringSymbol("combine3"),
+				[]*z3.Sort{sort, sort, sort}, sort,
+			)
+			formula := context.MkAnd(
+				context.MkEq(x, y),
+				context.MkLe(minusOne, context.MkApp(function, x, y, z)),
+				context.MkLe(context.MkApp(function, x, y, z), zero),
+				context.MkLe(context.MkApp(function, x, y, z), one),
+				context.MkLt(zero, context.MkApp(function, y, x, z)),
+			)
+			solver := context.NewSolverForLogic("QF_UFLRA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Unsatisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkBitVectorCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

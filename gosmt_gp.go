@@ -339,6 +339,20 @@ type realBinaryPredicateValue struct {
 
 func (realBinaryPredicateValue) isRealBinaryPredicate() {}
 
+//goplus:enum RealTernaryFunc[c nat]
+//goplus:derive off
+//goplus:repr transparent
+type RealTernaryFunc = realTernaryFuncValue
+
+//goplus:variant (RealTernaryFunc) realTernaryFuncValue(ContextID int, Function smt.SortedTernaryFunction[smt.RealSort, smt.RealSort, smt.RealSort, smt.RealSort], Fast realTernaryFunctionFast) RealTernaryFunc[c]
+type realTernaryFuncValue struct {
+	contextID int
+	function  smt.SortedTernaryFunction[smt.RealSort, smt.RealSort, smt.RealSort, smt.RealSort]
+	fast      realTernaryFunctionFast
+}
+
+func (realTernaryFuncValue) isRealTernaryFunc() {}
+
 //goplus:enum IntFunc[c nat]
 //goplus:derive off
 //goplus:repr transparent
@@ -2761,11 +2775,27 @@ func ApplyRealBinaryPredicate(predicate RealBinaryPredicate, first RealExpr, sec
 	return applyRealBinaryPredicate(predicate, first, second)
 }
 
-//goplus:dep DeclareIntFunction(0 c nat, context Context[c], name string, id int) IntFunc[c]
-func DeclareIntFunction(context Context, name string, id int) IntFunc {
+//goplus:dep DeclareRealTernary(0 c nat, context Context[c], name string, id int) RealTernaryFunc[c]
+func DeclareRealTernary(context Context, name string, id int) RealTernaryFunc {
 	switch __gp_m153 := any(context).(type) {
 	case contextValue:
 		contextID := __gp_m153.iD
+		return fastRealTernaryFunction(contextID, id, name)
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep ApplyRealTernary(0 c nat, function RealTernaryFunc[c], first RealExpr[c], second RealExpr[c], third RealExpr[c]) RealExpr[c]
+func ApplyRealTernary(function RealTernaryFunc, first RealExpr, second RealExpr, third RealExpr) RealExpr {
+	return applyRealTernaryFunction(function, first, second, third)
+}
+
+//goplus:dep DeclareIntFunction(0 c nat, context Context[c], name string, id int) IntFunc[c]
+func DeclareIntFunction(context Context, name string, id int) IntFunc {
+	switch __gp_m154 := any(context).(type) {
+	case contextValue:
+		contextID := __gp_m154.iD
 		return fastIntegerFunction(contextID, id, name)
 	default:
 		panic("goplus: impossible enum value in match")
@@ -2779,9 +2809,9 @@ func ApplyIntFunction(function IntFunc, argument IntExpr) IntExpr {
 
 //goplus:dep DeclareIntPredicate(0 c nat, context Context[c], name string, id int) IntPredicate[c]
 func DeclareIntPredicate(context Context, name string, id int) IntPredicate {
-	switch __gp_m154 := any(context).(type) {
+	switch __gp_m155 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m154.iD
+		contextID := __gp_m155.iD
 		return fastIntegerPredicate(contextID, id, name)
 	default:
 		panic("goplus: impossible enum value in match")
@@ -2795,9 +2825,9 @@ func ApplyIntPredicate(predicate IntPredicate, argument IntExpr) BoolExpr {
 
 //goplus:dep DeclareIntBinary(0 c nat, context Context[c], name string, id int) IntBinaryFunc[c]
 func DeclareIntBinary(context Context, name string, id int) IntBinaryFunc {
-	switch __gp_m155 := any(context).(type) {
+	switch __gp_m156 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m155.iD
+		contextID := __gp_m156.iD
 		return fastIntegerBinaryFunction(contextID, id, name)
 	default:
 		panic("goplus: impossible enum value in match")
@@ -2811,9 +2841,9 @@ func ApplyIntBinary(function IntBinaryFunc, first IntExpr, second IntExpr) IntEx
 
 //goplus:dep DeclareIntBinaryPredicate(0 c nat, context Context[c], name string, id int) IntBinaryPredicate[c]
 func DeclareIntBinaryPredicate(context Context, name string, id int) IntBinaryPredicate {
-	switch __gp_m156 := any(context).(type) {
+	switch __gp_m157 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m156.iD
+		contextID := __gp_m157.iD
 		return fastIntegerBinaryPredicate(contextID, id, name)
 	default:
 		panic("goplus: impossible enum value in match")
@@ -2827,9 +2857,9 @@ func ApplyIntBinaryPredicate(predicate IntBinaryPredicate, first IntExpr, second
 
 //goplus:dep DeclareIntTernary(0 c nat, context Context[c], name string, id int) IntTernaryFunc[c]
 func DeclareIntTernary(context Context, name string, id int) IntTernaryFunc {
-	switch __gp_m157 := any(context).(type) {
+	switch __gp_m158 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m157.iD
+		contextID := __gp_m158.iD
 		return fastIntegerTernaryFunction(contextID, id, name)
 	default:
 		panic("goplus: impossible enum value in match")
@@ -2843,9 +2873,9 @@ func ApplyIntTernary(function IntTernaryFunc, first IntExpr, second IntExpr, thi
 
 //goplus:dep DeclareBitVecFunction(domainWidth nat, rangeWidth nat, 0 c nat, context Context[c], name string, id int) BitVecFunc[c, domainWidth, rangeWidth]
 func DeclareBitVecFunction(domainWidth int, rangeWidth int, context Context, name string, id int) BitVecFunc {
-	switch __gp_m158 := any(context).(type) {
+	switch __gp_m159 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m158.iD
+		contextID := __gp_m159.iD
 		return bitVecFuncValue{contextID: contextID, function: smt.DeclareBitVecUnaryFunction(domainWidth, rangeWidth, id, name)}
 	default:
 		panic("goplus: impossible enum value in match")
@@ -2854,10 +2884,10 @@ func DeclareBitVecFunction(domainWidth int, rangeWidth int, context Context, nam
 
 //goplus:dep ApplyBitVecFunction(0 c nat, 0 domainWidth nat, 0 rangeWidth nat, function BitVecFunc[c, domainWidth, rangeWidth], argument BitVecExpr[c, domainWidth]) BitVecExpr[c, rangeWidth]
 func ApplyBitVecFunction(function BitVecFunc, argument BitVecExpr) BitVecExpr {
-	switch __gp_m159 := any(function).(type) {
+	switch __gp_m160 := any(function).(type) {
 	case bitVecFuncValue:
-		contextID := __gp_m159.contextID
-		core := __gp_m159.function
+		contextID := __gp_m160.contextID
+		core := __gp_m160.function
 
 		switch any(argument).(type) {
 		case bitVecExprValue:
@@ -2873,9 +2903,9 @@ func ApplyBitVecFunction(function BitVecFunc, argument BitVecExpr) BitVecExpr {
 
 //goplus:dep DeclareBitVecBinary(firstWidth nat, secondWidth nat, rangeWidth nat, 0 c nat, context Context[c], name string, id int) BitVecBinaryFunc[c, firstWidth, secondWidth, rangeWidth]
 func DeclareBitVecBinary(firstWidth int, secondWidth int, rangeWidth int, context Context, name string, id int) BitVecBinaryFunc {
-	switch __gp_m161 := any(context).(type) {
+	switch __gp_m162 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m161.iD
+		contextID := __gp_m162.iD
 		return bitVecBinaryFuncValue{contextID: contextID, function: smt.DeclareBitVecBinaryFunction(firstWidth, secondWidth, rangeWidth, id, name)}
 	default:
 		panic("goplus: impossible enum value in match")
@@ -2884,22 +2914,22 @@ func DeclareBitVecBinary(firstWidth int, secondWidth int, rangeWidth int, contex
 
 //goplus:dep ApplyBitVecBinary(0 c nat, 0 firstWidth nat, 0 secondWidth nat, 0 rangeWidth nat, function BitVecBinaryFunc[c, firstWidth, secondWidth, rangeWidth], first BitVecExpr[c, firstWidth], second BitVecExpr[c, secondWidth]) BitVecExpr[c, rangeWidth]
 func ApplyBitVecBinary(function BitVecBinaryFunc, first BitVecExpr, second BitVecExpr) BitVecExpr {
-	switch __gp_m162 := any(function).(type) {
+	switch __gp_m163 := any(function).(type) {
 	case bitVecBinaryFuncValue:
-		contextID := __gp_m162.contextID
-		core := __gp_m162.function
+		contextID := __gp_m163.contextID
+		core := __gp_m163.function
 
-		switch __gp_m163 := any(first).(type) {
+		switch __gp_m164 := any(first).(type) {
 		case bitVecExprValue:
-			firstContext := __gp_m163.contextID
-			firstTerm := __gp_m163.term
-			firstFast := __gp_m163.fast
+			firstContext := __gp_m164.contextID
+			firstTerm := __gp_m164.term
+			firstFast := __gp_m164.fast
 
-			switch __gp_m164 := any(second).(type) {
+			switch __gp_m165 := any(second).(type) {
 			case bitVecExprValue:
-				secondContext := __gp_m164.contextID
-				secondTerm := __gp_m164.term
-				secondFast := __gp_m164.fast
+				secondContext := __gp_m165.contextID
+				secondTerm := __gp_m165.term
+				secondFast := __gp_m165.fast
 
 				if contextID != firstContext || contextID != secondContext {
 					panic("gosmt: erased binary bit-vector function context mismatch")
@@ -2918,9 +2948,9 @@ func ApplyBitVecBinary(function BitVecBinaryFunc, first BitVecExpr, second BitVe
 
 //goplus:dep UninterpretedConst(sort nat, 0 c nat, context Context[c], name string, id int) UninterpretedExpr[c, sort]
 func UninterpretedConst(sort int, context Context, name string, id int) UninterpretedExpr {
-	switch __gp_m165 := any(context).(type) {
+	switch __gp_m166 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m165.iD
+		contextID := __gp_m166.iD
 		return fastUninterpretedSymbol(contextID, int(sort), id, name)
 	default:
 		panic("goplus: impossible enum value in match")
@@ -2929,9 +2959,9 @@ func UninterpretedConst(sort int, context Context, name string, id int) Uninterp
 
 //goplus:dep DeclareUnary(domain nat, codomain nat, 0 c nat, context Context[c], name string, id int) UnaryFunc[c, domain, codomain]
 func DeclareUnary(domain int, codomain int, context Context, name string, id int) UnaryFunc {
-	switch __gp_m166 := any(context).(type) {
+	switch __gp_m167 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m166.iD
+		contextID := __gp_m167.iD
 		return fastUninterpretedUnaryFunction(contextID, int(domain), int(codomain), id, name)
 	default:
 		panic("goplus: impossible enum value in match")
@@ -2940,9 +2970,9 @@ func DeclareUnary(domain int, codomain int, context Context, name string, id int
 
 //goplus:dep DeclareBinary(first nat, second nat, codomain nat, 0 c nat, context Context[c], name string, id int) BinaryFunc[c, first, second, codomain]
 func DeclareBinary(first int, second int, codomain int, context Context, name string, id int) BinaryFunc {
-	switch __gp_m167 := any(context).(type) {
+	switch __gp_m168 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m167.iD
+		contextID := __gp_m168.iD
 		return fastUninterpretedBinaryFunction(contextID, int(first), int(second), int(codomain), id, name)
 	default:
 		panic("goplus: impossible enum value in match")
@@ -3001,17 +3031,17 @@ func IfInt(condition BoolExpr, thenValue IntExpr, elseValue IntExpr) IntExpr {
 
 //goplus:dep EqBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c]
 func EqBool(left BoolExpr, right BoolExpr) BoolExpr {
-	switch __gp_m168 := any(left).(type) {
+	switch __gp_m169 := any(left).(type) {
 	case boolExprValue:
-		leftContext := __gp_m168.contextID
-		leftTerm := __gp_m168.term
-		leftFast := __gp_m168.fast
+		leftContext := __gp_m169.contextID
+		leftTerm := __gp_m169.term
+		leftFast := __gp_m169.fast
 
-		switch __gp_m169 := any(right).(type) {
+		switch __gp_m170 := any(right).(type) {
 		case boolExprValue:
-			rightContext := __gp_m169.contextID
-			rightTerm := __gp_m169.term
-			rightFast := __gp_m169.fast
+			rightContext := __gp_m170.contextID
+			rightTerm := __gp_m170.term
+			rightFast := __gp_m170.fast
 
 			if leftContext != rightContext {
 				panic("gosmt: erased Boolean equality context mismatch")
@@ -3038,11 +3068,11 @@ func Sub(left IntExpr, right IntExpr) IntExpr {
 
 //goplus:dep ScaleInt(0 c nat, coefficient smt.IntegerValue, value IntExpr[c]) IntExpr[c]
 func ScaleInt(coefficient smt.IntegerValue, value IntExpr) IntExpr {
-	switch __gp_m170 := any(value).(type) {
+	switch __gp_m171 := any(value).(type) {
 	case intExprValue:
-		contextID := __gp_m170.contextID
-		term := __gp_m170.term
-		fast := __gp_m170.fast
+		contextID := __gp_m171.contextID
+		term := __gp_m171.term
+		fast := __gp_m171.fast
 		return intExprValue{contextID: contextID, term: smt.ScaleInteger(coefficient, materializeInteger(term, fast)), fast: integerFast{}}
 	default:
 		panic("goplus: impossible enum value in match")
@@ -3056,11 +3086,11 @@ func ScaleInt64(coefficient int64, value IntExpr) IntExpr {
 
 //goplus:dep DivInt(0 c nat, value IntExpr[c], divisor smt.IntegerValue) IntExpr[c]
 func DivInt(value IntExpr, divisor smt.IntegerValue) IntExpr {
-	switch __gp_m171 := any(value).(type) {
+	switch __gp_m172 := any(value).(type) {
 	case intExprValue:
-		contextID := __gp_m171.contextID
-		term := __gp_m171.term
-		fast := __gp_m171.fast
+		contextID := __gp_m172.contextID
+		term := __gp_m172.term
+		fast := __gp_m172.fast
 		return intExprValue{contextID: contextID, term: smt.DivInteger(materializeInteger(term, fast), divisor), fast: integerFast{}}
 	default:
 		panic("goplus: impossible enum value in match")
@@ -3069,11 +3099,11 @@ func DivInt(value IntExpr, divisor smt.IntegerValue) IntExpr {
 
 //goplus:dep ModInt(0 c nat, value IntExpr[c], divisor smt.IntegerValue) IntExpr[c]
 func ModInt(value IntExpr, divisor smt.IntegerValue) IntExpr {
-	switch __gp_m172 := any(value).(type) {
+	switch __gp_m173 := any(value).(type) {
 	case intExprValue:
-		contextID := __gp_m172.contextID
-		term := __gp_m172.term
-		fast := __gp_m172.fast
+		contextID := __gp_m173.contextID
+		term := __gp_m173.term
+		fast := __gp_m173.fast
 		return intExprValue{contextID: contextID, term: smt.ModInteger(materializeInteger(term, fast), divisor), fast: integerFast{}}
 	default:
 		panic("goplus: impossible enum value in match")
@@ -3142,9 +3172,9 @@ func EqReal(left RealExpr, right RealExpr) BoolExpr {
 
 //goplus:dep NewSolver(0 c nat, context Context[c]) Solver[c, 0, 0]
 func NewSolver(context Context) Solver {
-	switch __gp_m173 := any(context).(type) {
+	switch __gp_m174 := any(context).(type) {
 	case contextValue:
-		contextID := __gp_m173.iD
+		contextID := __gp_m174.iD
 		return solverValue{contextID: contextID, core: smt.New()}
 	default:
 		panic("goplus: impossible enum value in match")
@@ -3153,16 +3183,16 @@ func NewSolver(context Context) Solver {
 
 //goplus:dep Assert(assertion nat, 0 c nat, 0 a nat, 0 d nat, solver Solver[c, a, d], formula BoolExpr[c]) Solver[c, smt.ContextID(a, assertion), d]
 func Assert(assertion int, solver Solver, formula BoolExpr) Solver {
-	switch __gp_m174 := any(solver).(type) {
+	switch __gp_m175 := any(solver).(type) {
 	case solverValue:
-		context := __gp_m174.contextID
-		core := __gp_m174.core
+		context := __gp_m175.contextID
+		core := __gp_m175.core
 
-		switch __gp_m175 := any(formula).(type) {
+		switch __gp_m176 := any(formula).(type) {
 		case boolExprValue:
-			formulaContext := __gp_m175.contextID
-			term := __gp_m175.term
-			fast := __gp_m175.fast
+			formulaContext := __gp_m176.contextID
+			term := __gp_m176.term
+			fast := __gp_m176.fast
 
 			if context != formulaContext {
 				panic("gosmt: erased context mismatch")
@@ -3178,10 +3208,10 @@ func Assert(assertion int, solver Solver, formula BoolExpr) Solver {
 
 //goplus:dep Check(0 c nat, 0 a nat, 0 d nat, solver Solver[c, a, d]) Result[c, a]
 func Check(solver Solver) Result {
-	switch __gp_m176 := any(solver).(type) {
+	switch __gp_m177 := any(solver).(type) {
 	case solverValue:
-		context := __gp_m176.contextID
-		core := __gp_m176.core
+		context := __gp_m177.contextID
+		core := __gp_m177.core
 
 		return cachedCheckResult(context, core)
 	default:
@@ -3191,23 +3221,23 @@ func Check(solver Solver) Result {
 
 //goplus:dep CheckAssuming(0 c nat, 0 a nat, 0 d nat, solver Solver[c, a, d], assumptions ...BoolExpr[c]) AssumptionResult[c, a]
 func CheckAssuming(solver Solver, assumptions ...BoolExpr) AssumptionResult {
-	switch __gp_m177 := any(solver).(type) {
+	switch __gp_m178 := any(solver).(type) {
 	case solverValue:
-		context := __gp_m177.contextID
-		core := __gp_m177.core
+		context := __gp_m178.contextID
+		core := __gp_m178.core
 
 		terms := assumptionTerms(context, assumptions)
-		switch __gp_m178 := any(smt.CheckAssuming(core, terms...)).(type) {
+		switch __gp_m179 := any(smt.CheckAssuming(core, terms...)).(type) {
 		case smt.AssumptionsSatisfiable:
-			model := __gp_m178.Value
+			model := __gp_m179.Value
 			return AssumptionSat{Value: modelValue{contextID: context, core: model}}
 		case smt.AssumptionsUnsatisfiable:
-			proof := __gp_m178.Value
-			indices := __gp_m178.Indices
+			proof := __gp_m179.Value
+			indices := __gp_m179.Indices
 			return AssumptionUnsat{Context: contextValue{iD: context}, Proof: proof, Indices: indices}
 		case smt.AssumptionsUnknown:
-			proof := __gp_m178.Context
-			reason := __gp_m178.Reason
+			proof := __gp_m179.Context
+			reason := __gp_m179.Reason
 			return AssumptionUnknown{Context: contextValue{iD: context}, Proof: proof, Reason: reason}
 		default:
 			panic("goplus: impossible enum value in match")
@@ -3219,16 +3249,16 @@ func CheckAssuming(solver Solver, assumptions ...BoolExpr) AssumptionResult {
 
 //goplus:dep EvalBool(0 c nat, 0 a nat, model Model[c, a], expression BoolExpr[c]) (bool, bool)
 func EvalBool(model Model, expression BoolExpr) (bool, bool) {
-	switch __gp_m179 := any(model).(type) {
+	switch __gp_m180 := any(model).(type) {
 	case modelValue:
-		context := __gp_m179.contextID
-		core := __gp_m179.core
+		context := __gp_m180.contextID
+		core := __gp_m180.core
 
-		switch __gp_m180 := any(expression).(type) {
+		switch __gp_m181 := any(expression).(type) {
 		case boolExprValue:
-			expressionContext := __gp_m180.contextID
-			term := __gp_m180.term
-			fast := __gp_m180.fast
+			expressionContext := __gp_m181.contextID
+			term := __gp_m181.term
+			fast := __gp_m181.fast
 
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
@@ -3244,16 +3274,16 @@ func EvalBool(model Model, expression BoolExpr) (bool, bool) {
 
 //goplus:dep EvalInt(0 c nat, 0 a nat, model Model[c, a], expression IntExpr[c]) (int64, bool)
 func EvalInt(model Model, expression IntExpr) (int64, bool) {
-	switch __gp_m181 := any(model).(type) {
+	switch __gp_m182 := any(model).(type) {
 	case modelValue:
-		context := __gp_m181.contextID
-		core := __gp_m181.core
+		context := __gp_m182.contextID
+		core := __gp_m182.core
 
-		switch __gp_m182 := any(expression).(type) {
+		switch __gp_m183 := any(expression).(type) {
 		case intExprValue:
-			expressionContext := __gp_m182.contextID
-			term := __gp_m182.term
-			fast := __gp_m182.fast
+			expressionContext := __gp_m183.contextID
+			term := __gp_m183.term
+			fast := __gp_m183.fast
 
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
@@ -3274,16 +3304,16 @@ func EvalInt(model Model, expression IntExpr) (int64, bool) {
 
 //goplus:dep EvalIntExact(0 c nat, 0 a nat, model Model[c, a], expression IntExpr[c]) (smt.IntegerValue, bool)
 func EvalIntExact(model Model, expression IntExpr) (smt.IntegerValue, bool) {
-	switch __gp_m183 := any(model).(type) {
+	switch __gp_m184 := any(model).(type) {
 	case modelValue:
-		context := __gp_m183.contextID
-		core := __gp_m183.core
+		context := __gp_m184.contextID
+		core := __gp_m184.core
 
-		switch __gp_m184 := any(expression).(type) {
+		switch __gp_m185 := any(expression).(type) {
 		case intExprValue:
-			expressionContext := __gp_m184.contextID
-			term := __gp_m184.term
-			fast := __gp_m184.fast
+			expressionContext := __gp_m185.contextID
+			term := __gp_m185.term
+			fast := __gp_m185.fast
 
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
@@ -3304,15 +3334,15 @@ func EvalIntExact(model Model, expression IntExpr) (smt.IntegerValue, bool) {
 
 //goplus:dep EvalDatatype(datatype nat, constructors nat, 0 c nat, 0 a nat, model Model[c, a], expression DatatypeExpr[c, datatype, constructors]) (smt.DatatypeValue, bool)
 func EvalDatatype(datatype int, constructors int, model Model, expression DatatypeExpr) (smt.DatatypeValue, bool) {
-	switch __gp_m185 := any(model).(type) {
+	switch __gp_m186 := any(model).(type) {
 	case modelValue:
-		context := __gp_m185.contextID
-		core := __gp_m185.core
+		context := __gp_m186.contextID
+		core := __gp_m186.core
 
-		switch __gp_m186 := any(expression).(type) {
+		switch __gp_m187 := any(expression).(type) {
 		case datatypeExprValue:
-			expressionContext := __gp_m186.contextID
-			term := __gp_m186.term
+			expressionContext := __gp_m187.contextID
+			term := __gp_m187.term
 
 			if context != expressionContext {
 				panic("gosmt: erased model/datatype context mismatch")
@@ -3328,16 +3358,16 @@ func EvalDatatype(datatype int, constructors int, model Model, expression Dataty
 
 //goplus:dep EvalIntArray(0 c nat, 0 a nat, model Model[c, a], array ArrayExpr[c, smt.IntSort, smt.IntSort], index smt.IntegerValue) (smt.IntegerValue, bool)
 func EvalIntArray(model Model, array ArrayExpr[smt.IntSort, smt.IntSort], index smt.IntegerValue) (smt.IntegerValue, bool) {
-	switch __gp_m187 := any(model).(type) {
+	switch __gp_m188 := any(model).(type) {
 	case modelValue:
-		context := __gp_m187.contextID
-		core := __gp_m187.core
+		context := __gp_m188.contextID
+		core := __gp_m188.core
 
-		switch __gp_m188 := any(array).(type) {
+		switch __gp_m189 := any(array).(type) {
 		case arrayExprValue[smt.IntSort, smt.IntSort]:
-			arrayContext := __gp_m188.contextID
-			term := __gp_m188.term
-			fast := __gp_m188.fast
+			arrayContext := __gp_m189.contextID
+			term := __gp_m189.term
+			fast := __gp_m189.fast
 
 			if context != arrayContext {
 				panic("gosmt: erased model/array context mismatch")
@@ -3353,16 +3383,16 @@ func EvalIntArray(model Model, array ArrayExpr[smt.IntSort, smt.IntSort], index 
 
 //goplus:dep EvalBitVecArray(0 c nat, 0 a nat, 0 indexWidth nat, 0 elementWidth nat, model Model[c, a], array BitVecArrayExpr[c, indexWidth, elementWidth], index smt.BitVectorValue) (smt.BitVectorValue, bool)
 func EvalBitVecArray(model Model, array BitVecArrayExpr, index smt.BitVectorValue) (smt.BitVectorValue, bool) {
-	switch __gp_m189 := any(model).(type) {
+	switch __gp_m190 := any(model).(type) {
 	case modelValue:
-		context := __gp_m189.contextID
-		core := __gp_m189.core
+		context := __gp_m190.contextID
+		core := __gp_m190.core
 
-		switch __gp_m190 := any(array).(type) {
+		switch __gp_m191 := any(array).(type) {
 		case bitVecArrayExprValue:
-			arrayContext := __gp_m190.contextID
-			term := __gp_m190.term
-			fast := __gp_m190.fast
+			arrayContext := __gp_m191.contextID
+			term := __gp_m191.term
+			fast := __gp_m191.fast
 
 			if context != arrayContext {
 				panic("gosmt: erased model/bit-vector-array context mismatch")
@@ -3378,16 +3408,16 @@ func EvalBitVecArray(model Model, array BitVecArrayExpr, index smt.BitVectorValu
 
 //goplus:dep EvalReal(0 c nat, 0 a nat, model Model[c, a], expression RealExpr[c]) (smt.Rational, bool)
 func EvalReal(model Model, expression RealExpr) (smt.Rational, bool) {
-	switch __gp_m191 := any(model).(type) {
+	switch __gp_m192 := any(model).(type) {
 	case modelValue:
-		context := __gp_m191.contextID
-		core := __gp_m191.core
+		context := __gp_m192.contextID
+		core := __gp_m192.core
 
-		switch __gp_m192 := any(expression).(type) {
+		switch __gp_m193 := any(expression).(type) {
 		case realExprValue:
-			expressionContext := __gp_m192.contextID
-			term := __gp_m192.term
-			fast := __gp_m192.fast
+			expressionContext := __gp_m193.contextID
+			term := __gp_m193.term
+			fast := __gp_m193.fast
 
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
@@ -3403,16 +3433,16 @@ func EvalReal(model Model, expression RealExpr) (smt.Rational, bool) {
 
 //goplus:dep EvalString(0 c nat, 0 a nat, model Model[c, a], expression StringExpr[c]) (string, bool)
 func EvalString(model Model, expression StringExpr) (string, bool) {
-	switch __gp_m193 := any(model).(type) {
+	switch __gp_m194 := any(model).(type) {
 	case modelValue:
-		context := __gp_m193.contextID
-		core := __gp_m193.core
+		context := __gp_m194.contextID
+		core := __gp_m194.core
 
-		switch __gp_m194 := any(expression).(type) {
+		switch __gp_m195 := any(expression).(type) {
 		case stringExprValue:
-			expressionContext := __gp_m194.contextID
-			term := __gp_m194.term
-			fast := __gp_m194.fast
+			expressionContext := __gp_m195.contextID
+			term := __gp_m195.term
+			fast := __gp_m195.fast
 
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
@@ -3428,16 +3458,16 @@ func EvalString(model Model, expression StringExpr) (string, bool) {
 
 //goplus:dep EvalIntSequence(0 c nat, 0 a nat, model Model[c, a], expression IntSequenceExpr[c]) (smt.IntegerSequenceValue, bool)
 func EvalIntSequence(model Model, expression IntSequenceExpr) (smt.IntegerSequenceValue, bool) {
-	switch __gp_m195 := any(model).(type) {
+	switch __gp_m196 := any(model).(type) {
 	case modelValue:
-		context := __gp_m195.contextID
-		core := __gp_m195.core
+		context := __gp_m196.contextID
+		core := __gp_m196.core
 
-		switch __gp_m196 := any(expression).(type) {
+		switch __gp_m197 := any(expression).(type) {
 		case intSequenceExprValue:
-			expressionContext := __gp_m196.contextID
-			term := __gp_m196.term
-			fast := __gp_m196.fast
+			expressionContext := __gp_m197.contextID
+			term := __gp_m197.term
+			fast := __gp_m197.fast
 
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")

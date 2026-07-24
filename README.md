@@ -35,6 +35,9 @@ exact guarded case splitting.
 Unary `Real -> Bool` and binary `Real × Real -> Bool` predicates retain their
 mixed signatures and context identity in Go+, accept affine arguments, and
 share exact LRA/EUF equality exchange.
+Ternary `Real × Real × Real -> Real` functions likewise retain context and
+arity indices, purify affine arguments, aggregate exact rational bounds, and
+participate in fixed-point QF_UFLRA congruence.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive
