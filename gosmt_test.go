@@ -195,6 +195,33 @@ func TestContextIndexedFloatingPointOrdering(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointMinMax(t *testing.T) {
+	context := NewContext(138)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	negativeOne := FloatingPointFromUint64(8, 24, context, 0xbf800000)
+	positiveOne := FloatingPointFromUint64(8, 24, context, 0x3f800000)
+	minimum := FloatingPointMin(left, right)
+	maximum := FloatingPointMax(left, right)
+	result, ok := Check(Assert(1, NewSolver(context), And(
+		EqBitVec(FloatingPointBits(left), FloatingPointBits(negativeOne)),
+		EqBitVec(FloatingPointBits(right), FloatingPointBits(positiveOne)),
+		EqBitVec(FloatingPointBits(minimum), FloatingPointBits(negativeOne)),
+		EqBitVec(FloatingPointBits(maximum), FloatingPointBits(positiveOne)),
+	))).(Sat)
+	if !ok {
+		t.Fatal("expected exact symbolic fp.min/fp.max constraints to be satisfiable")
+	}
+	minBits, minFound := ModelFloatingPointBits(result.Value, minimum)
+	maxBits, maxFound := ModelFloatingPointBits(result.Value, maximum)
+	minValue, minInline := minBits.Uint64()
+	maxValue, maxInline := maxBits.Uint64()
+	if !minFound || !maxFound || !minInline || !maxInline ||
+		minValue != 0xbf800000 || maxValue != 0x3f800000 {
+		t.Fatalf("unexpected min/max models: min=%#x max=%#x", minValue, maxValue)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

@@ -3666,6 +3666,16 @@ func FloatingPointGreaterOrEqual(left FloatingPointExpr, right FloatingPointExpr
 	return floatingPointLessOrEqual(right, left)
 }
 
+//goplus:dep FloatingPointMin(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s]
+func FloatingPointMin(left FloatingPointExpr, right FloatingPointExpr) FloatingPointExpr {
+	return floatingPointMinMax(left, right, smt.FloatingPointOperationMin)
+}
+
+//goplus:dep FloatingPointMax(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s]
+func FloatingPointMax(left FloatingPointExpr, right FloatingPointExpr) FloatingPointExpr {
+	return floatingPointMinMax(left, right, smt.FloatingPointOperationMax)
+}
+
 //goplus:dep ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool)
 func ModelFloatingPointBits(model Model, value FloatingPointExpr) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)

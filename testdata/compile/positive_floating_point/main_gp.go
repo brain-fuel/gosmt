@@ -19,4 +19,6 @@ func AcceptedFloatingPoint() {
 	_ = gosmt.FloatingPointLessOrEqual(left, right)
 	_ = gosmt.FloatingPointGreaterThan(left, right)
 	_ = gosmt.FloatingPointGreaterOrEqual(left, right)
+	_ = gosmt.FloatingPointMin(left, right)
+	_ = gosmt.FloatingPointMax(left, right)
 }

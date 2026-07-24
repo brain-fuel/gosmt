@@ -6837,6 +6837,84 @@ func TestSymbolicFloatingPointOrderingAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSymbolicFloatingPointMinMaxAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x46504d4d))
+	for example := 0; example < 64; example++ {
+		leftPattern := uint64(random.Uint32())
+		rightPattern := uint64(random.Uint32())
+		if example%16 == 0 {
+			leftPattern, rightPattern = 0, 0x80000000
+		}
+		if example%16 == 4 {
+			leftPattern = 0x7fc12345
+		}
+		if example%16 == 8 {
+			leftPattern, rightPattern = 0x7fc12345, 0xffc54321
+		}
+		operation := "fp.min"
+		apply := FloatingPointMin
+		coreApply := smt.FloatingPointMin
+		if example%2 != 0 {
+			operation = "fp.max"
+			apply = FloatingPointMax
+			coreApply = smt.FloatingPointMax
+		}
+		leftCore := smt.FloatingPointFromUint64(8, 24, leftPattern)
+		rightCore := smt.FloatingPointFromUint64(8, 24, rightPattern)
+		expectedCore := coreApply(leftCore, rightCore)
+		expectedBits, _ := smt.FloatingPointBits(expectedCore).Uint64()
+		positive := example%4 < 2
+		context := NewContext(570 + example)
+		left := FloatingPointConst(8, 24, context, "left", 1)
+		right := FloatingPointConst(8, 24, context, "right", 2)
+		selected := apply(left, right)
+		relation := EqBitVec(
+			FloatingPointBits(selected),
+			BitVecValue(32, context, expectedBits),
+		)
+		if !positive {
+			relation = Not(relation)
+		}
+		formula := And(
+			EqBitVec(
+				FloatingPointBits(left),
+				FloatingPointBits(FloatingPointFromUint64(8, 24, context, leftPattern)),
+			),
+			EqBitVec(
+				FloatingPointBits(right),
+				FloatingPointBits(FloatingPointFromUint64(8, 24, context, rightPattern)),
+			),
+			relation,
+		)
+		ours := floatingPointResultStatus(Check(Assert(1, NewSolver(context), formula)))
+		selectedText := fmt.Sprintf("(%s left right)", operation)
+		assertion := fmt.Sprintf("(fp.eq %s %s)", selectedText, smtLIBFloat32(expectedBits))
+		if smt.FloatingPointIsNaN(expectedCore) {
+			assertion = fmt.Sprintf("(fp.isNaN %s)", selectedText)
+		}
+		if !positive {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n(declare-const right (_ FloatingPoint 8 24))\n(assert (= left ((_ to_fp 8 24) #x%08x)))\n(assert (= right ((_ to_fp 8 24) #x%08x)))\n(assert %s)\n(check-sat)\n",
+			uint32(leftPattern), uint32(rightPattern), assertion,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, ours, want, script)
+		}
+	}
+}
+
 func floatingPointResultStatus(result Result) string {
 	switch result.(type) {
 	case Sat:

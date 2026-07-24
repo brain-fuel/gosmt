@@ -1021,6 +1021,13 @@ the complete bit-blasted fallback. GoSMT uses 10 allocations and
 1.279–1.380 ms. This is exactly 50.0% fewer allocations and over 159x
 conservative-endpoint throughput.
 
+The symbolic floating-point minimum workload fixes binary32 symbols to `-1`
+and `+1`, constrains `fp.min` to the exact `-1` IEEE pattern, and evaluates the
+selected model. GoSMT's compact assigned-symbol relation uses 10 allocations
+and 8.100–8.146 us versus pinned Z3's 22 visible Go allocations and
+1.276–1.384 ms. This is 54.5% fewer allocations and over 156x
+conservative-endpoint throughput.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on

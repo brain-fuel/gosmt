@@ -152,6 +152,7 @@ const (
 	booleanFastBitVectorRelation
 	booleanFastFloatingPointRelation
 	booleanFastFloatingPointComparison
+	booleanFastFloatingPointMinMax
 	booleanFastBitVectorEUFRelation
 	booleanFastIntegerDifference
 	booleanFastIntegerSymbolEquality
@@ -197,6 +198,7 @@ type booleanFast struct {
 	bitVectorRelation            smt.BitVectorRelation
 	floatingPointRelation        smt.FloatingPointRelation
 	floatingPointComparison      smt.FloatingPointComparisonRelation
+	floatingPointMinMax          smt.FloatingPointMinMaxRelation
 	bitVectorEUFRelation         smt.BitVectorEUFRelation
 	integerDifference            smt.IntegerDifferenceConstraint
 	integerSymbolLeft            int
@@ -548,12 +550,29 @@ func assertBoolean(assertion int, solver smt.Solver, term smt.Term[smt.BoolSort]
 	if fast.kind == booleanFastFloatingPointComparison {
 		return smt.AssertFloatingPointComparisonRelation(assertion, solver, fast.floatingPointComparison)
 	}
+	if fast.kind == booleanFastFloatingPointMinMax {
+		return smt.AssertFloatingPointMinMaxRelation(assertion, solver, fast.floatingPointMinMax)
+	}
 	return smt.Assert(assertion, solver, materializeBoolean(term, fast))
 }
 
 func modelFloatingPointBits(model smt.Model, term smt.Term[smt.BitVecSort], fast bitVectorFast) (smt.BitVectorValue, bool) {
 	if fast.kind == bitVectorFastSymbol {
 		return smt.FloatingPointSymbolModelBits(model, fast.id)
+	}
+	if fast.kind == bitVectorFastFloatingPointMinMax {
+		leftBits, leftFound := smt.FloatingPointSymbolModelBits(model, fast.id)
+		rightBits, rightFound := smt.FloatingPointSymbolModelBits(model, fast.firstID)
+		if !leftFound || !rightFound {
+			return smt.BitVectorValue{}, false
+		}
+		left := smt.FloatingPointFromBits(fast.parameterA, fast.parameterB, leftBits)
+		right := smt.FloatingPointFromBits(fast.parameterA, fast.parameterB, rightBits)
+		selected := smt.FloatingPointMin(left, right)
+		if fast.operation == smt.FloatingPointOperationMax {
+			selected = smt.FloatingPointMax(left, right)
+		}
+		return smt.FloatingPointBits(selected), true
 	}
 	return smt.BitVecModelValue(model, materializeBitVector(term, fast))
 }
@@ -1312,6 +1331,7 @@ const (
 	bitVectorFastAppliedSymbol
 	bitVectorFastUnaryApplication
 	bitVectorFastArrayStoreRead
+	bitVectorFastFloatingPointMinMax
 )
 
 type bitVectorFast struct {
@@ -1710,6 +1730,16 @@ func fastEqBitVector(left, right BitVecExpr) BoolExpr {
 	if left.fast.kind == bitVectorFastValue && right.fast.kind == bitVectorFastValue {
 		return boolExprValue{contextID: context, term: smt.Bool{Value: smt.EqualBitVectorValue(left.fast.value, right.fast.value)}}
 	}
+	if relation, ok := compactFloatingPointMinMaxRelation(left.fast, right.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastFloatingPointMinMax, floatingPointMinMax: relation,
+		}}
+	}
+	if relation, ok := compactFloatingPointMinMaxRelation(right.fast, left.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastFloatingPointMinMax, floatingPointMinMax: relation,
+		}}
+	}
 	if relation, ok := compactBitVectorArrayStoreReadValue(left.fast, right.fast); ok {
 		return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastBitVectorArrayStoreReadValue, bitVectorArrayStoreReadValue: relation}}
 	}
@@ -1726,6 +1756,19 @@ func fastEqBitVector(left, right BitVecExpr) BoolExpr {
 		return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastBitVectorRelation, bitVectorRelation: relation}}
 	}
 	return fastBooleanAtom(context, smt.Equal{Left: materializeBitVector(left.term, left.fast), Right: materializeBitVector(right.term, right.fast)})
+}
+
+func compactFloatingPointMinMaxRelation(
+	expression, constant bitVectorFast,
+) (smt.FloatingPointMinMaxRelation, bool) {
+	if expression.kind != bitVectorFastFloatingPointMinMax ||
+		constant.kind != bitVectorFastValue {
+		return smt.FloatingPointMinMaxRelation{}, false
+	}
+	return smt.NewFloatingPointMinMaxRelation(
+		expression.parameterA, expression.parameterB,
+		expression.id, expression.firstID, expression.operation, constant.value,
+	), true
 }
 
 func compactBitVectorArrayStoreReadValue(read, constant bitVectorFast) (smt.BitVectorArrayStoreReadValueRelation, bool) {
@@ -2113,6 +2156,11 @@ func materializeBitVector(term smt.Term[smt.BitVecSort], fast bitVectorFast) smt
 		default:
 			return smt.BitVecRepeat(fast.parameterA, symbol)
 		}
+	case bitVectorFastFloatingPointMinMax:
+		return smt.FloatingPointMinMaxBitVector(
+			fast.parameterA, fast.parameterB, fast.id, fast.firstID,
+			fast.name, fast.firstName, fast.operation,
+		)
 	case bitVectorFastUnaryApplication:
 		return smt.ApplyBitVecUnary(fast.function, smt.BitVecConst(fast.firstWidth, fast.firstID, fast.firstName))
 	default:
@@ -2486,6 +2534,55 @@ func floatingPointLessOrEqual(left, right FloatingPointExpr) BoolExpr {
 		floatingPointLessThan(left, right),
 		floatingPointEqual(left, right),
 	})
+}
+
+func floatingPointMinMax(
+	left, right FloatingPointExpr,
+	operation uint8,
+) FloatingPointExpr {
+	validateFloatingPointPair(left, right)
+	leftGround, leftOK := floatingPointGroundValue(left)
+	rightGround, rightOK := floatingPointGroundValue(right)
+	if leftOK && rightOK {
+		selected := smt.FloatingPointMin(leftGround, rightGround)
+		if operation == smt.FloatingPointOperationMax {
+			selected = smt.FloatingPointMax(leftGround, rightGround)
+		}
+		return floatingPointExprValue{
+			contextID: left.contextID, exponentBits: left.exponentBits,
+			significandBits: left.significandBits,
+			bits:            exactBitVectorExpr(left.contextID, smt.FloatingPointBits(selected)),
+		}
+	}
+	total := left.exponentBits + left.significandBits
+	var bits BitVecExpr
+	if left.bits.fast.kind == bitVectorFastSymbol &&
+		right.bits.fast.kind == bitVectorFastSymbol {
+		bits = bitVecExprValue{
+			contextID: left.contextID,
+			fast: bitVectorFast{
+				kind: bitVectorFastFloatingPointMinMax, width: total,
+				id: left.bits.fast.id, name: left.bits.fast.name,
+				firstID: right.bits.fast.id, firstName: right.bits.fast.name,
+				operation:  operation,
+				parameterA: left.exponentBits, parameterB: left.significandBits,
+			},
+		}
+	} else {
+		bits = bitVecExprValue{
+			contextID: left.contextID,
+			term: smt.FloatingPointMinMaxBitVectorTerms(
+				left.exponentBits, left.significandBits,
+				materializeBitVector(left.bits.term, left.bits.fast),
+				materializeBitVector(right.bits.term, right.bits.fast),
+				operation,
+			),
+		}
+	}
+	return floatingPointExprValue{
+		contextID: left.contextID, exponentBits: left.exponentBits,
+		significandBits: left.significandBits, bits: bits,
+	}
 }
 
 func compactFloatingPointComparison(
@@ -3384,6 +3481,10 @@ func fastNot(value BoolExpr) BoolExpr {
 	}
 	if value.fast.kind == booleanFastFloatingPointComparison {
 		value.fast.floatingPointComparison.Negated = !value.fast.floatingPointComparison.Negated
+		return value
+	}
+	if value.fast.kind == booleanFastFloatingPointMinMax {
+		value.fast.floatingPointMinMax.Negated = !value.fast.floatingPointMinMax.Negated
 		return value
 	}
 	if value.fast.kind == booleanFastBitVectorEUFRelation {
@@ -4370,6 +4471,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.floatingPointRelation
 	case booleanFastFloatingPointComparison:
 		return fast.floatingPointComparison
+	case booleanFastFloatingPointMinMax:
+		return fast.floatingPointMinMax
 	case booleanFastBitVectorEUFRelation:
 		return fast.bitVectorEUFRelation
 	case booleanFastIntegerDifference:

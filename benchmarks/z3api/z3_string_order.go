@@ -17,6 +17,10 @@ static void *gosmt_z3_mk_char_string(void *context, unsigned code) {
 	return Z3_mk_seq_unit((Z3_context)context, character);
 }
 
+static void *gosmt_z3_mk_fpa_min(void *context, void *left, void *right) {
+	return Z3_mk_fpa_min((Z3_context)context, (Z3_ast)left, (Z3_ast)right);
+}
+
 static void gosmt_z3_inc_ref(void *context, void *value) {
 	Z3_inc_ref((Z3_context)context, (Z3_ast)value);
 }
@@ -53,6 +57,17 @@ func z3CharacterString(context *z3.Context, code uint32) *z3.Expr {
 		context,
 		contextPointer,
 		C.gosmt_z3_mk_char_string(contextPointer, C.uint(code)),
+	)
+}
+
+func z3FloatingPointMin(context *z3.Context, left, right *z3.Expr) *z3.Expr {
+	contextPointer := *(*unsafe.Pointer)(unsafe.Pointer(context))
+	leftPointer := (*z3ExpressionLayout)(unsafe.Pointer(left)).pointer
+	rightPointer := (*z3ExpressionLayout)(unsafe.Pointer(right)).pointer
+	return z3ManagedExpression(
+		context,
+		contextPointer,
+		C.gosmt_z3_mk_fpa_min(contextPointer, leftPointer, rightPointer),
 	)
 }
 

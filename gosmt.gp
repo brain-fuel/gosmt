@@ -1431,6 +1431,14 @@ func FloatingPointGreaterOrEqual(0 c nat, 0 e nat, 0 s nat, left FloatingPointEx
 	return floatingPointLessOrEqual(right, left)
 }
 
+func FloatingPointMin(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s] {
+	return floatingPointMinMax(left, right, smt.FloatingPointOperationMin)
+}
+
+func FloatingPointMax(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s] {
+	return floatingPointMinMax(left, right, smt.FloatingPointOperationMax)
+}
+
 func ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)
 }
