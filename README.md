@@ -28,6 +28,10 @@ LIA and EUF to a fixed point, including affine arguments. Compact direct-symbol
 paths avoid materializing application trees. Unary `Int -> Bool` and binary
 `Int × Int -> Bool` predicates use the same context indices, affine argument
 purification, and LIA-driven congruence.
+Integer-valued `IfInt` terms preserve exact branch semantics around unary EUF
+applications in the typed API and SMT-LIB `ite`. A compact conditional system
+keeps the common QF_UFLIA path allocation-safe while the general solver uses
+exact guarded case splitting.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive

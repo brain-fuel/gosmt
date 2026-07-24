@@ -5929,6 +5929,59 @@ func BenchmarkSharedBinaryIntegerPredicateCold(b *testing.B) {
 	})
 }
 
+func BenchmarkConditionalIntegerEUFArithmeticCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(122)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			zero := gosmt.IntVal(context, 0)
+			function := gosmt.DeclareIntFunction(context, "f", 3)
+			conditional := gosmt.IfInt(
+				gosmt.Le(x, y), gosmt.ApplyIntFunction(function, x), zero,
+			)
+			formula := gosmt.And(
+				gosmt.EqInt(x, y),
+				gosmt.Le(conditional, zero),
+				gosmt.Lt(zero, gosmt.ApplyIntFunction(function, y)),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Unsat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			y := context.MkIntConst("y")
+			zero := context.MkInt(0, sort)
+			conditional := context.MkIntConst("conditional")
+			function := context.MkFuncDecl(
+				context.MkStringSymbol("f"), []*z3.Sort{sort}, sort,
+			)
+			condition := context.MkLe(x, y)
+			formula := context.MkAnd(
+				context.MkEq(x, y),
+				// The pinned Go binding omits Z3_mk_ite. These two guarded
+				// equalities are exactly its integer-term semantics.
+				context.MkOr(context.MkNot(condition), context.MkEq(conditional, context.MkApp(function, x))),
+				context.MkOr(condition, context.MkEq(conditional, zero)),
+				context.MkLe(conditional, zero),
+				context.MkLt(zero, context.MkApp(function, y)),
+			)
+			solver := context.NewSolverForLogic("QF_UFLIA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Unsatisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkPurifiedRealEUFArithmeticCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

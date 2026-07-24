@@ -1060,6 +1060,10 @@ func IfBool(0 c nat, condition BoolExpr[c], thenValue BoolExpr[c], elseValue Boo
 	return Or(And(condition, thenValue), And(Not(condition), elseValue))
 }
 
+func IfInt(0 c nat, condition BoolExpr[c], thenValue IntExpr[c], elseValue IntExpr[c]) IntExpr[c] {
+	return fastIfInteger(condition, thenValue, elseValue)
+}
+
 func EqBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c] {
 	match left { case boolExprValue(leftContext, leftTerm, leftFast):
 		match right { case boolExprValue(rightContext, rightTerm, rightFast):

@@ -3167,6 +3167,32 @@ func TestBinaryIntegerPredicateCongruence(t *testing.T) {
 	}
 }
 
+func TestConditionalIntegerFunctionApplications(t *testing.T) {
+	context := NewContext(122)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	zero := IntVal(context, 0)
+	function := DeclareIntFunction(context, "f", 3)
+	for name, condition := range map[string]BoolExpr{
+		"then": Le(x, y),
+		"else": Lt(x, y),
+	} {
+		thenValue, elseValue := ApplyIntFunction(function, x), zero
+		if name == "else" {
+			thenValue, elseValue = zero, ApplyIntFunction(function, x)
+		}
+		formula := And(
+			EqInt(x, y),
+			Le(IfInt(condition, thenValue, elseValue), zero),
+			Lt(zero, ApplyIntFunction(function, y)),
+		)
+		result := Check(Assert(1, NewSolver(context), formula))
+		if _, ok := result.(Unsat); !ok {
+			t.Fatalf("%s conditional should be unsatisfiable: %T", name, result)
+		}
+	}
+}
+
 func TestRealFunctionApplicationsInsideArithmeticArePurified(t *testing.T) {
 	context := NewContext(17)
 	x := RealConst(context, "x", 1)

@@ -2934,6 +2934,11 @@ func IfBool(condition BoolExpr, thenValue BoolExpr, elseValue BoolExpr) BoolExpr
 	return Or(And(condition, thenValue), And(Not(condition), elseValue))
 }
 
+//goplus:dep IfInt(0 c nat, condition BoolExpr[c], thenValue IntExpr[c], elseValue IntExpr[c]) IntExpr[c]
+func IfInt(condition BoolExpr, thenValue IntExpr, elseValue IntExpr) IntExpr {
+	return fastIfInteger(condition, thenValue, elseValue)
+}
+
 //goplus:dep EqBool(0 c nat, left BoolExpr[c], right BoolExpr[c]) BoolExpr[c]
 func EqBool(left BoolExpr, right BoolExpr) BoolExpr {
 	switch __gp_m166 := any(left).(type) {

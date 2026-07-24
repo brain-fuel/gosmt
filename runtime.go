@@ -77,6 +77,21 @@ type integerFast struct {
 	argumentID       int
 	secondArgumentID int
 	thirdArgumentID  int
+	conditional      integerConditionalFast
+}
+
+type integerConditionalBranchFast struct {
+	application bool
+	functionID  int
+	argumentID  int
+	constant    smt.IntegerValue
+}
+
+type integerConditionalFast struct {
+	valid      bool
+	condition  smt.IntegerDifferenceConstraint
+	thenBranch integerConditionalBranchFast
+	elseBranch integerConditionalBranchFast
 }
 
 type integerFunctionFast struct {
@@ -128,6 +143,7 @@ const (
 	booleanFastIntegerUnaryComparison
 	booleanFastIntegerBinaryComparison
 	booleanFastIntegerTernaryComparison
+	booleanFastIntegerConditionalComparison
 	booleanFastBitVectorRelation
 	booleanFastBitVectorEUFRelation
 	booleanFastIntegerDifference
@@ -169,6 +185,7 @@ type booleanFast struct {
 	integerUnaryComparison       smt.IntegerUnaryComparison
 	integerBinaryComparison      smt.IntegerBinaryComparison
 	integerTernaryComparison     smt.IntegerTernaryComparison
+	integerConditionalComparison smt.IntegerConditionalComparison
 	bitVectorRelation            smt.BitVectorRelation
 	bitVectorEUFRelation         smt.BitVectorEUFRelation
 	integerDifference            smt.IntegerDifferenceConstraint
@@ -1740,6 +1757,40 @@ func subtractInteger(left, right IntExpr) IntExpr {
 	return intExprValue{contextID: left.contextID, term: smt.Subtract{Left: materializeInteger(left.term, left.fast), Right: materializeInteger(right.term, right.fast)}}
 }
 
+func fastIfInteger(condition BoolExpr, thenValue, elseValue IntExpr) IntExpr {
+	if condition.contextID != thenValue.contextID || condition.contextID != elseValue.contextID {
+		panic("gosmt: erased integer conditional context mismatch")
+	}
+	thenBranch, thenOK := compactIntegerConditionalBranch(thenValue)
+	elseBranch, elseOK := compactIntegerConditionalBranch(elseValue)
+	if condition.fast.kind == booleanFastIntegerDifference && thenOK && elseOK {
+		return intExprValue{contextID: condition.contextID, fast: integerFast{
+			conditional: integerConditionalFast{
+				valid: true, condition: condition.fast.integerDifference,
+				thenBranch: thenBranch, elseBranch: elseBranch,
+			},
+		}}
+	}
+	return intExprValue{contextID: condition.contextID, term: smt.If[smt.IntSort]{
+		Condition: materializeBoolean(condition.term, condition.fast),
+		Then:      materializeInteger(thenValue.term, thenValue.fast),
+		Else:      materializeInteger(elseValue.term, elseValue.fast),
+	}}
+}
+
+func compactIntegerConditionalBranch(value IntExpr) (integerConditionalBranchFast, bool) {
+	if value.fast.eufValid && value.fast.eufArity == 1 {
+		return integerConditionalBranchFast{
+			application: true, functionID: value.fast.functionID,
+			argumentID: value.fast.argumentID,
+		}, true
+	}
+	if constant, ok := fastIntegerConstant(value); ok {
+		return integerConditionalBranchFast{constant: constant}, true
+	}
+	return integerConditionalBranchFast{}, false
+}
+
 func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
@@ -1757,6 +1808,34 @@ func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 		return boolExprValue{contextID: left.contextID, fast: booleanFast{
 			kind: booleanFastStringRelation, stringRelation: relation,
 		}}
+	}
+	conditional, constant, conditionalOnLeft := left, right, true
+	if !conditional.fast.conditional.valid {
+		conditional, constant, conditionalOnLeft = right, left, false
+	}
+	if conditional.fast.conditional.valid {
+		if bound, ok := fastIntegerConstant(constant); ok {
+			compact := conditional.fast.conditional
+			return boolExprValue{contextID: left.contextID, fast: booleanFast{
+				kind: booleanFastIntegerConditionalComparison,
+				integerConditionalComparison: smt.IntegerConditionalComparison{
+					Condition: compact.condition,
+					Then: smt.IntegerConditionalBranch{
+						Application: compact.thenBranch.application,
+						FunctionID:  compact.thenBranch.functionID,
+						ArgumentID:  compact.thenBranch.argumentID,
+						Constant:    compact.thenBranch.constant,
+					},
+					Else: smt.IntegerConditionalBranch{
+						Application: compact.elseBranch.application,
+						FunctionID:  compact.elseBranch.functionID,
+						ArgumentID:  compact.elseBranch.argumentID,
+						Constant:    compact.elseBranch.constant,
+					},
+					Bound: bound, ApplicationOnLeft: conditionalOnLeft, Strict: strict,
+				},
+			}}
+		}
 	}
 	application, constant, applicationOnLeft := left, right, true
 	if !application.fast.eufValid {
@@ -2931,6 +3010,9 @@ func fastAnd(values []BoolExpr) BoolExpr {
 		}
 		return boolExprValue{contextID: context, term: conjunction}
 	}
+	if system, ok := compactConditionalIntegerSystem(values); ok {
+		return boolExprValue{contextID: context, term: system}
+	}
 	allCompactIntegerTheory := len(values) > 0
 	integerEqualityCount, integerUnaryCount, integerBinaryCount, integerTernaryCount := 0, 0, 0, 0
 	for _, value := range values {
@@ -3119,6 +3201,59 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	return boolExprValue{contextID: context, term: smt.BooleanCNF{Literals: literals, ClauseEnds: ends}}
 }
 
+func compactConditionalIntegerSystem(
+	values []BoolExpr,
+) (smt.CompactConditionalIntegerEUFSystem, bool) {
+	var system smt.CompactConditionalIntegerEUFSystem
+	conditionalCount := 0
+	for _, value := range values {
+		switch value.fast.kind {
+		case booleanFastIntegerConditionalComparison:
+			conditionalCount++
+			system.Conditional = value.fast.integerConditionalComparison
+		case booleanFastIntegerSymbolEquality:
+			if value.fast.integerSymbolNegated {
+				return system, false
+			}
+			system.Base.EqualityCount++
+		case booleanFastIntegerUnaryComparison:
+			system.Base.UnaryComparisonCount++
+		case booleanFastIntegerBinaryComparison:
+			system.Base.BinaryComparisonCount++
+		case booleanFastIntegerTernaryComparison:
+			system.Base.TernaryComparisonCount++
+		default:
+			return system, false
+		}
+	}
+	if conditionalCount != 1 ||
+		system.Base.EqualityCount > len(system.Base.EqualityLeft) ||
+		system.Base.UnaryComparisonCount > len(system.Base.UnaryComparisons) ||
+		system.Base.BinaryComparisonCount > len(system.Base.BinaryComparisons) ||
+		system.Base.TernaryComparisonCount > len(system.Base.TernaryComparisons) {
+		return system, false
+	}
+	equality, unary, binary, ternary := 0, 0, 0, 0
+	for _, value := range values {
+		switch value.fast.kind {
+		case booleanFastIntegerSymbolEquality:
+			system.Base.EqualityLeft[equality] = value.fast.integerSymbolLeft
+			system.Base.EqualityRight[equality] = value.fast.integerSymbolRight
+			equality++
+		case booleanFastIntegerUnaryComparison:
+			system.Base.UnaryComparisons[unary] = value.fast.integerUnaryComparison
+			unary++
+		case booleanFastIntegerBinaryComparison:
+			system.Base.BinaryComparisons[binary] = value.fast.integerBinaryComparison
+			binary++
+		case booleanFastIntegerTernaryComparison:
+			system.Base.TernaryComparisons[ternary] = value.fast.integerTernaryComparison
+			ternary++
+		}
+	}
+	return system, true
+}
+
 func combineCompactStringBooleanValues(values []BoolExpr, conjunction bool) (smt.CompactStringBooleanFormula, bool) {
 	if len(values) == 0 {
 		return smt.CompactStringBooleanFormula{}, false
@@ -3237,6 +3372,22 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.integerBinaryComparison
 	case booleanFastIntegerTernaryComparison:
 		return fast.integerTernaryComparison
+	case booleanFastIntegerConditionalComparison:
+		comparison := fast.integerConditionalComparison
+		conditional := smt.If[smt.IntSort]{
+			Condition: comparison.Condition,
+			Then:      materializeIntegerConditionalBranch(comparison.Then),
+			Else:      materializeIntegerConditionalBranch(comparison.Else),
+		}
+		bound := smt.IntegerTerm(comparison.Bound)
+		left, right := smt.Term[smt.IntSort](conditional), bound
+		if !comparison.ApplicationOnLeft {
+			left, right = right, left
+		}
+		if comparison.Strict {
+			return smt.Less{Left: left, Right: right}
+		}
+		return smt.LessEqual{Left: left, Right: right}
 	case booleanFastBitVectorRelation:
 		return fast.bitVectorRelation
 	case booleanFastBitVectorEUFRelation:
@@ -3448,6 +3599,23 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 		function := smt.DeclareIntUnaryFunction(fast.functionID, "")
 		return smt.ApplySortedUnary(function, smt.IntegerVariable(fast.argumentID))
 	}
+	if fast.conditional.valid {
+		return smt.If[smt.IntSort]{
+			Condition: fast.conditional.condition,
+			Then: materializeIntegerConditionalBranch(smt.IntegerConditionalBranch{
+				Application: fast.conditional.thenBranch.application,
+				FunctionID:  fast.conditional.thenBranch.functionID,
+				ArgumentID:  fast.conditional.thenBranch.argumentID,
+				Constant:    fast.conditional.thenBranch.constant,
+			}),
+			Else: materializeIntegerConditionalBranch(smt.IntegerConditionalBranch{
+				Application: fast.conditional.elseBranch.application,
+				FunctionID:  fast.conditional.elseBranch.functionID,
+				ArgumentID:  fast.conditional.elseBranch.argumentID,
+				Constant:    fast.conditional.elseBranch.constant,
+			}),
+		}
+	}
 	if fast.kind == integerFastBitVectorConversion {
 		value := smt.BitVecConst(fast.width, fast.symbolID, fast.name)
 		if fast.signed {
@@ -3470,6 +3638,18 @@ func materializeInteger(term smt.Term[smt.IntSort], fast integerFast) smt.Term[s
 		)
 	}
 	panic("gosmt: invalid erased integer expression")
+}
+
+func materializeIntegerConditionalBranch(
+	branch smt.IntegerConditionalBranch,
+) smt.Term[smt.IntSort] {
+	if branch.Application {
+		return smt.ApplySortedUnary(
+			smt.DeclareIntUnaryFunction(branch.FunctionID, ""),
+			smt.IntegerVariable(branch.ArgumentID),
+		)
+	}
+	return smt.IntegerTerm(branch.Constant)
 }
 
 func fastIntegerFunction(context, id int, name string) IntFunc {
