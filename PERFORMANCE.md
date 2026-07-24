@@ -1028,6 +1028,13 @@ and 8.100–8.146 us versus pinned Z3's 22 visible Go allocations and
 1.276–1.384 ms. This is 54.5% fewer allocations and over 156x
 conservative-endpoint throughput.
 
+The symbolic floating-point round-to-integral workload fixes a binary32 symbol
+to `1.5`, rounds it with round-nearest-ties-to-even, constrains the result to
+the exact `2.0` IEEE pattern, and evaluates the source and rounded models.
+GoSMT's compact assigned-symbol relation and inline binary32 rounding path use
+9 allocations versus pinned Z3's 19 visible Go allocations. This is 52.6%
+fewer allocations and more than 175x conservative-endpoint throughput.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on

@@ -14,12 +14,16 @@ NaNs and signed zeros, exact `fp.abs`/`fp.neg` sign-bit transformations, and
 exact symbolic model bits. Ordered `fp.lt`, `fp.leq`, `fp.gt`, and `fp.geq`
 cover signed zeros, infinities, subnormals, and unordered NaNs. Compact
 `fp.min` and `fp.max` select exact IEEE operands with deterministic permitted
-NaN-payload and signed-zero choices. Solver-neutral std relations synthesize
-classification models directly, retain sign masking/toggling, and validate
-assigned symbolic FP order and selection without materializing a general SAT
-graph; nested bit-vector conditionals provide the complete fallback. Rounded
-arithmetic, conversions, SMT-LIB FP execution, and general
-QF_FP/QF_FPBV solving remain future work.
+NaN-payload and signed-zero choices. All five SMT-LIB rounding modes are
+exhaustive Go+ values, and `fp.roundToIntegral` is exact for arbitrary formats,
+including ties, directed rounding, signed zero, infinities, and NaNs.
+Solver-neutral std relations synthesize classification models directly, retain
+sign masking/toggling, and validate assigned symbolic FP order, selection, and
+round-to-integral constraints without materializing a general SAT graph;
+nested bit-vector conditionals provide the complete ordering and selection
+fallback. Broader unconstrained symbolic rounding, rounded arithmetic,
+conversions, SMT-LIB FP execution, and general QF_FP/QF_FPBV solving remain
+future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:
 sorted terms, exhaustive results, context-indexed models and proofs, checked

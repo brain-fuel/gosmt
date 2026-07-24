@@ -6915,6 +6915,90 @@ func TestSymbolicFloatingPointMinMaxAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSymbolicFloatingPointRoundToIntegralAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modes := []struct {
+		name string
+		core smt.FloatingPointRoundingMode
+	}{
+		{"RNE", smt.RoundNearestTiesToEven()},
+		{"RNA", smt.RoundNearestTiesToAway()},
+		{"RTP", smt.RoundTowardPositive()},
+		{"RTN", smt.RoundTowardNegative()},
+		{"RTZ", smt.RoundTowardZero()},
+	}
+	random := rand.New(rand.NewSource(0x46505249))
+	for example := 0; example < 64; example++ {
+		pattern := uint64(random.Uint32())
+		switch example % 16 {
+		case 0:
+			pattern = 0
+		case 1:
+			pattern = 0x80000000
+		case 2:
+			pattern = 0x3fc00000
+		case 3:
+			pattern = 0xbfc00000
+		case 4:
+			pattern = 0x7f800000
+		case 5:
+			pattern = 0xff800000
+		case 6:
+			pattern = 0x7fc12345
+		}
+		mode := modes[example%len(modes)]
+		sourceCore := smt.FloatingPointFromUint64(8, 24, pattern)
+		expectedCore := smt.FloatingPointRoundToIntegral(mode.core, sourceCore)
+		expectedBits, _ := smt.FloatingPointBits(expectedCore).Uint64()
+		positive := example%4 < 2
+
+		context := NewContext(700 + example)
+		source := FloatingPointConst(8, 24, context, "source", 1)
+		rounded := FloatingPointRoundToIntegral(mode.core, source)
+		relation := EqBitVec(
+			FloatingPointBits(rounded),
+			BitVecValue(32, context, expectedBits),
+		)
+		if !positive {
+			relation = Not(relation)
+		}
+		formula := And(
+			EqBitVec(
+				FloatingPointBits(source),
+				FloatingPointBits(FloatingPointFromUint64(8, 24, context, pattern)),
+			),
+			relation,
+		)
+		ours := floatingPointResultStatus(Check(Assert(1, NewSolver(context), formula)))
+		selected := fmt.Sprintf("(fp.roundToIntegral %s source)", mode.name)
+		assertion := fmt.Sprintf(
+			"(= (fp.to_ieee_bv %s) #x%08x)", selected, uint32(expectedBits),
+		)
+		if smt.FloatingPointIsNaN(expectedCore) {
+			assertion = fmt.Sprintf("(fp.isNaN %s)", selected)
+		}
+		if !positive {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const source (_ FloatingPoint 8 24))\n(assert (= source ((_ to_fp 8 24) #x%08x)))\n(assert %s)\n(check-sat)\n",
+			uint32(pattern), assertion,
+		)
+		command := exec.Command(z3, "-in")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d (%s): gosmt=%s z3=%s\n%s", example, mode.name, ours, want, script)
+		}
+	}
+}
+
 func floatingPointResultStatus(result Result) string {
 	switch result.(type) {
 	case Sat:

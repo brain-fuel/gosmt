@@ -153,6 +153,7 @@ const (
 	booleanFastFloatingPointRelation
 	booleanFastFloatingPointComparison
 	booleanFastFloatingPointMinMax
+	booleanFastFloatingPointRoundToIntegral
 	booleanFastBitVectorEUFRelation
 	booleanFastIntegerDifference
 	booleanFastIntegerSymbolEquality
@@ -199,6 +200,7 @@ type booleanFast struct {
 	floatingPointRelation        smt.FloatingPointRelation
 	floatingPointComparison      smt.FloatingPointComparisonRelation
 	floatingPointMinMax          smt.FloatingPointMinMaxRelation
+	floatingPointRoundToIntegral smt.FloatingPointRoundToIntegralRelation
 	bitVectorEUFRelation         smt.BitVectorEUFRelation
 	integerDifference            smt.IntegerDifferenceConstraint
 	integerSymbolLeft            int
@@ -553,6 +555,11 @@ func assertBoolean(assertion int, solver smt.Solver, term smt.Term[smt.BoolSort]
 	if fast.kind == booleanFastFloatingPointMinMax {
 		return smt.AssertFloatingPointMinMaxRelation(assertion, solver, fast.floatingPointMinMax)
 	}
+	if fast.kind == booleanFastFloatingPointRoundToIntegral {
+		return smt.AssertFloatingPointRoundToIntegralRelation(
+			assertion, solver, fast.floatingPointRoundToIntegral,
+		)
+	}
 	return smt.Assert(assertion, solver, materializeBoolean(term, fast))
 }
 
@@ -573,6 +580,16 @@ func modelFloatingPointBits(model smt.Model, term smt.Term[smt.BitVecSort], fast
 			selected = smt.FloatingPointMax(left, right)
 		}
 		return smt.FloatingPointBits(selected), true
+	}
+	if fast.kind == bitVectorFastFloatingPointRoundToIntegral {
+		bits, found := smt.FloatingPointSymbolModelBits(model, fast.id)
+		if !found {
+			return smt.BitVectorValue{}, false
+		}
+		value := smt.FloatingPointFromBits(fast.parameterA, fast.parameterB, bits)
+		return smt.FloatingPointBits(
+			smt.FloatingPointRoundToIntegral(fast.roundingMode, value),
+		), true
 	}
 	return smt.BitVecModelValue(model, materializeBitVector(term, fast))
 }
@@ -1332,25 +1349,27 @@ const (
 	bitVectorFastUnaryApplication
 	bitVectorFastArrayStoreRead
 	bitVectorFastFloatingPointMinMax
+	bitVectorFastFloatingPointRoundToIntegral
 )
 
 type bitVectorFast struct {
-	kind        uint8
-	width       int
-	id          int
-	name        string
-	value       smt.BitVectorValue
-	mask        smt.BitVectorValue
-	operation   uint8
-	operand     smt.BitVectorValue
-	sourceWidth int
-	parameterA  int
-	parameterB  int
-	functionID  int
-	firstID     int
-	firstName   string
-	firstWidth  int
-	function    smt.SortedUnaryFunction[smt.BitVecSort, smt.BitVecSort]
+	kind         uint8
+	width        int
+	id           int
+	name         string
+	value        smt.BitVectorValue
+	mask         smt.BitVectorValue
+	operation    uint8
+	operand      smt.BitVectorValue
+	sourceWidth  int
+	parameterA   int
+	parameterB   int
+	functionID   int
+	firstID      int
+	firstName    string
+	firstWidth   int
+	function     smt.SortedUnaryFunction[smt.BitVecSort, smt.BitVecSort]
+	roundingMode smt.FloatingPointRoundingMode
 }
 
 const (
@@ -1740,6 +1759,18 @@ func fastEqBitVector(left, right BitVecExpr) BoolExpr {
 			kind: booleanFastFloatingPointMinMax, floatingPointMinMax: relation,
 		}}
 	}
+	if relation, ok := compactFloatingPointRoundToIntegralRelation(left.fast, right.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind:                         booleanFastFloatingPointRoundToIntegral,
+			floatingPointRoundToIntegral: relation,
+		}}
+	}
+	if relation, ok := compactFloatingPointRoundToIntegralRelation(right.fast, left.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind:                         booleanFastFloatingPointRoundToIntegral,
+			floatingPointRoundToIntegral: relation,
+		}}
+	}
 	if relation, ok := compactBitVectorArrayStoreReadValue(left.fast, right.fast); ok {
 		return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastBitVectorArrayStoreReadValue, bitVectorArrayStoreReadValue: relation}}
 	}
@@ -1768,6 +1799,19 @@ func compactFloatingPointMinMaxRelation(
 	return smt.NewFloatingPointMinMaxRelation(
 		expression.parameterA, expression.parameterB,
 		expression.id, expression.firstID, expression.operation, constant.value,
+	), true
+}
+
+func compactFloatingPointRoundToIntegralRelation(
+	expression, constant bitVectorFast,
+) (smt.FloatingPointRoundToIntegralRelation, bool) {
+	if expression.kind != bitVectorFastFloatingPointRoundToIntegral ||
+		constant.kind != bitVectorFastValue {
+		return smt.FloatingPointRoundToIntegralRelation{}, false
+	}
+	return smt.NewFloatingPointRoundToIntegralRelation(
+		expression.parameterA, expression.parameterB, expression.id,
+		expression.roundingMode, constant.value,
 	), true
 }
 
@@ -2160,6 +2204,11 @@ func materializeBitVector(term smt.Term[smt.BitVecSort], fast bitVectorFast) smt
 		return smt.FloatingPointMinMaxBitVector(
 			fast.parameterA, fast.parameterB, fast.id, fast.firstID,
 			fast.name, fast.firstName, fast.operation,
+		)
+	case bitVectorFastFloatingPointRoundToIntegral:
+		return smt.FloatingPointRoundToIntegralBitVector(
+			fast.parameterA, fast.parameterB, fast.id, fast.name,
+			fast.roundingMode,
 		)
 	case bitVectorFastUnaryApplication:
 		return smt.ApplyBitVecUnary(fast.function, smt.BitVecConst(fast.firstWidth, fast.firstID, fast.firstName))
@@ -2582,6 +2631,45 @@ func floatingPointMinMax(
 	return floatingPointExprValue{
 		contextID: left.contextID, exponentBits: left.exponentBits,
 		significandBits: left.significandBits, bits: bits,
+	}
+}
+
+func floatingPointRoundToIntegral(
+	mode smt.FloatingPointRoundingMode,
+	value FloatingPointExpr,
+) FloatingPointExpr {
+	if ground, ok := floatingPointGroundValue(value); ok {
+		rounded := smt.FloatingPointRoundToIntegral(mode, ground)
+		return floatingPointExprValue{
+			contextID: value.contextID, exponentBits: value.exponentBits,
+			significandBits: value.significandBits,
+			bits:            exactBitVectorExpr(value.contextID, smt.FloatingPointBits(rounded)),
+		}
+	}
+	var bits BitVecExpr
+	if value.bits.fast.kind == bitVectorFastSymbol {
+		bits = bitVecExprValue{
+			contextID: value.contextID,
+			fast: bitVectorFast{
+				kind:  bitVectorFastFloatingPointRoundToIntegral,
+				width: value.exponentBits + value.significandBits,
+				id:    value.bits.fast.id, name: value.bits.fast.name,
+				parameterA: value.exponentBits, parameterB: value.significandBits,
+				roundingMode: mode,
+			},
+		}
+	} else {
+		bits = bitVecExprValue{
+			contextID: value.contextID,
+			term: smt.FloatingPointRoundToIntegralBitVectorTerm(
+				value.exponentBits, value.significandBits,
+				materializeBitVector(value.bits.term, value.bits.fast), mode,
+			),
+		}
+	}
+	return floatingPointExprValue{
+		contextID: value.contextID, exponentBits: value.exponentBits,
+		significandBits: value.significandBits, bits: bits,
 	}
 }
 
@@ -3485,6 +3573,10 @@ func fastNot(value BoolExpr) BoolExpr {
 	}
 	if value.fast.kind == booleanFastFloatingPointMinMax {
 		value.fast.floatingPointMinMax.Negated = !value.fast.floatingPointMinMax.Negated
+		return value
+	}
+	if value.fast.kind == booleanFastFloatingPointRoundToIntegral {
+		value.fast.floatingPointRoundToIntegral.Negated = !value.fast.floatingPointRoundToIntegral.Negated
 		return value
 	}
 	if value.fast.kind == booleanFastBitVectorEUFRelation {
@@ -4473,6 +4565,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.floatingPointComparison
 	case booleanFastFloatingPointMinMax:
 		return fast.floatingPointMinMax
+	case booleanFastFloatingPointRoundToIntegral:
+		return fast.floatingPointRoundToIntegral
 	case booleanFastBitVectorEUFRelation:
 		return fast.bitVectorEUFRelation
 	case booleanFastIntegerDifference:

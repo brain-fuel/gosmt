@@ -3676,6 +3676,17 @@ func FloatingPointMax(left FloatingPointExpr, right FloatingPointExpr) FloatingP
 	return floatingPointMinMax(left, right, smt.FloatingPointOperationMax)
 }
 
+func RoundNearestTiesToEven() smt.FloatingPointRoundingMode { return smt.RoundNearestTiesToEven() }
+func RoundNearestTiesToAway() smt.FloatingPointRoundingMode { return smt.RoundNearestTiesToAway() }
+func RoundTowardPositive() smt.FloatingPointRoundingMode    { return smt.RoundTowardPositive() }
+func RoundTowardNegative() smt.FloatingPointRoundingMode    { return smt.RoundTowardNegative() }
+func RoundTowardZero() smt.FloatingPointRoundingMode        { return smt.RoundTowardZero() }
+
+//goplus:dep FloatingPointRoundToIntegral(0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingMode, value FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s]
+func FloatingPointRoundToIntegral(mode smt.FloatingPointRoundingMode, value FloatingPointExpr) FloatingPointExpr {
+	return floatingPointRoundToIntegral(mode, value)
+}
+
 //goplus:dep ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool)
 func ModelFloatingPointBits(model Model, value FloatingPointExpr) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)

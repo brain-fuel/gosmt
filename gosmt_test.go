@@ -222,6 +222,26 @@ func TestContextIndexedFloatingPointMinMax(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointRoundToIntegral(t *testing.T) {
+	context := NewContext(139)
+	value := FloatingPointConst(8, 24, context, "value", 1)
+	oneAndHalf := FloatingPointFromUint64(8, 24, context, 0x3fc00000)
+	two := FloatingPointFromUint64(8, 24, context, 0x40000000)
+	rounded := FloatingPointRoundToIntegral(RoundNearestTiesToEven(), value)
+	result, ok := Check(Assert(1, NewSolver(context), And(
+		EqBitVec(FloatingPointBits(value), FloatingPointBits(oneAndHalf)),
+		EqBitVec(FloatingPointBits(rounded), FloatingPointBits(two)),
+	))).(Sat)
+	if !ok {
+		t.Fatal("expected exact symbolic fp.roundToIntegral constraint to be satisfiable")
+	}
+	bits, found := ModelFloatingPointBits(result.Value, rounded)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x40000000 {
+		t.Fatalf("unexpected fp.roundToIntegral model: %#x/%v/%v", raw, found, inline)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

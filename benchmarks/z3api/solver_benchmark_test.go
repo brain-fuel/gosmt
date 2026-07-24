@@ -7580,6 +7580,59 @@ func BenchmarkSymbolicFloatingPointMinCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicFloatingPointRoundToIntegralCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(139)
+			value := gosmt.FloatingPointConst(8, 24, context, "value", 1)
+			oneAndHalf := gosmt.FloatingPointFromUint64(8, 24, context, 0x3fc00000)
+			two := gosmt.FloatingPointFromUint64(8, 24, context, 0x40000000)
+			rounded := gosmt.FloatingPointRoundToIntegral(
+				gosmt.RoundNearestTiesToEven(), value,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), gosmt.And(
+				gosmt.EqBitVec(gosmt.FloatingPointBits(value), gosmt.FloatingPointBits(oneAndHalf)),
+				gosmt.EqBitVec(gosmt.FloatingPointBits(rounded), gosmt.FloatingPointBits(two)),
+			))).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			bits, found := gosmt.ModelFloatingPointBits(result.Value, rounded)
+			raw, inline := bits.Uint64()
+			if !found || !inline || raw != 0x40000000 {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			value := context.MkConst(context.MkStringSymbol("value"), sort)
+			oneAndHalf := context.MkFPNumeral("1.5", sort)
+			two := context.MkFPNumeral("2.0", sort)
+			rounded := z3FloatingPointRoundToIntegral(context, 0, value)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkAnd(
+				context.MkEq(value, oneAndHalf),
+				context.MkFPEq(rounded, two),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(value, true); !found {
+				b.Fatal("invalid source model")
+			}
+			if _, found := model.Eval(rounded, true); !found {
+				b.Fatal("invalid rounded model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
