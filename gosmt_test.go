@@ -633,6 +633,34 @@ func TestContextIndexedFloatingPointSqrt(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointSqrtSynthesizesSource(t *testing.T) {
+	context := NewContext(777)
+	value := FloatingPointConst(8, 24, context, "value", 1)
+	root := FloatingPointSqrt(RoundNearestTiesToEven(), value)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(
+			FloatingPointBits(root),
+			BitVecValue(32, context, 0x3fb504f3),
+		),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected fp.sqrt to synthesize an unconstrained source")
+	}
+	sourceBits, found := ModelFloatingPointBits(result.Value, value)
+	if !found {
+		t.Fatal("synthesized fp.sqrt source missing from model")
+	}
+	evaluated := smt.FloatingPointSqrt(
+		smt.RoundNearestTiesToEven(),
+		smt.FloatingPointFromBits(8, 24, sourceBits),
+	)
+	actual, inline := smt.FloatingPointBits(evaluated).Uint64()
+	if !inline || actual != 0x3fb504f3 {
+		t.Fatalf("sqrt(model source)=%#x, want 0x3fb504f3", actual)
+	}
+}
+
 func TestContextIndexedFloatingPointRem(t *testing.T) {
 	context := NewContext(766)
 	leftValue := FloatingPointFromUint64(8, 24, context, 0x40400000)

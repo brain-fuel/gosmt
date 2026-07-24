@@ -7865,6 +7865,72 @@ func TestUnconstrainedFloatingPointFMAAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestUnconstrainedFloatingPointSqrtAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modes := []struct {
+		name string
+		core smt.FloatingPointRoundingMode
+	}{
+		{"RNE", smt.RoundNearestTiesToEven()},
+		{"RNA", smt.RoundNearestTiesToAway()},
+		{"RTP", smt.RoundTowardPositive()},
+		{"RTN", smt.RoundTowardNegative()},
+		{"RTZ", smt.RoundTowardZero()},
+	}
+	random := rand.New(rand.NewSource(0x55535152))
+	for example := 0; example < 64; example++ {
+		source := random.Uint32() & 0x7fffffff
+		if source&0x7f800000 == 0x7f800000 &&
+			source&0x007fffff != 0 {
+			source = 0x3f800000
+		}
+		switch example % 16 {
+		case 0:
+			source = 0
+		case 1:
+			source = 0x00000001
+		case 2:
+			source = 0x007fffff
+		case 3:
+			source = 0x00800000
+		case 4:
+			source = 0x3f800000
+		case 5:
+			source = 0x40000000
+		case 6:
+			source = 0x7f7fffff
+		case 7:
+			source = 0x7f800000
+		}
+		mode := modes[example%len(modes)]
+		root := smt.FloatingPointSqrt(
+			mode.core,
+			smt.FloatingPointFromUint64(8, 24, uint64(source)),
+		)
+		target, _ := smt.FloatingPointBits(root).Uint64()
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const value (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv (fp.sqrt %s value)) #x%08x))\n(check-sat)\n",
+			mode.name, uint32(target),
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d (%s, source=%#08x target=%#08x): gosmt=%s z3=%s\n%s",
+				example, mode.name, source, uint32(target), got, want, script,
+			)
+		}
+	}
+}
+
 func TestSMTLibFloatingPointSqrtAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

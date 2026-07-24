@@ -27,6 +27,9 @@ operands use exact, kernel-validated result-plus/minus-signed-zero,
 result-times-one, or result-divided-by-one models for ordinary result patterns.
 Distinct unconstrained `fp.fma` operands similarly use the exact
 `fma(result, 1, signed-zero)` witness without decomposing the fused operation.
+Unconstrained `fp.sqrt` sources use exact kernel-validated rounded-square and
+adjacent preimages; negative nonzero result patterns are proved impossible,
+while image points without a validated compact witness remain unknown.
 Nested bit-vector conditionals provide the complete ordering and selection
 fallback. SMT-LIB execution now accepts indexed floating-point sorts,
 native `(fp sign exponent significand)` construction, all five indexed

@@ -1203,6 +1203,16 @@ conservative-endpoint throughput. The separately gated typed workload uses
 allocations and 1.359–1.471 ms: 57.7% fewer allocations and over 119x
 conservative-endpoint throughput.
 
+The unconstrained floating-point square-root workload fixes only the exact
+binary32 result to `2` and synthesizes a source model. GoSMT's validated
+rounded-square path uses 5 allocations and 4.505–4.544 us versus pinned Z3's
+13 visible Go allocations and 18.803–23.133 ms: 61.5% fewer allocations and
+over 4,138x conservative-endpoint throughput. The paired SMT-LIB workload
+solves exact and irrational result images together, using 9 allocations and
+4.895–5.645 us versus the complete parser's 163 allocations and
+12.684–15.236 us: 94.5% fewer allocations and over 2.24x
+conservative-endpoint throughput.
+
 The floating-point square-root workload fixes a binary32 symbol to `2`, rounds
 its irrational root to the exact RNE bit pattern, and evaluates the derived
 value. SMT-LIB streaming execution uses 9 allocations and 3.515–4.221 us
