@@ -47,9 +47,9 @@ floor/ceiling normalization of fractional bounds. Exact rational scaling of a
 supported affine coerced integer is also normalized:
 `to_int((p/q)*(to_real(x)+r))` becomes Euclidean division over one exact affine
 integer numerator, and `is_int` becomes its zero-remainder condition, including
-negative coefficients, rational offsets, and floor behavior. Other symbolic
-mixed expressions deliberately remain `unknown` until broader mixed LIA/LRA
-integrality solving is complete.
+negative coefficients, rational offsets, one- and two-symbol affine integer
+terms, and floor behavior. Other symbolic mixed expressions deliberately
+remain `unknown` until broader mixed LIA/LRA integrality solving is complete.
 Exact symbolic round trips normalize before solving:
 `ToIntReal(ToReal(x))` is `x`, and `IsIntReal(ToReal(x))` is true for every
 integer expression. Reflexive integer equality and constant Boolean

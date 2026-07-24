@@ -2544,14 +2544,17 @@ func fastIsIntReal(context int, term smt.Term[smt.RealSort], fast realFast) Bool
 	}
 	if fast.rationalScaled {
 		coefficient, offset, denominator := rationalScaledIntegerParts(fast)
-		if symbolID, symbolic := smt.IntegerVariableID(fast.integerTerm); symbolic {
+		if relation, compact := smt.CompactScaledIntegerDivModRelation(
+			fast.integerTerm,
+			coefficient,
+			offset,
+			denominator,
+			smt.IntegerValue{},
+			true,
+		); compact {
 			return boolExprValue{contextID: context, fast: booleanFast{
-				kind: booleanFastIntegerDivModRelation,
-				integerDivModRelation: smt.IntegerDivModRelation{
-					SymbolID: symbolID, DividendCoefficient: coefficient,
-					DividendOffset: offset, Divisor: denominator,
-					Expected: smt.IntegerValue{}, Remainder: true,
-				},
+				kind:                  booleanFastIntegerDivModRelation,
+				integerDivModRelation: relation,
 			}}
 		}
 		numerator := affineIntegerNumerator(fast.integerTerm, coefficient, offset)

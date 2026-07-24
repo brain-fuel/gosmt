@@ -7397,6 +7397,76 @@ func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	})
 }
 
+func BenchmarkTwoSymbolRationalScaledIntegerRealCoercionCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(133)
+			x := gosmt.IntConst(context, "x", 1)
+			y := gosmt.IntConst(context, "y", 2)
+			scaled := gosmt.ScaleReal(
+				gosmt.Rational(3, 2),
+				gosmt.AddReal(
+					gosmt.ToReal(x),
+					gosmt.ToReal(y),
+					gosmt.RealVal(context, gosmt.Rational(1, 4)),
+				),
+			)
+			formula := gosmt.And(
+				gosmt.EqInt(x, gosmt.IntVal(context, 2)),
+				gosmt.EqInt(y, gosmt.IntVal(context, 3)),
+				gosmt.EqInt(gosmt.ToIntReal(scaled), gosmt.IntVal(context, 7)),
+				gosmt.Not(gosmt.IsIntReal(scaled)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if xValue, found := gosmt.EvalInt(result.Value, x); !found || xValue != 2 {
+				b.Fatal("invalid x model")
+			}
+			if yValue, found := gosmt.EvalInt(result.Value, y); !found || yValue != 3 {
+				b.Fatal("invalid y model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			y := context.MkIntConst("y")
+			numerator := context.MkAdd(
+				context.MkMul(context.MkInt(12, intSort), x),
+				context.MkMul(context.MkInt(12, intSort), y),
+				context.MkInt(3, intSort),
+			)
+			denominator := context.MkInt(8, intSort)
+			quotient := context.MkDiv(numerator, denominator)
+			remainder := context.MkMod(numerator, denominator)
+			formula := context.MkAnd(
+				context.MkEq(x, context.MkInt(2, intSort)),
+				context.MkEq(y, context.MkInt(3, intSort)),
+				context.MkEq(quotient, context.MkInt(7, intSort)),
+				context.MkNot(context.MkEq(remainder, context.MkInt(0, intSort))),
+			)
+			solver := context.NewSolverForLogic("QF_LIRA")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, ok := model.Eval(x, true); !ok {
+				b.Fatal("invalid x model")
+			}
+			if _, ok := model.Eval(y, true); !ok {
+				b.Fatal("invalid y model")
+			}
+		}
+	})
+}
+
 func BenchmarkIntegerDivModModelCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

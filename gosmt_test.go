@@ -3404,6 +3404,7 @@ func TestAffineIntegerRealComparisons(t *testing.T) {
 func TestRationalScaledIntegerRealCoercions(t *testing.T) {
 	context := NewContext(131)
 	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
 	scaled := ScaleReal(Rational(3, 2), ToReal(x))
 	nonIntegral := And(
 		EqInt(x, IntVal(context, 7)),
@@ -3453,6 +3454,23 @@ func TestRationalScaledIntegerRealCoercions(t *testing.T) {
 	)
 	if _, ok := Check(Assert(5, NewSolver(context), negativeAffineFractional)).(Sat); !ok {
 		t.Fatal("negative affine rational scale should use Euclidean floor")
+	}
+	twoSymbol := ScaleReal(
+		Rational(3, 2),
+		AddReal(
+			ToReal(x),
+			ToReal(y),
+			RealVal(context, Rational(1, 4)),
+		),
+	)
+	twoSymbolFractional := And(
+		EqInt(x, IntVal(context, 2)),
+		EqInt(y, IntVal(context, 3)),
+		EqInt(ToIntReal(twoSymbol), IntVal(context, 7)),
+		Not(IsIntReal(twoSymbol)),
+	)
+	if _, ok := Check(Assert(6, NewSolver(context), twoSymbolFractional)).(Sat); !ok {
+		t.Fatal("two-symbol affine rational scale should remain exact")
 	}
 }
 

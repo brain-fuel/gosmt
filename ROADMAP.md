@@ -18,8 +18,9 @@
    with exact rational residual-bound rounding. Rational scaling of a coerced
    integer with an exact rational offset lowers `to_int` and `is_int` to
    Euclidean `div` and `mod` over one affine integer numerator, backed by
-   compact coefficient-plus-offset dividend relations. Broader symbolic mixed
-   LIA/LRA coercions, cutting planes, and full shared-theory exchange remain.
+   compact one- and two-symbol coefficient-plus-offset dividend relations.
+   Broader symbolic mixed LIA/LRA coercions, cutting planes, and full
+   shared-theory exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,

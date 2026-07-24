@@ -71,3 +71,10 @@ dividend path uses 9 allocations versus Z3's 28 (67.9% fewer). Across five
 Apple M5 Max runs against the released std module, it takes 6.45–6.52 µs
 versus 1.009–1.108 ms for Z3, more than 154 times faster at conservative
 endpoints.
+
+The two-symbol rational-scaled workload uses `x+y+1/4`, checks both assigned
+models, and proves the same floor/non-integrality pair. Its compact two-symbol
+dividend path uses 18 allocations versus Z3's 38 (52.6% fewer). Across five
+Apple M5 Max runs against the released std module, it takes 8.57–8.62 µs
+versus 0.963–1.104 ms for Z3, more than 111 times faster at conservative
+endpoints.
