@@ -8127,18 +8127,27 @@ func TestRepeatedOperandFloatingPointImagesAgreeWithPinnedZ3(t *testing.T) {
 	modes := []string{"RNE", "RNA", "RTP", "RTN", "RTZ"}
 	for example := 0; example < 64; example++ {
 		mode := modes[example%len(modes)]
-		operation := example % 3
-		expression := fmt.Sprintf("(fp.sub %s x x)", mode)
-		target := uint32(0)
+		operation := example % 5
+		expression := fmt.Sprintf("(fp.add %s x x)", mode)
+		target := uint32(0x40000000)
 		candidate := uint32(0x3f800000)
-		if mode == "RTN" {
-			target = 0x80000000
-		}
 		if operation == 1 {
+			expression = fmt.Sprintf("(fp.sub %s x x)", mode)
+			target = 0
+			if mode == "RTN" {
+				target = 0x80000000
+			}
+		}
+		if operation == 2 {
+			expression = fmt.Sprintf("(fp.mul %s x x)", mode)
+			candidate = 0xbf800000
+			target = 0x3f800000
+		}
+		if operation == 3 {
 			expression = fmt.Sprintf("(fp.div %s x x)", mode)
 			target = 0x3f800000
 		}
-		if operation == 2 {
+		if operation == 4 {
 			expression = "(fp.rem x x)"
 			if example%2 != 0 {
 				candidate = 0xbf800000

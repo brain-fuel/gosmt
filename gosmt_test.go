@@ -894,10 +894,28 @@ func TestContextIndexedRepeatedOperandFloatingPointImages(t *testing.T) {
 		eval   func(smt.FloatingPointValue) smt.FloatingPointValue
 	}{
 		{
+			"add", 0x40000000,
+			FloatingPointAdd(RoundNearestTiesToEven(), source, source),
+			func(value smt.FloatingPointValue) smt.FloatingPointValue {
+				return smt.FloatingPointAdd(
+					smt.RoundNearestTiesToEven(), value, value,
+				)
+			},
+		},
+		{
 			"subtract", 0x00000000,
 			FloatingPointSub(RoundNearestTiesToEven(), source, source),
 			func(value smt.FloatingPointValue) smt.FloatingPointValue {
 				return smt.FloatingPointSub(
+					smt.RoundNearestTiesToEven(), value, value,
+				)
+			},
+		},
+		{
+			"multiply", 0x3f800000,
+			FloatingPointMul(RoundNearestTiesToEven(), source, source),
+			func(value smt.FloatingPointValue) smt.FloatingPointValue {
+				return smt.FloatingPointMul(
 					smt.RoundNearestTiesToEven(), value, value,
 				)
 			},

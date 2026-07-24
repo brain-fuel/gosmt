@@ -34,10 +34,11 @@ sources from fixed result bits and proves non-integral result patterns
 impossible. Distinct unconstrained `fp.add`, `fp.sub`, `fp.mul`, and `fp.div`
 operands use exact, kernel-validated result-plus/minus-signed-zero,
 result-times-one, or result-divided-by-one models for ordinary result patterns.
-Repeated-operand subtraction, division, and remainder invert their exact
-IEEE images directly: signed zero or NaN for `x-x` and `rem(x,x)`, and
-positive one or NaN for `x/x`, with ordinary values outside those images
-proved unsatisfiable.
+Repeated-operand addition and multiplication reverse-round half and
+square-root candidates and commit only forward-validated witnesses. Subtraction,
+division, and remainder invert their exact IEEE images directly: signed zero
+or NaN for `x-x` and `rem(x,x)`, and positive one or NaN for `x/x`, with
+ordinary values outside those images proved unsatisfiable.
 Distinct unconstrained `fp.fma` operands similarly use the exact
 `fma(result, 1, signed-zero)` witness without decomposing the fused operation.
 Unconstrained `fp.sqrt` sources use exact kernel-validated rounded-square and

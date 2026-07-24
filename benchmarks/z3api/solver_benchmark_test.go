@@ -8494,6 +8494,63 @@ func BenchmarkRepeatedOperandFloatingPointDivisionCold(b *testing.B) {
 	})
 }
 
+func BenchmarkRepeatedOperandFloatingPointMultiplicationCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(1091)
+			source := gosmt.FloatingPointConst(
+				8, 24, context, "source", 1,
+			)
+			product := gosmt.FloatingPointMul(
+				gosmt.RoundNearestTiesToEven(), source, source,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context),
+				gosmt.EqBitVec(
+					gosmt.FloatingPointBits(product),
+					gosmt.BitVecValue(32, context, 0x3f800000),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			bits, found := gosmt.ModelFloatingPointBits(
+				result.Value, source,
+			)
+			value := smt.FloatingPointFromBits(8, 24, bits)
+			actual := smt.FloatingPointMul(
+				smt.RoundNearestTiesToEven(), value, value,
+			)
+			actualBits, inline := smt.FloatingPointBits(actual).Uint64()
+			if !found || !inline || actualBits != 0x3f800000 {
+				b.Fatal("invalid repeated-operand model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			source := context.MkConst(
+				context.MkStringSymbol("source"), sort,
+			)
+			product := z3FloatingPointMul(context, 0, source, source)
+			one := context.MkFPNumeral("1.0", sort)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkFPEq(product, one))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(source, true); !found {
+				b.Fatal("invalid source model")
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicFloatingPointFMACold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
