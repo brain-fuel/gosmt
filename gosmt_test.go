@@ -5104,6 +5104,32 @@ func TestGroundBitVectorArraySymbolicIndex(t *testing.T) {
 	if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
 		t.Fatalf("result=%#v", result)
 	}
+
+	fixed := BitVecValue(4, context, 3)
+	result, ok := Check(Assert(
+		2, NewSolver(context),
+		BitVecArrayReadAt(array, left, fixed, value),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected symbolic-address array model")
+	}
+	address, addressOK := ModelBitVec(result.Value, left)
+	stored, storedOK := EvalBitVecArray(
+		result.Value, array, smt.NewBitVectorUint64(4, 3),
+	)
+	if !addressOK ||
+		!smt.EqualBitVectorValue(
+			address, smt.NewBitVectorUint64(4, 3),
+		) ||
+		!storedOK ||
+		!smt.EqualBitVectorValue(
+			stored, smt.NewBitVectorUint64(8, 0xa5),
+		) {
+		t.Fatalf(
+			"address=%v/%v stored=%v/%v",
+			address, addressOK, stored, storedOK,
+		)
+	}
 }
 
 func TestIndexedBitVectorOrdering(t *testing.T) {

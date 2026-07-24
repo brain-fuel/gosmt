@@ -759,6 +759,32 @@ func SelectBitVecArray(0 c nat, 0 indexWidth nat, 0 elementWidth nat, array BitV
 	}
 }
 
+// BitVecArrayReadAt constrains a symbolic address and the value read from that
+// address together, retaining both in the resulting finite model.
+func BitVecArrayReadAt(0 c nat, 0 indexWidth nat, 0 elementWidth nat, array BitVecArrayExpr[c, indexWidth, elementWidth], index BitVecExpr[c, indexWidth], address BitVecExpr[c, indexWidth], value BitVecExpr[c, elementWidth]) BoolExpr[c] {
+	match array {
+	case bitVecArrayExprValue(contextID, _, arrayFast):
+		match index {
+		case bitVecExprValue(indexContext, _, indexFast):
+			match address {
+			case bitVecExprValue(addressContext, _, addressFast):
+				match value {
+				case bitVecExprValue(valueContext, _, valueFast):
+					if contextID != indexContext || contextID != addressContext || contextID != valueContext { panic("gosmt: erased bit-vector array read context mismatch") }
+					if arrayFast.kind == bitVecArrayFastSymbol && indexFast.kind == bitVectorFastSymbol && addressFast.kind == bitVectorFastValue && valueFast.kind == bitVectorFastValue {
+						return boolExprValue(contextID, smt.BitVectorArraySymbolicReadValueRelation{
+							ArrayID: arrayFast.symbolID, IndexID: indexFast.id,
+							IndexWidth: int(arrayFast.indexWidth), ElementWidth: int(arrayFast.elementWidth),
+							Address: addressFast.value, Value: valueFast.value,
+						}, booleanFast{})
+					}
+				}
+			}
+		}
+	}
+	return And(EqBitVec(index, address), EqBitVec(SelectBitVecArray(array, index), value))
+}
+
 func StoreBitVecArray(0 c nat, 0 indexWidth nat, 0 elementWidth nat, array BitVecArrayExpr[c, indexWidth, elementWidth], index BitVecExpr[c, indexWidth], value BitVecExpr[c, elementWidth]) BitVecArrayExpr[c, indexWidth, elementWidth] {
 	match array {
 	case bitVecArrayExprValue(contextID, term, arrayFast):

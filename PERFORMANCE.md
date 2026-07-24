@@ -343,6 +343,14 @@ congruence, while GoSMT preserves the one-store witness compactly. It uses 5
 allocations versus Z3's 23 and ~865–868 ns versus ~1.05–1.16 ms: over 78%
 fewer visible Go allocations and over 1,200x conservative throughput.
 
+The symbolic-address QF_AUFBV model workload fixes a 4-bit address, constrains
+the selected 8-bit cell, and retrieves both values. The dependent-width
+`BitVecArrayReadAt` abstraction emits one compact std relation, while the
+general solver feeds BV assignments back into the finite array
+interpretation. It uses 11 allocations and 4.447–4.820 us versus pinned Z3's
+26 allocations and 1.074–1.338 ms: 57.7% fewer allocations and over 222x
+conservative-endpoint throughput.
+
 The QF_AUFBV extensional-model workload requires two arrays to differ, checks
 the generated 4-bit witness, and evaluates both 8-bit values. Width-aware
 symbols retain the evidence needed after dependent-index erasure. The complete

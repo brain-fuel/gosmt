@@ -5022,6 +5022,64 @@ func TestRandomGroundBitVectorArraySymbolicIndicesAgreeWithPinnedZ3(t *testing.T
 	}
 }
 
+func TestRandomBitVectorArraySymbolicIndexModelsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x4256414d4f44454c))
+	for example := 0; example < 64; example++ {
+		index, value := random.Intn(16), random.Intn(256)
+		script := fmt.Sprintf(`(set-logic QF_AUFBV)
+(declare-const a (Array (_ BitVec 4) (_ BitVec 8)))
+(declare-const i (_ BitVec 4))
+(assert (= i #x%x))
+(assert (= (select a i) #x%02x))
+(check-sat)
+(get-value (i (select a i) (select a #x%x)))`,
+			index, value, index,
+		)
+		executed, ok := ExecuteSMTLib(script).(smtlib.Executed)
+		if !ok {
+			t.Fatalf("example %d: execute failed\n%s", example, script)
+		}
+		values, ok := executed.Responses[len(executed.Responses)-1].(smtlib.ValuesAvailable)
+		if !ok || len(values.Values) != 3 {
+			t.Fatalf(
+				"example %d: values=%#v\n%s",
+				example, executed.Responses[len(executed.Responses)-1], script,
+			)
+		}
+		expected := []smt.BitVectorValue{
+			smt.NewBitVectorUint64(4, uint64(index)),
+			smt.NewBitVectorUint64(8, uint64(value)),
+			smt.NewBitVectorUint64(8, uint64(value)),
+		}
+		for position, want := range expected {
+			got, ok := values.Values[position].(smtlib.BitVectorValue)
+			if !ok || !smt.EqualBitVectorValue(got.Value, want) {
+				t.Fatalf(
+					"example %d value %d=%#v, want %v",
+					example, position, values.Values[position], want,
+				)
+			}
+		}
+		z3Script := script[:strings.Index(script, "(get-value")]
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(z3Script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, z3Script)
+		}
+		if strings.TrimSpace(string(output)) != "sat" {
+			t.Fatalf(
+				"example %d: Z3=%s\n%s",
+				example, strings.TrimSpace(string(output)), z3Script,
+			)
+		}
+	}
+}
+
 func TestRandomGroundBitVectorArrayStoreExtensionalityAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

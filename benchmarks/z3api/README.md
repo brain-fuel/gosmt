@@ -20,6 +20,12 @@ go test -run '^$' -bench . -benchmem -count=5
 The artifact SHA-256 must be
 `41828fa07d5cb77bfaee326e8e6dac074f26329c09c633f9e66012bb917cf8ae`.
 
+The symbolic-address QF_AUFBV model workload fixes a 4-bit address, constrains
+the selected 8-bit cell, and retrieves both models. Across five Apple M5 Max
+runs GoSMT uses 11 allocations versus Z3's 26 (57.7% fewer) and takes
+4.447–4.820 µs versus 1.074–1.338 ms, more than 222 times faster at
+conservative endpoints.
+
 The conditional integer-EUF cold workload uses exact guarded equalities on the
 Z3 side because the pinned official Go binding does not expose `Z3_mk_ite`.
 GoSMT's compact `IfInt` path uses 13 allocations versus Z3's 34 and is more

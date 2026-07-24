@@ -6628,6 +6628,70 @@ func BenchmarkGroundBitVectorArraySymbolicIndexCold(b *testing.B) {
 	})
 }
 
+func BenchmarkBitVectorArraySymbolicIndexModelCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(341)
+			array := gosmt.BitVecArrayConst(4, 8, context, "a", 1)
+			index := gosmt.BitVecConst(4, context, "i", 2)
+			address := gosmt.BitVecValue(4, context, 3)
+			value := gosmt.BitVecValue(8, context, 0xa5)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context),
+				gosmt.BitVecArrayReadAt(
+					array, index, address, value,
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			indexValue, indexOK := gosmt.ModelBitVec(result.Value, index)
+			arrayValue, arrayOK := gosmt.EvalBitVecArray(
+				result.Value, array, smt.NewBitVectorUint64(4, 3),
+			)
+			if !indexOK || !arrayOK ||
+				!smt.EqualBitVectorValue(
+					indexValue, smt.NewBitVectorUint64(4, 3),
+				) ||
+				!smt.EqualBitVectorValue(
+					arrayValue, smt.NewBitVectorUint64(8, 0xa5),
+				) {
+				b.Fatal("invalid symbolic-address array model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			indexSort, elementSort := context.MkBvSort(4), context.MkBvSort(8)
+			arraySort := context.MkArraySort(indexSort, elementSort)
+			array := context.MkConst(context.MkStringSymbol("a"), arraySort)
+			index := context.MkBVConst("i", 4)
+			address := context.MkBV(3, 4)
+			value := context.MkBV(0xa5, 8)
+			solver := context.NewSolverForLogic("QF_AUFBV")
+			solver.Assert(context.MkAnd(
+				context.MkEq(index, address),
+				context.MkEq(context.MkSelect(array, index), value),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(index, true); !found {
+				b.Fatal("missing index model")
+			}
+			if _, found := model.Eval(
+				context.MkSelect(array, index), true,
+			); !found {
+				b.Fatal("missing array model")
+			}
+		}
+	})
+}
+
 func BenchmarkGroundBitVectorArrayExtensionalModelCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

@@ -22,6 +22,10 @@
    Broader symbolic mixed LIA/LRA coercions, cutting planes, and full
    shared-theory exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
+   QF_AUFBV symbolic-address reads now feed resolved bit-vector addresses back
+   into finite array models. A dependent-width Go+ `BitVecArrayReadAt`
+   relation retains the address and selected cell together on the compact path,
+   while general formulas synthesize deterministic unconstrained addresses.
    Floating-point values now retain context, exponent, and significand widths
    as Go+ indices with a computed-width IEEE bit vector. Exact arbitrary-format
    ground and symbolic constants implement native component construction,

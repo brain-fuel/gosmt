@@ -5,6 +5,13 @@ Microsoft Z3 4.16.0 (`ddb49568d3520e99799e364fb22f35fc67d887b1`, MIT).
 It does not bind to Z3: differential tests use Z3 as an oracle while released
 artifacts remain pure generated Go.
 
+Width-indexed bit-vector arrays now retain finite models for symbolic
+addresses. The Go+ `BitVecArrayReadAt` abstraction constrains an address and
+its selected value as one dependent-width relation; both the resolved address
+and corresponding array cell are available through the model. General
+QF_AUFBV formulas receive the same model backfill from the bit-vector theory,
+including SMT-LIB `get-value`.
+
 Floating-point values retain their context, exponent width, and significand
 width as Go+ indices; their IEEE bit-vector width is computed as `e+s`. Exact
 IEEE/SMT-LIB bit-pattern construction and round trips cover arbitrary valid
