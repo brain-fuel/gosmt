@@ -188,6 +188,8 @@ const (
 	booleanFastIntegerDivModSystem
 	booleanFastIntegerProduct
 	booleanFastIntegerProductSystem
+	booleanFastIntegerSquareBound
+	booleanFastIntegerSquareSystem
 	booleanFastUninterpretedEUFRelation
 	booleanFastStringRelation
 	booleanFastStringBooleanFormula
@@ -252,6 +254,8 @@ type booleanFast struct {
 	integerDivModSystem           smt.IntegerDivModSystem
 	integerProduct                smt.IntegerProductRelation
 	integerProductSystem          smt.IntegerProductSystem
+	integerSquareBound            smt.IntegerSquareBound
+	integerSquareSystem           smt.IntegerSquareSystem
 	uninterpretedEUFRelation      smt.UninterpretedEUFRelation
 	stringRelation                smt.CompactStringRelation
 	stringBooleanFormula          smt.CompactStringBooleanFormula
@@ -2484,6 +2488,24 @@ func compactIntegerConditionalBranch(value IntExpr) (integerConditionalBranchFas
 func compareInteger(left, right IntExpr, strict bool) BoolExpr {
 	if left.contextID != right.contextID {
 		panic("gosmt: erased integer expression context mismatch")
+	}
+	product, constant, productOnLeft := left, right, true
+	if product.fast.kind != integerFastProduct {
+		product, constant, productOnLeft = right, left, false
+	}
+	if product.fast.kind == integerFastProduct &&
+		product.fast.symbolID == product.fast.argumentID {
+		if bound, ok := fastIntegerConstant(constant); ok {
+			return boolExprValue{contextID: left.contextID, fast: booleanFast{
+				kind: booleanFastIntegerSquareBound,
+				integerSquareBound: smt.IntegerSquareBound{
+					SymbolID: product.fast.symbolID,
+					Bound:    bound,
+					Lower:    !productOnLeft,
+					Strict:   strict,
+				},
+			}}
+		}
 	}
 	if left.fast.kind == integerFastStringLength && right.fast.kind == integerFastStringLength {
 		order := uint8(2)
@@ -5082,6 +5104,13 @@ func fastNot(value BoolExpr) BoolExpr {
 		value.fast.integerProduct.Negated = !value.fast.integerProduct.Negated
 		return value
 	}
+	if value.fast.kind == booleanFastIntegerSquareBound {
+		value.fast.integerSquareBound.Lower =
+			!value.fast.integerSquareBound.Lower
+		value.fast.integerSquareBound.Strict =
+			!value.fast.integerSquareBound.Strict
+		return value
+	}
 	if value.fast.kind == booleanFastUninterpretedEUFRelation {
 		value.fast.uninterpretedEUFRelation.Negated = !value.fast.uninterpretedEUFRelation.Negated
 		return value
@@ -5185,6 +5214,27 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	if allProducts {
 		return boolExprValue{contextID: context, fast: booleanFast{
 			kind: booleanFastIntegerProductSystem, integerProductSystem: productSystem,
+		}}
+	}
+	allSquareBounds := len(values) > 0
+	squareSystem := smt.IntegerSquareSystem{Count: len(values)}
+	if len(values) > len(squareSystem.Inline) {
+		squareSystem.Overflow = make([]smt.IntegerSquareBound, len(values))
+	}
+	for index, value := range values {
+		if value.fast.kind != booleanFastIntegerSquareBound {
+			allSquareBounds = false
+			break
+		}
+		if squareSystem.Overflow != nil {
+			squareSystem.Overflow[index] = value.fast.integerSquareBound
+		} else {
+			squareSystem.Inline[index] = value.fast.integerSquareBound
+		}
+	}
+	if allSquareBounds {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastIntegerSquareSystem, integerSquareSystem: squareSystem,
 		}}
 	}
 	fpAtomCount, fpRealCount := 0, 0
@@ -6144,6 +6194,10 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.integerProduct
 	case booleanFastIntegerProductSystem:
 		return fast.integerProductSystem
+	case booleanFastIntegerSquareBound:
+		return fast.integerSquareBound
+	case booleanFastIntegerSquareSystem:
+		return fast.integerSquareSystem
 	case booleanFastUninterpretedEUFRelation:
 		return fast.uninterpretedEUFRelation
 	case booleanFastStringRelation:

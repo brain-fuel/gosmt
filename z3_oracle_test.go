@@ -5881,6 +5881,59 @@ func TestRandomNonlinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomNonlinearIntegerSquareBoundsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x535155415245424e))
+	for example := 0; example < 64; example++ {
+		root := random.Intn(20) + 1
+		var assertions string
+		switch example % 4 {
+		case 0:
+			assertions = fmt.Sprintf(
+				"(assert (<= %d (* x x)))\n(assert (<= (* x x) %d))",
+				root*root, (root+1)*(root+1)-1,
+			)
+		case 1:
+			assertions = fmt.Sprintf(
+				"(assert (<= %d (* x x)))\n(assert (<= (* x x) %d))",
+				root*root+1, root*root,
+			)
+		case 2:
+			assertions = fmt.Sprintf(
+				"(assert (< %d (* x x)))\n(assert (< (* x x) %d))",
+				root*root, (root+2)*(root+2),
+			)
+		case 3:
+			assertions = fmt.Sprintf(
+				"(assert (not (<= (* x x) %d)))", root*root,
+			)
+		}
+		script := fmt.Sprintf(`(set-logic QF_NIA)
+(declare-const x Int)
+%s
+(check-sat)`, assertions)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf(
+				"example %d: Z3: %v\n%s\n%s",
+				example, err, output, script,
+			)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d: gosmt=%s z3=%s\n%s",
+				example, got, want, script,
+			)
+		}
+	}
+}
+
 func TestRandomLinearIntegerSystemsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

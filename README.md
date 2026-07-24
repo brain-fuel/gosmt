@@ -14,6 +14,11 @@ up to four relations without an intermediate expression-tree allocation.
 Finite product-disequality systems receive a deterministic witness beyond
 every excluded target; repeated-product equality conflicts are proved
 directly, and only per-symbol exhaustive domains may justify `unsat`.
+Strict and non-strict self-square inequalities synthesize nearest lower-bound
+witnesses, enumerate exact upper-bound domains of up to 63 integers, compose
+into intervals, normalize negation, and retain arbitrary-precision bounds.
+Larger finite domains remain sound by returning `unknown` when the available
+candidates cannot decide them.
 Problems beyond the documented eight-symbol, eight-relation, 4,096-search
 boundary return `unknown` rather than an unsound answer.
 

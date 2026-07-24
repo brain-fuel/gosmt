@@ -4104,6 +4104,46 @@ func TestNonlinearIntegerProductModel(t *testing.T) {
 	}
 }
 
+func TestNonlinearIntegerSelfSquareBounds(t *testing.T) {
+	context := NewContext(106)
+	x := IntConst(context, "x", 1)
+	square := MulInt(x, x)
+	interval := And(
+		Le(IntVal(context, 80), square),
+		Le(square, IntVal(context, 100)),
+	)
+	result, ok := Check(Assert(
+		1, NewSolver(context), interval,
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected square interval model")
+	}
+	value, found := EvalInt(result.Value, x)
+	if !found || value*value < 80 || value*value > 100 {
+		t.Fatalf("square interval model=%d/%v", value, found)
+	}
+
+	contradiction := And(
+		Le(IntVal(context, 10), square),
+		Le(square, IntVal(context, 8)),
+	)
+	if _, ok := Check(Assert(
+		2, NewSolver(context), contradiction,
+	)).(Unsat); !ok {
+		t.Fatal("square interval contradiction must be unsatisfiable")
+	}
+
+	negated := Not(Le(square, IntVal(context, 8)))
+	result, ok = Check(Assert(3, NewSolver(context), negated)).(Sat)
+	if !ok {
+		t.Fatal("negated square upper bound must be satisfiable")
+	}
+	value, found = EvalInt(result.Value, x)
+	if !found || value*value <= 8 {
+		t.Fatalf("negated square model=%d/%v", value, found)
+	}
+}
+
 func TestBooleanLinearIntegerArithmetic(t *testing.T) {
 	context := NewContext(106)
 	x := IntConst(context, "x", 1)

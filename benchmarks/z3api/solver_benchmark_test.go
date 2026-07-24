@@ -7401,6 +7401,56 @@ func BenchmarkNonlinearIntegerDisequalityEscapeCold(b *testing.B) {
 	})
 }
 
+func BenchmarkNonlinearIntegerSquareIntervalCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(243)
+			x := gosmt.IntConst(context, "x", 1)
+			square := gosmt.MulInt(x, x)
+			formula := gosmt.And(
+				gosmt.Le(gosmt.IntVal(context, 80), square),
+				gosmt.Le(square, gosmt.IntVal(context, 100)),
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), formula,
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			value, found := gosmt.EvalInt(result.Value, x)
+			if !found || value*value < 80 || value*value > 100 {
+				b.Fatal("invalid square interval model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			intSort := context.MkIntSort()
+			x := context.MkIntConst("x")
+			square := context.MkMul(x, x)
+			solver := context.NewSolverForLogic("QF_NIA")
+			solver.Assert(context.MkAnd(
+				context.MkLe(
+					context.MkInt(80, intSort), square,
+				),
+				context.MkLe(
+					square, context.MkInt(100, intSort),
+				),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, ok := model.Eval(x, true); !ok {
+				b.Fatal("missing x model")
+			}
+		}
+	})
+}
+
 func BenchmarkLinearIntegerMultiRowModelCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

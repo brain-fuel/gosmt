@@ -238,8 +238,9 @@
    other mixed signatures remain. Exact bounded nonlinear integer products
    now cover constant-target conjunctions, coupled factor graphs, self-square
    image proofs, finite disequality escape models, repeated-product conflict
-   proofs, per-symbol completeness, and explicit resource/unsupported
-   outcomes. General
+   proofs, per-symbol completeness, exact bounded strict/non-strict
+   self-square intervals, arbitrary-precision square bounds, and explicit
+   resource/unsupported outcomes. General
    polynomial normalization, inequalities, and unbounded search remain. Unary Int→Bool
    and binary Int×Int→Bool predicates now
    preserve their mixed signatures in Go+, accept affine arguments, execute
