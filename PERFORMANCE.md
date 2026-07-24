@@ -1310,6 +1310,15 @@ SMT-LIB workload uses 9 allocations and 4.304–4.382 us versus the complete
 parser's 162 allocations and 10.100–10.170 us: 94.4% fewer allocations and
 over 2.30x conservative-endpoint throughput.
 
+The shared floating-point equality-graph workload solves one positive
+equivalence, one cross-class disequality, and one NaN-backed self-disequality,
+then validates all three binary32 models. GoSMT uses 10 allocations and
+9.834–10.083 us versus pinned Z3's 24 allocations and 1.344–1.443 ms: 58.3%
+fewer allocations and over 133x conservative-endpoint throughput. Its
+SMT-LIB streaming form uses 11 allocations and 4.735–5.308 us versus the
+complete parser's 168 allocations and 11.530–12.364 us: 93.5% fewer
+allocations and over 2.17x conservative-endpoint throughput.
+
 The unconstrained floating-point minimum workload fixes only the binary32
 result to `-3` and synthesizes both operands. GoSMT's kernel-validated
 `min(target, target)` path uses 5 allocations and 4.124–4.152 us versus pinned

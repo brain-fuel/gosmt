@@ -197,6 +197,45 @@ func TestContextIndexedUnconstrainedFloatingPointEquality(t *testing.T) {
 	}
 }
 
+func TestContextIndexedSharedFloatingPointEqualityGraph(t *testing.T) {
+	context := NewContext(1089)
+	x := FloatingPointConst(15, 113, context, "x", 1)
+	y := FloatingPointConst(15, 113, context, "y", 2)
+	z := FloatingPointConst(15, 113, context, "z", 3)
+	result, ok := Check(Assert(1, NewSolver(context), And(
+		FloatingPointEqual(x, y),
+		Not(FloatingPointEqual(y, z)),
+	))).(Sat)
+	if !ok {
+		t.Fatal("expected satisfiable shared binary128 equality graph")
+	}
+	xBits, xFound := ModelFloatingPointBits(result.Value, x)
+	yBits, yFound := ModelFloatingPointBits(result.Value, y)
+	zBits, zFound := ModelFloatingPointBits(result.Value, z)
+	if !xFound || !yFound || !zFound ||
+		xBits.Width() != 128 || yBits.Width() != 128 || zBits.Width() != 128 {
+		t.Fatal("shared equality model is incomplete")
+	}
+	xValue := smt.FloatingPointFromBits(15, 113, xBits)
+	yValue := smt.FloatingPointFromBits(15, 113, yBits)
+	zValue := smt.FloatingPointFromBits(15, 113, zBits)
+	if !smt.FloatingPointEqual(xValue, yValue) ||
+		smt.FloatingPointEqual(yValue, zValue) {
+		t.Fatal("shared equality model has wrong semantics")
+	}
+
+	contradiction := And(
+		FloatingPointEqual(x, y),
+		FloatingPointEqual(y, z),
+		Not(FloatingPointEqual(x, z)),
+	)
+	if _, ok := Check(Assert(
+		2, NewSolver(context), contradiction,
+	)).(Unsat); !ok {
+		t.Fatal("expected transitive equality contradiction")
+	}
+}
+
 func TestContextIndexedFloatingPointAbsAndNeg(t *testing.T) {
 	context := NewContext(136)
 	value := FloatingPointConst(8, 24, context, "x", 1)

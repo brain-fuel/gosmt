@@ -9521,6 +9521,74 @@ func TestUnconstrainedFloatingPointEqualityAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSharedFloatingPointEqualityGraphsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	for example := 0; example < 64; example++ {
+		context := NewContext(1152 + example)
+		x := FloatingPointConst(8, 24, context, "x", 1)
+		y := FloatingPointConst(8, 24, context, "y", 2)
+		z := FloatingPointConst(8, 24, context, "z", 3)
+		w := FloatingPointConst(8, 24, context, "w", 4)
+		var formula BoolExpr
+		var assertions string
+		switch example % 4 {
+		case 0:
+			formula = And(
+				FloatingPointEqual(x, y),
+				Not(FloatingPointEqual(y, z)),
+				Not(FloatingPointEqual(w, w)),
+			)
+			assertions = "(assert (fp.eq x y))\n(assert (not (fp.eq y z)))\n(assert (not (fp.eq w w)))"
+		case 1:
+			formula = And(
+				FloatingPointEqual(x, y),
+				FloatingPointEqual(y, z),
+				Not(FloatingPointEqual(x, z)),
+			)
+			assertions = "(assert (fp.eq x y))\n(assert (fp.eq y z))\n(assert (not (fp.eq x z)))"
+		case 2:
+			formula = And(
+				FloatingPointEqual(x, x),
+				Not(FloatingPointEqual(x, x)),
+			)
+			assertions = "(assert (fp.eq x x))\n(assert (not (fp.eq x x)))"
+		default:
+			formula = And(
+				Not(FloatingPointEqual(x, y)),
+				Not(FloatingPointEqual(y, z)),
+				Not(FloatingPointEqual(z, w)),
+				Not(FloatingPointEqual(w, x)),
+			)
+			assertions = "(assert (not (fp.eq x y)))\n(assert (not (fp.eq y z)))\n(assert (not (fp.eq z w)))\n(assert (not (fp.eq w x)))"
+		}
+		ours := floatingPointResultStatus(Check(Assert(
+			1, NewSolver(context), formula,
+		)))
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const x (_ FloatingPoint 8 24))\n(declare-const y (_ FloatingPoint 8 24))\n(declare-const z (_ FloatingPoint 8 24))\n(declare-const w (_ FloatingPoint 8 24))\n%s\n(check-sat)\n",
+			assertions,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf(
+				"example %d: run Z3: %v\n%s\n%s",
+				example, err, output, script,
+			)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf(
+				"example %d: gosmt=%s z3=%s\n%s",
+				example, ours, want, script,
+			)
+		}
+	}
+}
+
 func TestSymbolicFloatingPointMinMaxAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

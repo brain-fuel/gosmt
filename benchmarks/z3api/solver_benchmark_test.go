@@ -7697,6 +7697,65 @@ func BenchmarkUnconstrainedFloatingPointEqualityCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSharedFloatingPointEqualityGraphCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(1089)
+			x := gosmt.FloatingPointConst(8, 24, context, "x", 1)
+			y := gosmt.FloatingPointConst(8, 24, context, "y", 2)
+			z := gosmt.FloatingPointConst(8, 24, context, "z", 3)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), gosmt.And(
+					gosmt.FloatingPointEqual(x, y),
+					gosmt.Not(gosmt.FloatingPointEqual(y, z)),
+					gosmt.Not(gosmt.FloatingPointEqual(z, z)),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			xBits, xFound := gosmt.ModelFloatingPointBits(result.Value, x)
+			yBits, yFound := gosmt.ModelFloatingPointBits(result.Value, y)
+			zBits, zFound := gosmt.ModelFloatingPointBits(result.Value, z)
+			xValue := smt.FloatingPointFromBits(8, 24, xBits)
+			yValue := smt.FloatingPointFromBits(8, 24, yBits)
+			zValue := smt.FloatingPointFromBits(8, 24, zBits)
+			if !xFound || !yFound || !zFound ||
+				!smt.FloatingPointEqual(xValue, yValue) ||
+				smt.FloatingPointEqual(yValue, zValue) ||
+				smt.FloatingPointEqual(zValue, zValue) {
+				b.Fatal("invalid shared equality model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			x := context.MkConst(context.MkStringSymbol("x"), sort)
+			y := context.MkConst(context.MkStringSymbol("y"), sort)
+			z := context.MkConst(context.MkStringSymbol("z"), sort)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkAnd(
+				context.MkFPEq(x, y),
+				context.MkNot(context.MkFPEq(y, z)),
+				context.MkNot(context.MkFPEq(z, z)),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			for _, value := range []*z3.Expr{x, y, z} {
+				if _, found := model.Eval(value, true); !found {
+					b.Fatal("invalid model")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkSymbolicFloatingPointMinCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

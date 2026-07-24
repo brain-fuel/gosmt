@@ -32,9 +32,10 @@
    nearest-even-quotient `fp.rem`. Exact arbitrary-width `fp.to_ubv` and
    `fp.to_sbv` cover all five rounding modes, including compact assigned-symbol
    constraints and explicit unspecified-result handling. Up to two independent
-   unconstrained `fp.eq` atoms synthesize canonical signed-zero, distinct
-   finite, or NaN witnesses for positive, negated, and self relations in
-   arbitrary formats. Up to two independent unconstrained order atoms
+   unconstrained `fp.eq` atoms, including shared-symbol graphs, synthesize
+   canonical signed-zero, distinct finite, or NaN witnesses for positive,
+   negated, transitive, and self relations in arbitrary formats. Up to two
+   independent unconstrained order atoms
    synthesize canonical models for strict, non-strict, negated, and self
    comparisons; shared and mixed systems retain the complete solver path. Up
    to two independent fixed-result `fp.min`/`fp.max` atoms synthesize validated
