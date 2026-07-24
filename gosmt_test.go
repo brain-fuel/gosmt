@@ -3227,6 +3227,32 @@ func TestRealBinaryFunctionApplicationsInsideArithmeticArePurified(t *testing.T)
 	}
 }
 
+func TestRealPredicatesExchangeArithmeticEquality(t *testing.T) {
+	context := NewContext(123)
+	x := RealConst(context, "x", 1)
+	y := RealConst(context, "y", 2)
+	z := RealConst(context, "z", 3)
+	unary := DeclareRealPredicate(context, "p", 4)
+	binary := DeclareRealBinaryPredicate(context, "q", 5)
+	for name, formula := range map[string]BoolExpr{
+		"unary": And(
+			LeReal(x, y),
+			LeReal(y, x),
+			ApplyRealPredicate(unary, AddReal(x, RealVal(context, Rational(1, 1)))),
+			Not(ApplyRealPredicate(unary, AddReal(y, RealVal(context, Rational(1, 1))))),
+		),
+		"binary": And(
+			EqReal(x, y),
+			ApplyRealBinaryPredicate(binary, x, z),
+			Not(ApplyRealBinaryPredicate(binary, y, z)),
+		),
+	} {
+		if result := Check(Assert(1, NewSolver(context), formula)); func() bool { _, ok := result.(Unsat); return ok }() == false {
+			t.Fatalf("%s result=%T", name, result)
+		}
+	}
+}
+
 func TestIndexedBitVectorOperations(t *testing.T) {
 	context := NewContext(72)
 	x := BitVecConst(8, context, "x", 1)

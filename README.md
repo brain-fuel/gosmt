@@ -32,6 +32,9 @@ Integer-valued `IfInt` terms preserve exact branch semantics around unary EUF
 applications in the typed API and SMT-LIB `ite`. A compact conditional system
 keeps the common QF_UFLIA path allocation-safe while the general solver uses
 exact guarded case splitting.
+Unary `Real -> Bool` and binary `Real × Real -> Bool` predicates retain their
+mixed signatures and context identity in Go+, accept affine arguments, and
+share exact LRA/EUF equality exchange.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive

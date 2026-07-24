@@ -24,3 +24,7 @@ The conditional integer-EUF cold workload uses exact guarded equalities on the
 Z3 side because the pinned official Go binding does not expose `Z3_mk_ite`.
 GoSMT's compact `IfInt` path uses 13 allocations versus Z3's 34 and is more
 than 160 times faster on the recorded Apple M5 Max runs.
+
+The unary and binary real-predicate workloads use 11 allocations versus Z3's
+22 and 25 respectively. Both remain more than 170 times faster on the recorded
+Apple M5 Max cold runs.

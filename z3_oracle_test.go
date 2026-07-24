@@ -4166,6 +4166,56 @@ func TestRandomIntegerPredicatesAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomRealPredicatesAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x5245414c50524544))
+	for example := 0; example < 64; example++ {
+		leftOffset := random.Intn(7)
+		rightOffset := leftOffset
+		if example%4 == 0 {
+			rightOffset++
+		}
+		equality := "(assert (= x y))"
+		if example&1 != 0 {
+			equality = "(assert (<= x y))\n(assert (<= y x))"
+		}
+		declaration := "(declare-fun p (Real) Bool)"
+		left := fmt.Sprintf("(p (+ x %d))", leftOffset)
+		rightApplication := fmt.Sprintf("(p (+ y %d))", rightOffset)
+		if example%3 == 2 {
+			declaration = "(declare-fun p (Real Real) Bool)"
+			left = fmt.Sprintf("(p (+ x %d) z)", leftOffset)
+			rightApplication = fmt.Sprintf("(p (+ y %d) z)", rightOffset)
+		}
+		right := "(not " + rightApplication + ")"
+		if example&2 != 0 {
+			right = rightApplication
+		}
+		script := fmt.Sprintf(`(set-logic QF_UFLRA)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const z Real)
+%s
+%s
+(assert %s)
+(assert %s)
+(check-sat)`, declaration, equality, left, right)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestRandomConditionalIntegerApplicationsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

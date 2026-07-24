@@ -2175,7 +2175,19 @@ type realFunctionFast struct {
 	name  string
 }
 
+type realPredicateFast struct {
+	valid bool
+	id    int
+	name  string
+}
+
 type realBinaryFunctionFast struct {
+	valid bool
+	id    int
+	name  string
+}
+
+type realBinaryPredicateFast struct {
 	valid bool
 	id    int
 	name  string
@@ -2202,6 +2214,43 @@ func applyRealFunction(function RealFunc, argument RealExpr) RealExpr {
 	return realExprValue{contextID: function.contextID, term: smt.ApplySortedUnary(core, materializeReal(argument.term, argument.fast))}
 }
 
+func fastRealPredicate(context, id int, name string) RealPredicate {
+	return realPredicateValue{
+		contextID: context,
+		fast:      realPredicateFast{valid: true, id: id, name: name},
+	}
+}
+
+func applyRealPredicate(predicate RealPredicate, argument RealExpr) BoolExpr {
+	if predicate.contextID != argument.contextID {
+		panic("gosmt: erased real predicate context mismatch")
+	}
+	if argumentID, ok := fastRealSymbolID(argument.fast); predicate.fast.valid && ok {
+		return boolExprValue{contextID: predicate.contextID, fast: booleanFast{
+			kind: booleanFastUninterpretedEUFRelation,
+			uninterpretedEUFRelation: smt.UninterpretedEUFRelation{
+				Left: smt.UninterpretedEUFTerm{
+					Kind: 2, SortID: -3, FunctionID: predicate.fast.id,
+					FirstSortID: -1, FirstID: argumentID,
+				},
+				Right: smt.UninterpretedEUFTerm{
+					Kind: 4, SortID: -3, Constant: "true",
+				},
+			},
+		}}
+	}
+	core := predicate.function
+	if predicate.fast.valid {
+		core = smt.DeclareRealPredicate(predicate.fast.id, predicate.fast.name)
+	}
+	return boolExprValue{
+		contextID: predicate.contextID,
+		term: smt.ApplySortedUnary(
+			core, materializeReal(argument.term, argument.fast),
+		),
+	}
+}
+
 func fastRealBinaryFunction(context, id int, name string) RealBinaryFunc {
 	return realBinaryFuncValue{contextID: context, fast: realBinaryFunctionFast{valid: true, id: id, name: name}}
 }
@@ -2224,6 +2273,51 @@ func applyRealBinaryFunction(function RealBinaryFunc, first, second RealExpr) Re
 		core = smt.DeclareRealBinaryFunction(function.fast.id, function.fast.name)
 	}
 	return realExprValue{contextID: context, term: smt.ApplySortedBinary(core, materializeReal(first.term, first.fast), materializeReal(second.term, second.fast))}
+}
+
+func fastRealBinaryPredicate(context, id int, name string) RealBinaryPredicate {
+	return realBinaryPredicateValue{
+		contextID: context,
+		fast:      realBinaryPredicateFast{valid: true, id: id, name: name},
+	}
+}
+
+func applyRealBinaryPredicate(
+	predicate RealBinaryPredicate, first, second RealExpr,
+) BoolExpr {
+	context := realPairContext(first, second)
+	if predicate.contextID != context {
+		panic("gosmt: erased binary real predicate context mismatch")
+	}
+	firstID, firstOK := fastRealSymbolID(first.fast)
+	secondID, secondOK := fastRealSymbolID(second.fast)
+	if predicate.fast.valid && firstOK && secondOK {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastUninterpretedEUFRelation,
+			uninterpretedEUFRelation: smt.UninterpretedEUFRelation{
+				Left: smt.UninterpretedEUFTerm{
+					Kind: 3, SortID: -3, FunctionID: predicate.fast.id,
+					FirstSortID: -1, SecondSortID: -1,
+					FirstID: firstID, SecondID: secondID,
+				},
+				Right: smt.UninterpretedEUFTerm{
+					Kind: 4, SortID: -3, Constant: "true",
+				},
+			},
+		}}
+	}
+	core := predicate.function
+	if predicate.fast.valid {
+		core = smt.DeclareRealBinaryPredicate(predicate.fast.id, predicate.fast.name)
+	}
+	return boolExprValue{
+		contextID: context,
+		term: smt.ApplySortedBinary(
+			core,
+			materializeReal(first.term, first.fast),
+			materializeReal(second.term, second.fast),
+		),
+	}
 }
 
 func fastEqReal(left, right RealExpr) BoolExpr {

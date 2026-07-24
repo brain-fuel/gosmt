@@ -142,11 +142,15 @@
    built-in sorts in std and solver context in Go+, execute through SMT-LIB,
    purify applications in affine arithmetic, and exchange EUF/LIA equality to
    a fixed point. Reciprocal inequalities, affine arguments, reverse
-   propagation, and compact direct-symbol paths are covered. Arity above three,
-   conditionals around applications, other mixed signatures, and nonlinear
-   arithmetic remain. Unary Int→Bool and binary Int×Int→Bool predicates now
+   propagation, compact direct-symbol paths, and exact integer-valued
+   conditionals around unary applications are covered. Arity above three,
+   other mixed signatures, and nonlinear arithmetic remain. Unary Int→Bool
+   and binary Int×Int→Bool predicates now
    preserve their mixed signatures in Go+, accept affine arguments, execute
    through SMT-LIB, and share fixed-point LIA/EUF congruence.
+   Unary Real→Bool and binary Real×Real→Bool predicates preserve their mixed
+   signatures in Go+, accept affine arguments, execute through SMT-LIB, and
+   share fixed-point LRA/EUF congruence.
    Single-symbol affine length expressions now normalize exact addition,
    subtraction, and arbitrary-precision constant scaling with divisibility,
    sign reversal, integer rounding, and cancellation.
