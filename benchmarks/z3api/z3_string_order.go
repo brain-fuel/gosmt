@@ -196,6 +196,22 @@ static void *gosmt_z3_mk_fpa_rem(void *context, void *left, void *right) {
 	);
 }
 
+static void *gosmt_z3_mk_fpa_to_sbv(void *context, void *value, unsigned width) {
+	Z3_ast rounding_mode =
+		Z3_mk_fpa_round_nearest_ties_to_even((Z3_context)context);
+	return Z3_mk_fpa_to_sbv(
+		(Z3_context)context, rounding_mode, (Z3_ast)value, width
+	);
+}
+
+static void *gosmt_z3_mk_fpa_to_ubv(void *context, void *value, unsigned width) {
+	Z3_ast rounding_mode =
+		Z3_mk_fpa_round_nearest_ties_to_even((Z3_context)context);
+	return Z3_mk_fpa_to_ubv(
+		(Z3_context)context, rounding_mode, (Z3_ast)value, width
+	);
+}
+
 static void gosmt_z3_inc_ref(void *context, void *value) {
 	Z3_inc_ref((Z3_context)context, (Z3_ast)value);
 }
@@ -361,6 +377,34 @@ func z3FloatingPointRem(
 		contextPointer,
 		C.gosmt_z3_mk_fpa_rem(
 			contextPointer, leftPointer, rightPointer,
+		),
+	)
+}
+
+func z3FloatingPointToSignedBitVector(
+	context *z3.Context, value *z3.Expr, width uint,
+) *z3.Expr {
+	contextPointer := *(*unsafe.Pointer)(unsafe.Pointer(context))
+	valuePointer := (*z3ExpressionLayout)(unsafe.Pointer(value)).pointer
+	return z3ManagedExpression(
+		context,
+		contextPointer,
+		C.gosmt_z3_mk_fpa_to_sbv(
+			contextPointer, valuePointer, C.uint(width),
+		),
+	)
+}
+
+func z3FloatingPointToUnsignedBitVector(
+	context *z3.Context, value *z3.Expr, width uint,
+) *z3.Expr {
+	contextPointer := *(*unsafe.Pointer)(unsafe.Pointer(context))
+	valuePointer := (*z3ExpressionLayout)(unsafe.Pointer(value)).pointer
+	return z3ManagedExpression(
+		context,
+		contextPointer,
+		C.gosmt_z3_mk_fpa_to_ubv(
+			contextPointer, valuePointer, C.uint(width),
 		),
 	)
 }

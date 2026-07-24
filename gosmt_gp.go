@@ -2702,7 +2702,7 @@ func ModelBitVec(model Model, term BitVecExpr) (smt.BitVectorValue, bool) {
 			if contextID != termContext {
 				panic("gosmt: erased bit-vector model context mismatch")
 			}
-			return smt.BitVecModelValue(core, materializeBitVector(value, fast))
+			return modelBitVectorValue(core, value, fast)
 		default:
 			panic("goplus: impossible enum value in match")
 		}
@@ -3530,8 +3530,8 @@ func EvalIntSequence(model Model, expression IntSequenceExpr) (smt.IntegerSequen
 
 // FloatingPointExpr is an IEEE/SMT-LIB value backed by an exact bit-vector.
 // Its context, exponent width, and significand width are all retained as Go+
-// indices. Classification, fp.eq, fp.abs, and fp.neg are symbolic; rounded FP
-// arithmetic remains deliberately outside this QF_FPBV foundation.
+// indices. Classification, comparison, rounded arithmetic, remainder, and
+// signed/unsigned bit-vector conversion retain compact symbolic paths.
 //
 //goplus:enum FloatingPointExpr[c nat, e nat, s nat]
 //goplus:derive off
@@ -3754,6 +3754,16 @@ func FloatingPointSqrt(mode smt.FloatingPointRoundingMode, value FloatingPointEx
 //goplus:dep FloatingPointRem(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s]
 func FloatingPointRem(left FloatingPointExpr, right FloatingPointExpr) FloatingPointExpr {
 	return floatingPointRem(left, right)
+}
+
+//goplus:dep FloatingPointToUnsignedBitVector(width nat, 0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingMode, value FloatingPointExpr[c, e, s]) BitVecExpr[c, width]
+func FloatingPointToUnsignedBitVector(width int, mode smt.FloatingPointRoundingMode, value FloatingPointExpr) BitVecExpr {
+	return floatingPointToBitVector(int(width), mode, value, false)
+}
+
+//goplus:dep FloatingPointToSignedBitVector(width nat, 0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingMode, value FloatingPointExpr[c, e, s]) BitVecExpr[c, width]
+func FloatingPointToSignedBitVector(width int, mode smt.FloatingPointRoundingMode, value FloatingPointExpr) BitVecExpr {
+	return floatingPointToBitVector(int(width), mode, value, true)
 }
 
 //goplus:dep ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool)

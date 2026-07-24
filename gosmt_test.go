@@ -473,6 +473,25 @@ func TestContextIndexedFloatingPointRem(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointToBitVector(t *testing.T) {
+	context := NewContext(767)
+	value := FloatingPointFromUint64(8, 24, context, 0xbfc00000)
+	signed := FloatingPointToSignedBitVector(
+		8, RoundNearestTiesToEven(), value,
+	)
+	unsigned := FloatingPointToUnsignedBitVector(
+		8, RoundTowardZero(),
+		FloatingPointFromUint64(8, 24, context, 0x40700000),
+	)
+	solver := Assert(1, NewSolver(context), And(
+		EqBitVec(signed, BitVecValue(8, context, 0xfe)),
+		EqBitVec(unsigned, BitVecValue(8, context, 3)),
+	))
+	if result, ok := Check(solver).(Sat); !ok {
+		t.Fatalf("expected sat conversion constraints, got %v", result)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

@@ -31,12 +31,15 @@ predicates, exact `fp.eq`, `fp.lt`, `fp.leq`, `fp.gt`, and `fp.geq`, exact
 `fp.abs`/`fp.neg`, and operand-selecting `fp.min`/`fp.max`.
 Exact arbitrary-format `fp.add`, `fp.sub`, `fp.mul`, `fp.div`, single-rounding
 `fp.fma`, `fp.sqrt`, and nearest-even-quotient `fp.rem` cover the core rounded
-arithmetic for ground values and compact assigned-symbol constraints.
+arithmetic for ground values and compact assigned-symbol constraints. Indexed
+`fp.to_ubv` and `fp.to_sbv` perform exact five-mode conversion into
+arbitrary-width bit vectors, with compact assigned-symbol validation and a
+stable zero model for SMT-LIB's unspecified out-of-range cases.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Broader unconstrained symbolic
-rounding, the remaining rounded arithmetic, numeric conversions, remaining
-SMT-LIB FP operators, and general QF_FP/QF_FPBV solving remain future work.
+rounding, the remaining numeric conversions, remaining SMT-LIB FP operators,
+and general QF_FP/QF_FPBV solving remain future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:
 sorted terms, exhaustive results, context-indexed models and proofs, checked

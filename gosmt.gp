@@ -928,7 +928,7 @@ func ModelBitVec(0 c nat, 0 a nat, 0 width nat, model Model[c, a], term BitVecEx
 		match term {
 		case bitVecExprValue(termContext, value, fast):
 			if contextID != termContext { panic("gosmt: erased bit-vector model context mismatch") }
-			return smt.BitVecModelValue(core, materializeBitVector(value, fast))
+			return modelBitVectorValue(core, value, fast)
 		}
 	}
 }
@@ -1342,8 +1342,8 @@ func EvalIntSequence(0 c nat, 0 a nat, model Model[c, a], expression IntSequence
 
 // FloatingPointExpr is an IEEE/SMT-LIB value backed by an exact bit-vector.
 // Its context, exponent width, and significand width are all retained as Go+
-// indices. Classification, fp.eq, fp.abs, and fp.neg are symbolic; rounded FP
-// arithmetic remains deliberately outside this QF_FPBV foundation.
+// indices. Classification, comparison, rounded arithmetic, remainder, and
+// signed/unsigned bit-vector conversion retain compact symbolic paths.
 //goplus:derive off
 //goplus:repr transparent
 type FloatingPointExpr[c nat, e nat, s nat] enum { floatingPointExprValue(ContextID int, ExponentBits int, SignificandBits int, Bits BitVecExpr[c, e+s]) FloatingPointExpr[c, e, s] }
@@ -1502,6 +1502,14 @@ func FloatingPointSqrt(0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRounding
 
 func FloatingPointRem(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s] {
 	return floatingPointRem(left, right)
+}
+
+func FloatingPointToUnsignedBitVector(width nat, 0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingMode, value FloatingPointExpr[c, e, s]) BitVecExpr[c, width] {
+	return floatingPointToBitVector(int(width), mode, value, false)
+}
+
+func FloatingPointToSignedBitVector(width nat, 0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingMode, value FloatingPointExpr[c, e, s]) BitVecExpr[c, width] {
+	return floatingPointToBitVector(int(width), mode, value, true)
 }
 
 func ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool) {

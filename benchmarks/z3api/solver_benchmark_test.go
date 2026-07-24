@@ -8086,6 +8086,92 @@ func BenchmarkSymbolicFloatingPointRemCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicFloatingPointToBitVectorCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(148)
+			value := gosmt.FloatingPointConst(8, 24, context, "value", 1)
+			positive := gosmt.FloatingPointConst(8, 24, context, "positive", 2)
+			assigned := gosmt.FloatingPointFromUint64(
+				8, 24, context, 0xbfc00000,
+			)
+			positiveAssigned := gosmt.FloatingPointFromUint64(
+				8, 24, context, 0x40600000,
+			)
+			converted := gosmt.FloatingPointToSignedBitVector(
+				8, gosmt.RoundNearestTiesToEven(), value,
+			)
+			unsigned := gosmt.FloatingPointToUnsignedBitVector(
+				8, gosmt.RoundNearestTiesToEven(), positive,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), gosmt.And(
+					gosmt.EqBitVec(
+						gosmt.FloatingPointBits(value),
+						gosmt.FloatingPointBits(assigned),
+					),
+					gosmt.EqBitVec(
+						gosmt.FloatingPointBits(positive),
+						gosmt.FloatingPointBits(positiveAssigned),
+					),
+					gosmt.EqBitVec(
+						converted, gosmt.BitVecValue(8, context, 0xfe),
+					),
+					gosmt.EqBitVec(
+						unsigned, gosmt.BitVecValue(8, context, 4),
+					),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			bits, found := gosmt.ModelBitVec(result.Value, converted)
+			raw, inline := bits.Uint64()
+			if !found || !inline || raw != 0xfe {
+				b.Fatal("invalid conversion model")
+			}
+			unsignedBits, unsignedFound := gosmt.ModelBitVec(result.Value, unsigned)
+			unsignedRaw, unsignedInline := unsignedBits.Uint64()
+			if !unsignedFound || !unsignedInline || unsignedRaw != 4 {
+				b.Fatal("invalid unsigned conversion model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			value := context.MkConst(context.MkStringSymbol("value"), sort)
+			positive := context.MkConst(context.MkStringSymbol("positive"), sort)
+			assigned := context.MkFPNumeral("-1.5", sort)
+			positiveAssigned := context.MkFPNumeral("3.5", sort)
+			converted := z3FloatingPointToSignedBitVector(context, value, 8)
+			unsigned := z3FloatingPointToUnsignedBitVector(context, positive, 8)
+			expected := context.MkBV(0xfe, 8)
+			unsignedExpected := context.MkBV(4, 8)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkAnd(
+				context.MkEq(value, assigned),
+				context.MkEq(positive, positiveAssigned),
+				context.MkEq(converted, expected),
+				context.MkEq(unsigned, unsignedExpected),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(converted, true); !found {
+				b.Fatal("invalid conversion model")
+			}
+			if _, found := model.Eval(unsigned, true); !found {
+				b.Fatal("invalid unsigned conversion model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()
