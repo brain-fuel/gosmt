@@ -6674,6 +6674,54 @@ func TestSymbolicFloatingPointPredicatesAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSMTLibFloatingPointPredicatesAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	predicates := []string{
+		"fp.isNaN", "fp.isInfinite", "fp.isZero", "fp.isSubnormal",
+		"fp.isNormal", "fp.isNegative", "fp.isPositive",
+	}
+	random := rand.New(rand.NewSource(0x534d5443))
+	for example := 0; example < 64; example++ {
+		pattern := uint64(random.Uint32())
+		switch example % 16 {
+		case 0:
+			pattern = 0
+		case 1:
+			pattern = 0x80000000
+		case 2:
+			pattern = 0x7f800000
+		case 3:
+			pattern = 0xff800000
+		case 4:
+			pattern = 0x7fc12345
+		case 5:
+			pattern = 1
+		}
+		predicate := predicates[example%len(predicates)]
+		assertion := fmt.Sprintf("(%s x)", predicate)
+		if example%2 != 0 {
+			assertion = "(not " + assertion + ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const x (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv x) #x%08x))\n(assert %s)\n(check-sat)\n",
+			uint32(pattern), assertion,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d (%s): gosmt=%s z3=%s\n%s", example, predicate, got, want, script)
+		}
+	}
+}
+
 func TestSymbolicFloatingPointEqualityAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

@@ -1049,6 +1049,14 @@ binding does not expose an equivalent SMT-LIB execution entry point. The
 underlying typed operation is independently gated against Z3 at 9 versus 19
 allocations and more than 175x conservative-endpoint throughput.
 
+The SMT-LIB floating-point classification workload parses and executes a
+binary32 NaN assignment plus `fp.isNaN`. Streaming execution uses 9
+allocations and 3.310–3.346 us versus the complete parser's 115 allocations
+and 7.172–7.241 us. This is 92.2% fewer allocations and over 2.14x
+conservative-endpoint throughput while retaining automatic fallback. The
+corresponding typed symbolic NaN workload remains independently gated against
+pinned Z3.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on
