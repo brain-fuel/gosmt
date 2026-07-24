@@ -375,6 +375,30 @@ func TestContextIndexedFloatingPointMul(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointDiv(t *testing.T) {
+	context := NewContext(763)
+	leftValue := FloatingPointFromUint64(8, 24, context, 0x3f800000)
+	rightValue := FloatingPointFromUint64(8, 24, context, 0x40400000)
+	expected := FloatingPointFromUint64(8, 24, context, 0x3eaaaaab)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	quotient := FloatingPointDiv(RoundNearestTiesToEven(), left, right)
+	formula := And(
+		EqBitVec(FloatingPointBits(left), FloatingPointBits(leftValue)),
+		EqBitVec(FloatingPointBits(right), FloatingPointBits(rightValue)),
+		EqBitVec(FloatingPointBits(quotient), FloatingPointBits(expected)),
+	)
+	result, ok := Check(Assert(3, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("symbolic fp.div result=%T", Check(Assert(3, NewSolver(context), formula)))
+	}
+	bits, found := ModelFloatingPointBits(result.Value, quotient)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x3eaaaaab {
+		t.Fatalf("quotient bits=%#x,%v,%v", raw, inline, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

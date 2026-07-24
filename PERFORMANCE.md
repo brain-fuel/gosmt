@@ -1114,6 +1114,16 @@ conservative-endpoint throughput. The separately gated typed workload uses
 allocations and 1.312–3.149 ms: 52.4% fewer allocations and over 150x
 conservative-endpoint throughput.
 
+The floating-point division workload fixes binary32 symbols to `1` and `3`,
+divides under round-nearest-ties-to-even, constrains the exact recurring
+binary32 result, and evaluates the derived quotient. SMT-LIB streaming
+execution uses 11 allocations and 4.082–4.915 us versus the complete parser's
+185 allocations and 11.711–12.627 us: 94.1% fewer allocations and over 2.38x
+conservative-endpoint throughput. The separately gated typed workload uses
+10 allocations and 9.279–9.320 us versus pinned Z3's 22 visible Go
+allocations and 1.295–1.446 ms: 54.5% fewer allocations and over 138x
+conservative-endpoint throughput.
+
 ## SMT-LIB front-end baseline
 
 The first measured standard-library parser and command-execution baseline on

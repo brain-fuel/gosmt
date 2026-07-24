@@ -7862,6 +7862,62 @@ func BenchmarkSymbolicFloatingPointMulCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicFloatingPointDivCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(144)
+			left := gosmt.FloatingPointConst(8, 24, context, "left", 1)
+			right := gosmt.FloatingPointConst(8, 24, context, "right", 2)
+			leftValue := gosmt.FloatingPointFromUint64(8, 24, context, 0x3f800000)
+			rightValue := gosmt.FloatingPointFromUint64(8, 24, context, 0x40400000)
+			expected := gosmt.FloatingPointFromUint64(8, 24, context, 0x3eaaaaab)
+			quotient := gosmt.FloatingPointDiv(
+				gosmt.RoundNearestTiesToEven(), left, right,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), gosmt.And(
+				gosmt.EqBitVec(gosmt.FloatingPointBits(left), gosmt.FloatingPointBits(leftValue)),
+				gosmt.EqBitVec(gosmt.FloatingPointBits(right), gosmt.FloatingPointBits(rightValue)),
+				gosmt.EqBitVec(gosmt.FloatingPointBits(quotient), gosmt.FloatingPointBits(expected)),
+			))).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			bits, found := gosmt.ModelFloatingPointBits(result.Value, quotient)
+			raw, inline := bits.Uint64()
+			if !found || !inline || raw != 0x3eaaaaab {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			left := context.MkConst(context.MkStringSymbol("left"), sort)
+			right := context.MkConst(context.MkStringSymbol("right"), sort)
+			leftValue := context.MkFPNumeral("1", sort)
+			rightValue := context.MkFPNumeral("3", sort)
+			expected := z3FloatingPointDiv(context, 0, leftValue, rightValue)
+			quotient := z3FloatingPointDiv(context, 0, left, right)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkAnd(
+				context.MkEq(left, leftValue),
+				context.MkEq(right, rightValue),
+				context.MkFPEq(quotient, expected),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(quotient, true); !found {
+				b.Fatal("invalid quotient model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

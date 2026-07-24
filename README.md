@@ -29,13 +29,13 @@ short and long rounding-mode names, and ground or assigned-symbol
 `fp.roundToIntegral`, plus all seven ground and symbolic classification
 predicates, exact `fp.eq`, `fp.lt`, `fp.leq`, `fp.gt`, and `fp.geq`, exact
 `fp.abs`/`fp.neg`, and operand-selecting `fp.min`/`fp.max`.
-Exact arbitrary-format `fp.add`, `fp.sub`, and `fp.mul` cover all five rounding
-modes for ground values and compact assigned-symbol constraints.
+Exact arbitrary-format `fp.add`, `fp.sub`, `fp.mul`, and `fp.div` cover all
+five rounding modes for ground values and compact assigned-symbol constraints.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Broader unconstrained symbolic
-rounding, the remaining rounded arithmetic, numeric conversions, the remaining SMT-LIB FP
-operators, and general QF_FP/QF_FPBV solving remain future work.
+rounding, the remaining rounded arithmetic, numeric conversions, remaining
+SMT-LIB FP operators, and general QF_FP/QF_FPBV solving remain future work.
 
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:
 sorted terms, exhaustive results, context-indexed models and proofs, checked

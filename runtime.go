@@ -157,6 +157,7 @@ const (
 	booleanFastFloatingPointAdd
 	booleanFastFloatingPointSub
 	booleanFastFloatingPointMul
+	booleanFastFloatingPointDiv
 	booleanFastBitVectorEUFRelation
 	booleanFastIntegerDifference
 	booleanFastIntegerSymbolEquality
@@ -207,6 +208,7 @@ type booleanFast struct {
 	floatingPointAdd             smt.FloatingPointAddRelation
 	floatingPointSub             smt.FloatingPointSubRelation
 	floatingPointMul             smt.FloatingPointMulRelation
+	floatingPointDiv             smt.FloatingPointDivRelation
 	bitVectorEUFRelation         smt.BitVectorEUFRelation
 	integerDifference            smt.IntegerDifferenceConstraint
 	integerSymbolLeft            int
@@ -581,6 +583,11 @@ func assertBoolean(assertion int, solver smt.Solver, term smt.Term[smt.BoolSort]
 			assertion, solver, fast.floatingPointMul,
 		)
 	}
+	if fast.kind == booleanFastFloatingPointDiv {
+		return smt.AssertFloatingPointDivRelation(
+			assertion, solver, fast.floatingPointDiv,
+		)
+	}
 	return smt.Assert(assertion, solver, materializeBoolean(term, fast))
 }
 
@@ -643,6 +650,18 @@ func modelFloatingPointBits(model smt.Model, term smt.Term[smt.BitVecSort], fast
 			return smt.BitVectorValue{}, false
 		}
 		return smt.FloatingPointBits(smt.FloatingPointMul(
+			fast.roundingMode,
+			smt.FloatingPointFromBits(fast.parameterA, fast.parameterB, leftBits),
+			smt.FloatingPointFromBits(fast.parameterA, fast.parameterB, rightBits),
+		)), true
+	}
+	if fast.kind == bitVectorFastFloatingPointDiv {
+		leftBits, leftFound := smt.FloatingPointSymbolModelBits(model, fast.id)
+		rightBits, rightFound := smt.FloatingPointSymbolModelBits(model, fast.firstID)
+		if !leftFound || !rightFound {
+			return smt.BitVectorValue{}, false
+		}
+		return smt.FloatingPointBits(smt.FloatingPointDiv(
 			fast.roundingMode,
 			smt.FloatingPointFromBits(fast.parameterA, fast.parameterB, leftBits),
 			smt.FloatingPointFromBits(fast.parameterA, fast.parameterB, rightBits),
@@ -1410,6 +1429,7 @@ const (
 	bitVectorFastFloatingPointAdd
 	bitVectorFastFloatingPointSub
 	bitVectorFastFloatingPointMul
+	bitVectorFastFloatingPointDiv
 )
 
 type bitVectorFast struct {
@@ -1861,6 +1881,16 @@ func fastEqBitVector(left, right BitVecExpr) BoolExpr {
 			kind: booleanFastFloatingPointMul, floatingPointMul: relation,
 		}}
 	}
+	if relation, ok := compactFloatingPointDivRelation(left.fast, right.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastFloatingPointDiv, floatingPointDiv: relation,
+		}}
+	}
+	if relation, ok := compactFloatingPointDivRelation(right.fast, left.fast); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind: booleanFastFloatingPointDiv, floatingPointDiv: relation,
+		}}
+	}
 	if relation, ok := compactBitVectorArrayStoreReadValue(left.fast, right.fast); ok {
 		return boolExprValue{contextID: context, fast: booleanFast{kind: booleanFastBitVectorArrayStoreReadValue, bitVectorArrayStoreReadValue: relation}}
 	}
@@ -1941,6 +1971,20 @@ func compactFloatingPointMulRelation(
 		return smt.FloatingPointMulRelation{}, false
 	}
 	return smt.NewFloatingPointMulRelation(
+		expression.parameterA, expression.parameterB,
+		expression.id, expression.firstID,
+		expression.roundingMode, constant.value,
+	), true
+}
+
+func compactFloatingPointDivRelation(
+	expression, constant bitVectorFast,
+) (smt.FloatingPointDivRelation, bool) {
+	if expression.kind != bitVectorFastFloatingPointDiv ||
+		constant.kind != bitVectorFastValue {
+		return smt.FloatingPointDivRelation{}, false
+	}
+	return smt.NewFloatingPointDivRelation(
 		expression.parameterA, expression.parameterB,
 		expression.id, expression.firstID,
 		expression.roundingMode, constant.value,
@@ -2944,6 +2988,44 @@ func floatingPointMul(
 	}
 }
 
+func floatingPointDiv(
+	mode smt.FloatingPointRoundingMode,
+	left, right FloatingPointExpr,
+) FloatingPointExpr {
+	validateFloatingPointPair(left, right)
+	leftGround, leftOK := floatingPointGroundValue(left)
+	rightGround, rightOK := floatingPointGroundValue(right)
+	if leftOK && rightOK {
+		quotient := smt.FloatingPointDiv(mode, leftGround, rightGround)
+		return floatingPointExprValue{
+			contextID: left.contextID, exponentBits: left.exponentBits,
+			significandBits: left.significandBits,
+			bits: exactBitVectorExpr(
+				left.contextID, smt.FloatingPointBits(quotient),
+			),
+		}
+	}
+	if left.bits.fast.kind != bitVectorFastSymbol ||
+		right.bits.fast.kind != bitVectorFastSymbol {
+		panic("gosmt: fp.div currently requires ground values or direct symbols")
+	}
+	total := left.exponentBits + left.significandBits
+	return floatingPointExprValue{
+		contextID: left.contextID, exponentBits: left.exponentBits,
+		significandBits: left.significandBits,
+		bits: bitVecExprValue{
+			contextID: left.contextID,
+			fast: bitVectorFast{
+				kind: bitVectorFastFloatingPointDiv, width: total,
+				id: left.bits.fast.id, name: left.bits.fast.name,
+				firstID: right.bits.fast.id, firstName: right.bits.fast.name,
+				parameterA: left.exponentBits, parameterB: left.significandBits,
+				roundingMode: mode,
+			},
+		},
+	}
+}
+
 func compactFloatingPointComparison(
 	left, right FloatingPointExpr,
 	comparison uint8,
@@ -3860,6 +3942,10 @@ func fastNot(value BoolExpr) BoolExpr {
 	}
 	if value.fast.kind == booleanFastFloatingPointMul {
 		value.fast.floatingPointMul.Negated = !value.fast.floatingPointMul.Negated
+		return value
+	}
+	if value.fast.kind == booleanFastFloatingPointDiv {
+		value.fast.floatingPointDiv.Negated = !value.fast.floatingPointDiv.Negated
 		return value
 	}
 	if value.fast.kind == booleanFastBitVectorEUFRelation {
@@ -4856,6 +4942,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.floatingPointSub
 	case booleanFastFloatingPointMul:
 		return fast.floatingPointMul
+	case booleanFastFloatingPointDiv:
+		return fast.floatingPointDiv
 	case booleanFastBitVectorEUFRelation:
 		return fast.bitVectorEUFRelation
 	case booleanFastIntegerDifference:
