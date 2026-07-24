@@ -7388,6 +7388,41 @@ func BenchmarkGroundFloatingPointPredicatesCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicFloatingPointNaNCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(135)
+			value := gosmt.FloatingPointConst(8, 24, context, "x", 1)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), gosmt.FloatingPointIsNaN(value),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			bits, found := gosmt.ModelFloatingPointBits(result.Value, value)
+			if !found || !smt.FloatingPointIsNaN(smt.FloatingPointFromBits(8, 24, bits)) {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			value := context.MkConst(context.MkStringSymbol("x"), context.MkFPSort32())
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkFPIsNaN(value))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			if _, found := solver.Model().Eval(value, true); !found {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

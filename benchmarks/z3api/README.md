@@ -85,3 +85,11 @@ both signed-zero and NaN `fp.eq` semantics through each public API and solver.
 Across five Apple M5 Max runs it uses 4 allocations versus Z3's 17 (76.5%
 fewer) and takes 4.077–4.124 µs versus 0.922–1.048 ms, more than 223 times
 faster at conservative endpoints.
+
+The symbolic floating-point workload constructs a context- and format-indexed
+binary32 constant, solves `fp.isNaN`, extracts its exact IEEE model bits, and
+validates the model classification. The solver-neutral std relation retains
+the classification without generic bit-blast allocation and synthesizes a
+canonical compact model. Across five Apple M5 Max runs it uses 5 allocations
+versus Z3's 10 (exactly 50% fewer) and takes 3.890–4.030 µs versus
+1.309–1.453 ms, more than 324 times faster at conservative endpoints.

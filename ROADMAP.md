@@ -22,12 +22,14 @@
    Broader symbolic mixed LIA/LRA coercions, cutting planes, and full
    shared-theory exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
-   Ground floating-point values now retain exponent and significand widths as
-   Go+ indices, preserve exact arbitrary-format IEEE/SMT-LIB bit patterns, and
-   implement NaN/infinity/zero/subnormal/normal/sign classification and
-   `fp.eq` signed-zero/NaN semantics through a context-indexed GoSMT façade.
-   Symbolic values, rounding modes, arithmetic, conversions, SMT-LIB
-   execution, and QF_FP/QF_FPBV solving remain.
+   Floating-point values now retain context, exponent, and significand widths
+   as Go+ indices with a computed-width IEEE bit vector. Exact arbitrary-format
+   ground and symbolic constants implement NaN/infinity/zero/subnormal/normal/
+   sign classification, exact model bits, and `fp.eq` signed-zero/NaN
+   semantics. Solver-neutral compact std relations synthesize symbolic
+   classification models directly, while source-width-safe interior extracts
+   preserve the general QF_FPBV fallback. Rounding modes, arithmetic,
+   conversions, SMT-LIB FP execution, and general QF_FP/QF_FPBV solving remain.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,
    recognizers, graph acyclicity, exact n-ary models, and SMT-LIB execution are

@@ -59,6 +59,7 @@ Z3's official Go binding at the pinned commit. Current Apple M5 Max results:
 | QF_BV 8-bit unsigned-order contradiction | ~483–583 ns, 1,064 B, 4 allocs | ~0.89–1.04 ms, 232 B, 15 allocs | green | green (target ≤7 allocs) |
 | QF_BV 8-bit symbol-dependent multiplication | ~573–683 ns, 1,160 B, 4 allocs | ~0.89–1.05 ms, 280 B, 18 allocs | green | green (target ≤9 allocs) |
 | ground FP special-value predicates and `fp.eq` | ~4.077–4.124 us, 15,104 B, 4 allocs | ~0.922–1.048 ms, 296 B, 17 allocs | green (>223x) | green (target ≤8 allocs; 76.5% fewer) |
+| symbolic FP NaN classification + exact model bits | ~3.890–4.030 us, 15,136 B, 5 allocs | ~1.309–1.453 ms, 144 B, 10 allocs | green (>324x) | green (target ≤5 allocs; exactly 50% fewer) |
 | QF_BV 8-bit symbol-dependent logical shift | ~588–675 ns, 1,160 B, 4 allocs | ~0.89–1.04 ms, 280 B, 18 allocs | green | green (target ≤9 allocs) |
 | QF_BV 8-bit symbol-dependent unsigned division | ~569–630 ns, 1,160 B, 4 allocs | ~0.89–1.05 ms, 280 B, 18 allocs | green | green (target ≤9 allocs) |
 | QF_BV symbol-dependent 8→4 extraction | ~563–635 ns, 1,224 B, 4 allocs | ~0.89–1.05 ms, 248 B, 16 allocs | green | green (target ≤8 allocs) |

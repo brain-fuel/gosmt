@@ -11,4 +11,6 @@ func AcceptedFloatingPoint() {
 	right := gosmt.FloatingPointFromUint64(8, 24, context, 0x40000000)
 	_ = gosmt.FloatingPointEqual(left, right)
 	_ = gosmt.FloatingPointBits(left)
+	symbolic := gosmt.FloatingPointConst(8, 24, context, "x", 1)
+	_ = gosmt.FloatingPointIsNormal(symbolic)
 }

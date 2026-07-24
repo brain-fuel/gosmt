@@ -61,6 +61,66 @@ func TestContextIndexedGroundFloatingPoint(t *testing.T) {
 	}
 }
 
+func TestContextIndexedSymbolicFloatingPoint(t *testing.T) {
+	context := NewContext(72)
+	tests := []struct {
+		name      string
+		predicate func(FloatingPointExpr) BoolExpr
+		validate  func(smt.FloatingPointValue) bool
+	}{
+		{"NaN", FloatingPointIsNaN, smt.FloatingPointIsNaN},
+		{"infinite", FloatingPointIsInfinite, smt.FloatingPointIsInfinite},
+		{"zero", FloatingPointIsZero, smt.FloatingPointIsZero},
+		{"subnormal", FloatingPointIsSubnormal, smt.FloatingPointIsSubnormal},
+		{"normal", FloatingPointIsNormal, smt.FloatingPointIsNormal},
+		{"negative", FloatingPointIsNegative, smt.FloatingPointIsNegative},
+		{"positive", FloatingPointIsPositive, smt.FloatingPointIsPositive},
+	}
+	for index, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			value := FloatingPointConst(8, 24, context, "x", index+1)
+			result, ok := Check(Assert(1, NewSolver(context), test.predicate(value))).(Sat)
+			if !ok {
+				t.Fatalf("result=%T", Check(Assert(1, NewSolver(context), test.predicate(value))))
+			}
+			bits, found := ModelFloatingPointBits(result.Value, value)
+			if !found {
+				t.Fatal("missing floating-point model bits")
+			}
+			modelValue := smt.FloatingPointFromBits(8, 24, bits)
+			if !test.validate(modelValue) {
+				t.Fatalf("model bits %#v do not satisfy %s", bits, test.name)
+			}
+		})
+	}
+}
+
+func TestContextIndexedSymbolicFloatingPointEquality(t *testing.T) {
+	context := NewContext(73)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	positiveZero := FloatingPointFromUint64(8, 24, context, 0)
+	negativeZero := FloatingPointFromUint64(8, 24, context, 0x80000000)
+	formula := And(
+		EqBitVec(FloatingPointBits(left), FloatingPointBits(positiveZero)),
+		EqBitVec(FloatingPointBits(right), FloatingPointBits(negativeZero)),
+		FloatingPointEqual(left, right),
+	)
+	result := Check(Assert(1, NewSolver(context), formula))
+	if _, ok := result.(Sat); !ok {
+		t.Fatalf("fp.eq must permit distinct signed-zero bit patterns: %#v", result)
+	}
+
+	nan := FloatingPointFromUint64(8, 24, context, 0x7fc00000)
+	nanFormula := And(
+		EqBitVec(FloatingPointBits(left), FloatingPointBits(nan)),
+		FloatingPointEqual(left, left),
+	)
+	if _, ok := Check(Assert(2, NewSolver(context), nanFormula)).(Unsat); !ok {
+		t.Fatal("fp.eq must reject symbolic NaN self-equality")
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

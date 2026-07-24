@@ -6616,6 +6616,118 @@ func TestGroundFloatingPointPredicatesAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestSymbolicFloatingPointPredicatesAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	predicates := []struct {
+		name  string
+		apply func(FloatingPointExpr) BoolExpr
+	}{
+		{"fp.isNaN", FloatingPointIsNaN},
+		{"fp.isInfinite", FloatingPointIsInfinite},
+		{"fp.isZero", FloatingPointIsZero},
+		{"fp.isSubnormal", FloatingPointIsSubnormal},
+		{"fp.isNormal", FloatingPointIsNormal},
+		{"fp.isNegative", FloatingPointIsNegative},
+		{"fp.isPositive", FloatingPointIsPositive},
+	}
+	random := rand.New(rand.NewSource(0x46505359))
+	for example := 0; example < 64; example++ {
+		pattern := uint64(random.Uint32())
+		predicate := predicates[example%len(predicates)]
+		positive := example%2 == 0
+		context := NewContext(170 + example)
+		value := FloatingPointConst(8, 24, context, "x", 1)
+		fixed := FloatingPointFromUint64(8, 24, context, pattern)
+		classification := predicate.apply(value)
+		if !positive {
+			classification = Not(classification)
+		}
+		formula := And(
+			EqBitVec(FloatingPointBits(value), FloatingPointBits(fixed)),
+			classification,
+		)
+		ours := floatingPointResultStatus(Check(Assert(1, NewSolver(context), formula)))
+		operator := ""
+		if !positive {
+			operator = "(not "
+		}
+		close := ""
+		if !positive {
+			close = ")"
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const x (_ FloatingPoint 8 24))\n(assert (= x %s))\n(assert %s(%s x)%s)\n(check-sat)\n",
+			smtLIBFloat32(pattern), operator, predicate.name, close,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, ours, want, script)
+		}
+	}
+}
+
+func TestSymbolicFloatingPointEqualityAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x46504551))
+	for example := 0; example < 64; example++ {
+		leftPattern := uint64(random.Uint32())
+		rightPattern := uint64(random.Uint32())
+		if example%8 == 0 {
+			rightPattern = leftPattern
+		}
+		if example%16 == 0 {
+			leftPattern, rightPattern = 0, 0x80000000
+		}
+		if example%16 == 8 {
+			leftPattern, rightPattern = 0x7fc00000, 0x7fc00000
+		}
+		context := NewContext(270 + example)
+		left := FloatingPointConst(8, 24, context, "left", 1)
+		right := FloatingPointConst(8, 24, context, "right", 2)
+		formula := And(
+			EqBitVec(FloatingPointBits(left), FloatingPointBits(FloatingPointFromUint64(8, 24, context, leftPattern))),
+			EqBitVec(FloatingPointBits(right), FloatingPointBits(FloatingPointFromUint64(8, 24, context, rightPattern))),
+			FloatingPointEqual(left, right),
+		)
+		ours := floatingPointResultStatus(Check(Assert(1, NewSolver(context), formula)))
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n(declare-const right (_ FloatingPoint 8 24))\n(assert (= left %s))\n(assert (= right %s))\n(assert (fp.eq left right))\n(check-sat)\n",
+			smtLIBFloat32(leftPattern), smtLIBFloat32(rightPattern),
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if want := strings.TrimSpace(string(output)); ours != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, ours, want, script)
+		}
+	}
+}
+
+func floatingPointResultStatus(result Result) string {
+	switch result.(type) {
+	case Sat:
+		return "sat"
+	case Unsat:
+		return "unsat"
+	default:
+		return "unknown"
+	}
+}
+
 func smtLIBFloat32(pattern uint64) string {
 	bits := fmt.Sprintf("%032b", uint32(pattern))
 	return fmt.Sprintf("(fp #b%s #b%s #b%s)", bits[:1], bits[1:9], bits[9:])

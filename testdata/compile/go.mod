@@ -4,7 +4,7 @@ go 1.26.0
 
 require goforge.dev/gosmt v0.0.0
 
-require goforge.dev/goplus/std v0.132.0 // indirect
+require goforge.dev/goplus/std v0.133.0 // indirect
 
 replace goforge.dev/gosmt => ../..
 
