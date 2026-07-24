@@ -4443,6 +4443,66 @@ func TestRandomAffineIntegerRealCoercionsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomAffineIntegerRealComparisonsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x414646494e45434d))
+	integerText := func(value int) string {
+		if value < 0 {
+			return fmt.Sprintf("(- %d)", -value)
+		}
+		return fmt.Sprintf("%d", value)
+	}
+	halfText := func(value int) string {
+		absolute := value
+		if absolute < 0 {
+			absolute = -absolute
+		}
+		text := fmt.Sprintf("%d.%d", absolute/2, 5*(absolute&1))
+		if value < 0 {
+			return fmt.Sprintf("(- %s)", text)
+		}
+		return text
+	}
+	operators := [...]string{"=", "<", "<="}
+	for example := 0; example < 64; example++ {
+		x := random.Intn(41) - 20
+		y := random.Intn(41) - 20
+		leftOffset := random.Intn(21) - 10
+		rightOffset := random.Intn(21) - 10
+		operator := operators[example%len(operators)]
+		assertion := fmt.Sprintf(
+			"(assert (%s (+ (to_real x) %s) (+ (to_real y) %s)))",
+			operator, halfText(leftOffset), halfText(rightOffset),
+		)
+		if example&1 != 0 {
+			assertion = fmt.Sprintf(
+				"(assert (not (%s (+ (to_real x) %s) (+ (to_real y) %s))))",
+				operator, halfText(leftOffset), halfText(rightOffset),
+			)
+		}
+		script := fmt.Sprintf(`(set-logic QF_LIRA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (= x %s))
+(assert (= y %s))
+%s
+(check-sat)`, integerText(x), integerText(y), assertion)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestRandomConditionalIntegerApplicationsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

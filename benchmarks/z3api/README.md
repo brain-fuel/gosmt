@@ -53,3 +53,7 @@ The affine coercion contradiction workload covers a symbolic integer plus
 `3/2`, exact integrality normalization, and context-indexed `AndPair`
 short-circuiting. It uses 4 allocations versus Z3's 12 and runs more than 486
 times faster.
+
+The affine equality workload compares two differently offset coercions of the
+same symbolic integer. It uses 5 allocations versus Z3's 12 and remains more
+than 360 times faster at conservative endpoints.

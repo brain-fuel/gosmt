@@ -2372,6 +2372,9 @@ func applyRealTernaryFunction(
 
 func fastEqReal(left, right RealExpr) BoolExpr {
 	context := realPairContext(left, right)
+	if relation, ok := fastAffineIntegerRealEquality(left, right); ok {
+		return relation
+	}
 	if left.fast.integerToReal && right.fast.integerToReal &&
 		left.fast.integerOffset.Sign() == 0 && right.fast.integerOffset.Sign() == 0 {
 		leftInteger := intExprValue{contextID: context, term: left.fast.integerTerm}
@@ -2407,6 +2410,18 @@ func fastEqReal(left, right RealExpr) BoolExpr {
 		Left:  materializeReal(left.term, left.fast),
 		Right: materializeReal(right.term, right.fast),
 	})
+}
+
+func fastAffineIntegerRealEquality(left, right RealExpr) (BoolExpr, bool) {
+	difference, bound, ok := fastAffineIntegerDifference(left, right)
+	if !ok {
+		return boolExprValue{}, false
+	}
+	if !bound.IsInteger() {
+		return boolExprValue{contextID: left.contextID, term: smt.Bool{Value: false}}, true
+	}
+	expected := intExprValue{contextID: left.contextID, term: exactIntegerTerm(smt.FloorRational(bound))}
+	return fastEqInteger(difference, expected), true
 }
 
 func exactIntegerTerm(value smt.IntegerValue) smt.Term[smt.IntSort] {
@@ -2691,9 +2706,13 @@ func fastRealRelation(left, right RealExpr, strict bool) BoolExpr {
 }
 
 func fastIntegerToRealRelation(left, right RealExpr, strict bool) (BoolExpr, bool) {
-	if left.fast.integerToReal && left.fast.integerOffset.Sign() != 0 ||
-		right.fast.integerToReal && right.fast.integerOffset.Sign() != 0 {
-		return boolExprValue{}, false
+	if difference, bound, ok := fastAffineIntegerDifference(left, right); ok {
+		floor := smt.FloorRational(bound)
+		expected := intExprValue{contextID: left.contextID, term: exactIntegerTerm(floor)}
+		if strict && bound.IsInteger() {
+			return compareInteger(difference, expected, true), true
+		}
+		return compareInteger(difference, expected, false), true
 	}
 	leftInteger := intExprValue{contextID: left.contextID, term: left.fast.integerTerm}
 	rightInteger := intExprValue{contextID: right.contextID, term: right.fast.integerTerm}
@@ -2730,6 +2749,50 @@ func fastIntegerToRealRelation(left, right RealExpr, strict bool) (BoolExpr, boo
 		return compareInteger(bound, rightInteger, false), true
 	}
 	return boolExprValue{}, false
+}
+
+func fastAffineIntegerDifference(left, right RealExpr) (IntExpr, smt.Rational, bool) {
+	leftInteger, leftOffset, leftOK := fastIntegerAffineParts(left)
+	rightInteger, rightOffset, rightOK := fastIntegerAffineParts(right)
+	if !leftOK || !rightOK ||
+		leftInteger.term == nil && rightInteger.term == nil {
+		return intExprValue{}, smt.Rational{}, false
+	}
+	if leftInteger.term == nil {
+		leftInteger = intExprValue{
+			contextID: left.contextID,
+			term:      smt.Integer{Value: 0},
+		}
+	}
+	if rightInteger.term == nil {
+		rightInteger = intExprValue{
+			contextID: right.contextID,
+			term:      smt.Integer{Value: 0},
+		}
+	}
+	difference := intExprValue{
+		contextID: left.contextID,
+		term: smt.Subtract{
+			Left:  leftInteger.term,
+			Right: rightInteger.term,
+		},
+	}
+	if leftID, _, leftSymbol := directIntegerExprSymbol(leftInteger); leftSymbol {
+		if rightID, _, rightSymbol := directIntegerExprSymbol(rightInteger); rightSymbol && leftID == rightID {
+			difference.term = smt.Integer{Value: 0}
+		}
+	}
+	return difference, smt.SubtractRational(rightOffset, leftOffset), true
+}
+
+func fastIntegerAffineParts(value RealExpr) (intExprValue, smt.Rational, bool) {
+	if value.fast.integerToReal {
+		return intExprValue{contextID: value.contextID, term: value.fast.integerTerm}, value.fast.integerOffset, true
+	}
+	if constant, ok := fastRealConstant(value.fast); ok {
+		return intExprValue{contextID: value.contextID}, constant, true
+	}
+	return intExprValue{}, smt.Rational{}, false
 }
 
 func realContext(values []RealExpr) int {

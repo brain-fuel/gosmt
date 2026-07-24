@@ -13,7 +13,9 @@
    fractional-bound rounding. Symbolic `to_int(to_real(x))` and
    `is_int(to_real(x))` normalize to `x` and true respectively. Affine
    coerced-integer expressions with rational offsets and integral scaling use
-   exact `floor(n+r)=n+floor(r)` and offset-integrality normalization. Broader
+   exact `floor(n+r)=n+floor(r)` and offset-integrality normalization.
+   Equality and order between two supported affine expressions lower to LIA
+   with exact rational residual-bound rounding. Broader
    symbolic mixed LIA/LRA coercions,
    cutting planes, and full shared-theory exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.

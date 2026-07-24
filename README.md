@@ -55,6 +55,9 @@ addition/subtraction, and integral scaling also normalize exactly:
 `to_int(n+r)` becomes `n+floor(r)`, while `is_int(n+r)` depends only on the
 exact offset. `AndPair` provides a context-indexed, allocation-free
 short-circuit path for two Boolean expressions.
+Equality and ordering between two such affine expressions lower to integer
+relations with an exact rational residual bound. Fractional equality becomes
+false, while strict and non-strict order use the correct integer rounding.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive

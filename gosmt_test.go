@@ -3382,6 +3382,25 @@ func TestAffineIntegerRealCoercions(t *testing.T) {
 	}
 }
 
+func TestAffineIntegerRealComparisons(t *testing.T) {
+	context := NewContext(130)
+	x := IntConst(context, "x", 1)
+	y := IntConst(context, "y", 2)
+	left := AddReal(ToReal(x), RealVal(context, Rational(3, 2)))
+	right := AddReal(ToReal(y), RealVal(context, Rational(1, 2)))
+	upper := AddReal(ToReal(y), RealVal(context, Rational(1, 1)))
+	formula := And(
+		EqInt(x, IntVal(context, 3)),
+		EqInt(y, IntVal(context, 4)),
+		EqReal(left, right),
+		LtReal(left, upper),
+		Not(LtReal(upper, left)),
+	)
+	if _, ok := Check(Assert(1, NewSolver(context), formula)).(Sat); !ok {
+		t.Fatal("affine symbolic comparisons should be satisfiable")
+	}
+}
+
 func TestIndexedBitVectorOperations(t *testing.T) {
 	context := NewContext(72)
 	x := BitVecConst(8, context, "x", 1)
