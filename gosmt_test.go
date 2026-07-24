@@ -795,6 +795,35 @@ func TestContextIndexedFloatingPointFormatConversion(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointFormatConversionSynthesizesSource(
+	t *testing.T,
+) {
+	context := NewContext(783)
+	source := FloatingPointConst(8, 24, context, "source", 1)
+	converted := FloatingPointConvertFormat(
+		5, 11, RoundNearestTiesToEven(), source,
+	)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(
+			FloatingPointBits(converted),
+			BitVecValue(16, context, 0x3c00),
+		),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected format conversion to synthesize a source")
+	}
+	sourceBits, found := ModelFloatingPointBits(result.Value, source)
+	if !found || sourceBits.Width() != 32 {
+		t.Fatal("synthesized format-conversion source missing from model")
+	}
+	convertedBits, found := ModelFloatingPointBits(result.Value, converted)
+	raw, inline := convertedBits.Uint64()
+	if !found || !inline || raw != 0x3c00 {
+		t.Fatalf("converted model=%#x, found=%v", raw, found)
+	}
+}
+
 func TestContextIndexedFloatingPointFromReal(t *testing.T) {
 	context := NewContext(770)
 	source := RealConst(context, "source", 1)

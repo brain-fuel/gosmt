@@ -37,7 +37,9 @@
    assigned-symbol constraints, and preserve the separate IEEE-reinterpretation
    overload. Exact `((_ to_fp e s) rm fp)` conversion now rounds once between
    arbitrary source and target formats across all five modes, with compact
-   assigned-symbol constraints. Exact `((_ to_fp e s) rm Real)` conversion
+   assigned-symbol constraints. Unconstrained FP sources now synthesize
+   reverse-converted, forward-validated preimages for result patterns in the
+   conversion image. Exact `((_ to_fp e s) rm Real)` conversion
    handles arbitrary-precision rationals and directly assigned Real symbols,
    completing the SMT-LIB numeric conversion overload family. Exact
    `fp.to_real` now converts every finite arbitrary-format value to a rational,
