@@ -8059,6 +8059,66 @@ func TestSMTLibSymbolicFloatingPointSqrtAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestUnconstrainedFloatingPointRemAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x5552454d))
+	for example := 0; example < 64; example++ {
+		target := random.Uint32()
+		if target&0x7f800000 == 0x7f800000 {
+			target &= 0x807fffff
+		}
+		switch example % 16 {
+		case 0:
+			target = 0
+		case 1:
+			target = 0x80000000
+		case 2:
+			target = 0x00000001
+		case 3:
+			target = 0x80000001
+		case 4:
+			target = 0x3f800000
+		case 5:
+			target = 0xbf800000
+		case 6:
+			target = 0x7f7fffff
+		case 7:
+			target = 0xff7fffff
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n(declare-const right (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv (fp.rem left right)) #x%08x))\n(check-sat)\n",
+			target,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		// Z3's unconstrained remainder search is intentionally not used as the
+		// corpus oracle: even simple image points can take minutes. Pin the
+		// canonical witness to ask Z3 to validate the same IEEE identity while
+		// GoSMT still solves the original unconstrained formula above.
+		z3Script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const left (_ FloatingPoint 8 24))\n(declare-const right (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv left) #x%08x))\n(assert (= right (_ +oo 8 24)))\n(assert (= (fp.to_ieee_bv (fp.rem left right)) #x%08x))\n(check-sat)\n",
+			target, target,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(z3Script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf(
+				"example %d: Z3: %v\n%s\n%s",
+				example, err, output, z3Script,
+			)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d (target=%#08x): gosmt=%s z3=%s\n%s",
+				example, target, got, want, script,
+			)
+		}
+	}
+}
+
 func TestSMTLibFloatingPointRemAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

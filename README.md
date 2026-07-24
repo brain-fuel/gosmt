@@ -30,6 +30,9 @@ Distinct unconstrained `fp.fma` operands similarly use the exact
 Unconstrained `fp.sqrt` sources use exact kernel-validated rounded-square and
 adjacent preimages; negative nonzero result patterns are proved impossible,
 while image points without a validated compact witness remain unknown.
+Distinct unconstrained `fp.rem` operands use the exact
+`rem(result, +infinity)` model for finite results, and infinite result
+patterns are proved impossible.
 Nested bit-vector conditionals provide the complete ordering and selection
 fallback. SMT-LIB execution now accepts indexed floating-point sorts,
 native `(fp sign exponent significand)` construction, all five indexed

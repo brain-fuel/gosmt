@@ -1213,6 +1213,16 @@ solves exact and irrational result images together, using 9 allocations and
 12.684–15.236 us: 94.5% fewer allocations and over 2.24x
 conservative-endpoint throughput.
 
+The unconstrained floating-point remainder workload fixes only the exact
+binary32 result to `-1` and synthesizes two operand models. GoSMT's validated
+`rem(result, +infinity)` path uses 5 allocations and 4.474–4.516 us versus
+pinned Z3's 17 visible Go allocations and 6.680–6.990 s: 70.6% fewer
+allocations and over 1.47 million times conservative-endpoint throughput. The
+paired SMT-LIB workload solves ordinary and subnormal result images together,
+using 9 allocations and 4.705–4.825 us versus the complete parser's 198
+allocations and 14.247–14.287 us: 95.5% fewer allocations and over 2.95x
+conservative-endpoint throughput.
+
 The floating-point square-root workload fixes a binary32 symbol to `2`, rounds
 its irrational root to the exact RNE bit pattern, and evaluates the derived
 value. SMT-LIB streaming execution uses 9 allocations and 3.515–4.221 us

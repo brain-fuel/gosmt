@@ -57,6 +57,8 @@
    `fma(result, 1, signed-zero)` witness, preserving single-rounding semantics.
    Unconstrained `fp.sqrt` sources synthesize exact validated rounded-square
    or adjacent preimages, with sound rejection of negative nonzero results.
+   Distinct unconstrained `fp.rem` operands use the exact canonical
+   `rem(result, +infinity)` witness, with impossible infinity results rejected.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline

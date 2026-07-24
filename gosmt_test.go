@@ -685,6 +685,34 @@ func TestContextIndexedFloatingPointRem(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointRemSynthesizesOperands(t *testing.T) {
+	context := NewContext(779)
+	left := FloatingPointConst(8, 24, context, "left", 1)
+	right := FloatingPointConst(8, 24, context, "right", 2)
+	remainder := FloatingPointRem(left, right)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(
+			FloatingPointBits(remainder),
+			BitVecValue(32, context, 0xbf800000),
+		),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected fp.rem to synthesize unconstrained operands")
+	}
+	leftBits, leftFound := ModelFloatingPointBits(result.Value, left)
+	rightBits, rightFound := ModelFloatingPointBits(result.Value, right)
+	leftValue, leftInline := leftBits.Uint64()
+	rightValue, rightInline := rightBits.Uint64()
+	if !leftFound || !rightFound || !leftInline || !rightInline ||
+		leftValue != 0xbf800000 || rightValue != 0x7f800000 {
+		t.Fatalf(
+			"unexpected synthesized operands: left=%#x right=%#x",
+			leftValue, rightValue,
+		)
+	}
+}
+
 func TestContextIndexedFloatingPointToBitVector(t *testing.T) {
 	context := NewContext(767)
 	value := FloatingPointFromUint64(8, 24, context, 0xbfc00000)
