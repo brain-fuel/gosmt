@@ -1211,6 +1211,15 @@ conservative-endpoint throughput. The SMT-LIB workload uses 7 allocations and
 10.298–10.358 us: 95.2% fewer allocations and over 2.12x
 conservative-endpoint throughput.
 
+The repeated-operand FMA workload aliases its two multiplicands, fixes the
+binary32 result to `1.5`, and validates both synthesized symbols. GoSMT uses
+5 allocations and 4.764–5.672 us versus pinned Z3's 17 allocations and
+13.982–14.297 ms: 70.6% fewer allocations and over 2,465x
+conservative-endpoint throughput. The paired SMT-LIB alias-pattern workload
+uses 9 allocations and 4.868–5.551 us versus the complete parser's 204
+allocations and 15.082–15.200 us: 95.6% fewer allocations and over 2.71x
+conservative-endpoint throughput.
+
 The floating-point fused multiply-add workload fixes three binary32 symbols
 to values whose exact product-plus-addend is `0x337ffffe`, while separately
 rounded multiplication and addition produce zero. SMT-LIB streaming execution

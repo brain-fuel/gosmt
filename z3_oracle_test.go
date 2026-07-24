@@ -7865,6 +7865,57 @@ func TestUnconstrainedFloatingPointFMAAgreesWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRepeatedOperandFloatingPointFMAAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modes := []string{"RNE", "RNA", "RTP", "RTN", "RTZ"}
+	targets := []uint32{0x3fc00000, 0xbfc00000, 0x00000001, 0x7f7fffff}
+	for example := 0; example < 64; example++ {
+		mode := modes[example%len(modes)]
+		target := targets[(example/len(modes))%len(targets)]
+		expression := fmt.Sprintf("(fp.fma %s x x y)", mode)
+		xPattern, yPattern := uint32(0), target
+		switch example % 3 {
+		case 1:
+			expression = fmt.Sprintf("(fp.fma %s x y x)", mode)
+			xPattern, yPattern = target, 0
+		case 2:
+			expression = fmt.Sprintf("(fp.fma %s y x x)", mode)
+			xPattern, yPattern = target, 0
+		}
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const x (_ FloatingPoint 8 24))\n(declare-const y (_ FloatingPoint 8 24))\n(assert (= (fp.to_ieee_bv %s) #x%08x))\n(check-sat)\n",
+			expression, target,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		xLiteral := fmt.Sprintf("((_ to_fp 8 24) #x%08x)", xPattern)
+		yLiteral := fmt.Sprintf("((_ to_fp 8 24) #x%08x)", yPattern)
+		ground := strings.ReplaceAll(expression, "x", xLiteral)
+		ground = strings.ReplaceAll(ground, "y", yLiteral)
+		z3Script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(assert (= (fp.to_ieee_bv %s) #x%08x))\n(check-sat)\n",
+			ground, target,
+		)
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(z3Script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf(
+				"example %d: Z3: %v\n%s\n%s",
+				example, err, output, z3Script,
+			)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d: gosmt=%s z3=%s\n%s",
+				example, got, want, script,
+			)
+		}
+	}
+}
+
 func TestUnconstrainedFloatingPointSqrtAgreesWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

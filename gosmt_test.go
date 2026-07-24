@@ -783,6 +783,59 @@ func TestContextIndexedFloatingPointFMASynthesizesOperands(t *testing.T) {
 	}
 }
 
+func TestContextIndexedRepeatedOperandFloatingPointFMA(t *testing.T) {
+	context := NewContext(1092)
+	first := FloatingPointConst(8, 24, context, "first", 1)
+	second := FloatingPointConst(8, 24, context, "second", 2)
+	for _, test := range []struct {
+		name                string
+		left, right, addend FloatingPointExpr
+	}{
+		{"repeated-multiplicand", first, first, second},
+		{"left-is-addend", first, second, first},
+		{"right-is-addend", second, first, first},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fused := FloatingPointFMA(
+				RoundNearestTiesToEven(),
+				test.left, test.right, test.addend,
+			)
+			result, ok := Check(Assert(
+				1, NewSolver(context),
+				EqBitVec(
+					FloatingPointBits(fused),
+					BitVecValue(32, context, 0x3fc00000),
+				),
+			)).(Sat)
+			if !ok {
+				t.Fatal("expected repeated-operand fp.fma model")
+			}
+			leftBits, leftFound := ModelFloatingPointBits(
+				result.Value, test.left,
+			)
+			rightBits, rightFound := ModelFloatingPointBits(
+				result.Value, test.right,
+			)
+			addendBits, addendFound := ModelFloatingPointBits(
+				result.Value, test.addend,
+			)
+			if !leftFound || !rightFound || !addendFound {
+				t.Fatal("repeated-operand fp.fma model is incomplete")
+			}
+			actual := smt.FloatingPointFMA(
+				smt.RoundNearestTiesToEven(),
+				smt.FloatingPointFromBits(8, 24, leftBits),
+				smt.FloatingPointFromBits(8, 24, rightBits),
+				smt.FloatingPointFromBits(8, 24, addendBits),
+			)
+			actualBits, inline := smt.FloatingPointBits(actual).Uint64()
+			if !inline || actualBits != 0x3fc00000 {
+				t.Fatal("repeated-operand fp.fma model misses target")
+			}
+		})
+	}
+}
+
 func TestContextIndexedFloatingPointSqrt(t *testing.T) {
 	context := NewContext(765)
 	valueBits := FloatingPointFromUint64(8, 24, context, 0x40000000)

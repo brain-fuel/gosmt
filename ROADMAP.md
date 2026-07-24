@@ -81,6 +81,8 @@
    reject ordinary result patterns outside their IEEE images.
    Distinct unconstrained `fp.fma` operands use the exact canonical
    `fma(result, 1, signed-zero)` witness, preserving single-rounding semantics.
+   Exactly-two-aliased FMA operands use exact zero/product/addend identities;
+   the all-three-equal quadratic case remains on the complete fallback.
    Unconstrained `fp.sqrt` sources synthesize exact validated rounded-square
    or adjacent preimages, with sound rejection of negative nonzero results.
    Distinct unconstrained `fp.rem` operands use the exact canonical
