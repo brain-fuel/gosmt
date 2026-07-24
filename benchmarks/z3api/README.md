@@ -78,3 +78,10 @@ dividend path uses 18 allocations versus Z3's 38 (52.6% fewer). Across five
 Apple M5 Max runs against the released std module, it takes 8.57–8.62 µs
 versus 0.963–1.104 ms for Z3, more than 111 times faster at conservative
 endpoints.
+
+The ground floating-point workload constructs binary32 positive and negative
+zero, infinity, and NaN; checks zero/infinity/NaN predicates; and validates
+both signed-zero and NaN `fp.eq` semantics through each public API and solver.
+Across five Apple M5 Max runs it uses 4 allocations versus Z3's 17 (76.5%
+fewer) and takes 4.077–4.124 µs versus 0.922–1.048 ms, more than 223 times
+faster at conservative endpoints.

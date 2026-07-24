@@ -6552,6 +6552,75 @@ func smtLIBExecutionStatuses(t *testing.T, result smtlib.ExecutionResult) []stri
 	return statuses
 }
 
+func TestGroundFloatingPointPredicatesAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	bits := []uint64{
+		0x00000000, 0x80000000,
+		0x7f800000, 0xff800000,
+		0x7fc00000, 0xffc00000,
+		0x00000001, 0x007fffff,
+		0x00800000, 0x3f800000,
+	}
+	random := rand.New(rand.NewSource(0x4650))
+	for len(bits) < 74 {
+		bits = append(bits, uint64(random.Uint32()))
+	}
+	var script strings.Builder
+	script.WriteString("(set-logic QF_FP)\n")
+	predicate := func(name string, literal string, want bool) {
+		if want {
+			fmt.Fprintf(&script, "(assert (%s %s))\n", name, literal)
+		} else {
+			fmt.Fprintf(&script, "(assert (not (%s %s)))\n", name, literal)
+		}
+	}
+	for _, pattern := range bits {
+		value := smt.FloatingPointFromUint64(8, 24, pattern)
+		literal := smtLIBFloat32(pattern)
+		predicate("fp.isNaN", literal, smt.FloatingPointIsNaN(value))
+		predicate("fp.isInfinite", literal, smt.FloatingPointIsInfinite(value))
+		predicate("fp.isZero", literal, smt.FloatingPointIsZero(value))
+		predicate("fp.isSubnormal", literal, smt.FloatingPointIsSubnormal(value))
+		predicate("fp.isNormal", literal, smt.FloatingPointIsNormal(value))
+		predicate("fp.isNegative", literal, smt.FloatingPointIsNegative(value))
+		predicate("fp.isPositive", literal, smt.FloatingPointIsPositive(value))
+	}
+	pairs := [][2]uint64{
+		{0x00000000, 0x80000000},
+		{0x7fc00000, 0x7fc00000},
+		{0x3f800000, 0x3f800000},
+		{0x3f800000, 0x40000000},
+	}
+	for _, pair := range pairs {
+		left := smt.FloatingPointFromUint64(8, 24, pair[0])
+		right := smt.FloatingPointFromUint64(8, 24, pair[1])
+		expression := fmt.Sprintf("(fp.eq %s %s)", smtLIBFloat32(pair[0]), smtLIBFloat32(pair[1]))
+		if smt.FloatingPointEqual(left, right) {
+			fmt.Fprintf(&script, "(assert %s)\n", expression)
+		} else {
+			fmt.Fprintf(&script, "(assert (not %s))\n", expression)
+		}
+	}
+	script.WriteString("(check-sat)\n")
+	command := exec.Command(z3, "-in", "-smt2")
+	command.Stdin = strings.NewReader(script.String())
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run Z3: %v\n%s\n%s", err, output, script.String())
+	}
+	if got := strings.TrimSpace(string(output)); got != "sat" {
+		t.Fatalf("Z3=%q\n%s", got, script.String())
+	}
+}
+
+func smtLIBFloat32(pattern uint64) string {
+	bits := fmt.Sprintf("%032b", uint32(pattern))
+	return fmt.Sprintf("(fp #b%s #b%s #b%s)", bits[:1], bits[1:9], bits[9:])
+}
+
 func runZ3Boolean(t *testing.T, binary string, formula smt.Term[smt.BoolSort]) string {
 	t.Helper()
 	symbols := make(map[int]struct{})

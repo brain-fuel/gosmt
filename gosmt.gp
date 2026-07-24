@@ -1339,3 +1339,65 @@ func EvalIntSequence(0 c nat, 0 a nat, model Model[c, a], expression IntSequence
 		}
 	}
 }
+
+// FloatingPointExpr is currently a ground IEEE/SMT-LIB bit-pattern value.
+// Its context, exponent width, and significand width are all retained as Go+
+// indices. Symbolic QF_FP arithmetic is deliberately outside this foundation.
+//goplus:derive off
+//goplus:repr transparent
+type FloatingPointExpr[c nat, e nat, s nat] enum { floatingPointExprValue(ContextID int, Value smt.FloatingPointValue[e, s]) FloatingPointExpr[c, e, s] }
+
+func FloatingPointFromBits(exponentBits nat, significandBits nat, 0 c nat, context Context[c], bits smt.BitVectorValue) FloatingPointExpr[c, exponentBits, significandBits] {
+	match context { case contextValue(contextID):
+		return floatingPointExprValue(contextID, smt.FloatingPointFromBits(exponentBits, significandBits, bits))
+	}
+}
+
+func FloatingPointFromUint64(exponentBits nat, significandBits nat, 0 c nat, context Context[c], bits uint64) FloatingPointExpr[c, exponentBits, significandBits] {
+	match context { case contextValue(contextID):
+		return floatingPointExprValue(contextID, smt.FloatingPointFromUint64(exponentBits, significandBits, bits))
+	}
+}
+
+func FloatingPointBits(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BitVecExpr[c, e+s] {
+	match value { case floatingPointExprValue(contextID, core):
+		return bitVecExprValue(contextID, smt.BitVectorTerm(smt.FloatingPointBits(core)), bitVectorFast{})
+	}
+}
+
+func FloatingPointIsNaN(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	match value { case floatingPointExprValue(contextID, core): return boolExprValue(contextID, smt.Bool(smt.FloatingPointIsNaN(core)), booleanFast{}) }
+}
+
+func FloatingPointIsInfinite(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	match value { case floatingPointExprValue(contextID, core): return boolExprValue(contextID, smt.Bool(smt.FloatingPointIsInfinite(core)), booleanFast{}) }
+}
+
+func FloatingPointIsZero(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	match value { case floatingPointExprValue(contextID, core): return boolExprValue(contextID, smt.Bool(smt.FloatingPointIsZero(core)), booleanFast{}) }
+}
+
+func FloatingPointIsSubnormal(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	match value { case floatingPointExprValue(contextID, core): return boolExprValue(contextID, smt.Bool(smt.FloatingPointIsSubnormal(core)), booleanFast{}) }
+}
+
+func FloatingPointIsNormal(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	match value { case floatingPointExprValue(contextID, core): return boolExprValue(contextID, smt.Bool(smt.FloatingPointIsNormal(core)), booleanFast{}) }
+}
+
+func FloatingPointIsNegative(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	match value { case floatingPointExprValue(contextID, core): return boolExprValue(contextID, smt.Bool(smt.FloatingPointIsNegative(core)), booleanFast{}) }
+}
+
+func FloatingPointIsPositive(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	match value { case floatingPointExprValue(contextID, core): return boolExprValue(contextID, smt.Bool(smt.FloatingPointIsPositive(core)), booleanFast{}) }
+}
+
+func FloatingPointEqual(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c] {
+	match left { case floatingPointExprValue(contextID, leftCore):
+		match right { case floatingPointExprValue(rightContextID, rightCore):
+			if contextID != rightContextID { panic("gosmt: erased floating-point context mismatch") }
+			return boolExprValue(contextID, smt.Bool(smt.FloatingPointEqual(leftCore, rightCore)), booleanFast{})
+		}
+	}
+}

@@ -3527,3 +3527,165 @@ func EvalIntSequence(model Model, expression IntSequenceExpr) (smt.IntegerSequen
 		panic("goplus: impossible enum value in match")
 	}
 }
+
+// FloatingPointExpr is currently a ground IEEE/SMT-LIB bit-pattern value.
+// Its context, exponent width, and significand width are all retained as Go+
+// indices. Symbolic QF_FP arithmetic is deliberately outside this foundation.
+//
+//goplus:enum FloatingPointExpr[c nat, e nat, s nat]
+//goplus:derive off
+//goplus:repr transparent
+type FloatingPointExpr = floatingPointExprValue
+
+//goplus:variant (FloatingPointExpr) floatingPointExprValue(ContextID int, Value smt.FloatingPointValue[e, s]) FloatingPointExpr[c, e, s]
+type floatingPointExprValue struct {
+	contextID int
+	value     smt.FloatingPointValue
+}
+
+func (floatingPointExprValue) isFloatingPointExpr() {}
+
+//goplus:dep FloatingPointFromBits(exponentBits nat, significandBits nat, 0 c nat, context Context[c], bits smt.BitVectorValue) FloatingPointExpr[c, exponentBits, significandBits]
+func FloatingPointFromBits(exponentBits int, significandBits int, context Context, bits smt.BitVectorValue) FloatingPointExpr {
+	switch __gp_m201 := any(context).(type) {
+	case contextValue:
+		contextID := __gp_m201.iD
+
+		return floatingPointExprValue{contextID: contextID, value: smt.FloatingPointFromBits(exponentBits, significandBits, bits)}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointFromUint64(exponentBits nat, significandBits nat, 0 c nat, context Context[c], bits uint64) FloatingPointExpr[c, exponentBits, significandBits]
+func FloatingPointFromUint64(exponentBits int, significandBits int, context Context, bits uint64) FloatingPointExpr {
+	switch __gp_m202 := any(context).(type) {
+	case contextValue:
+		contextID := __gp_m202.iD
+
+		return floatingPointExprValue{contextID: contextID, value: smt.FloatingPointFromUint64(exponentBits, significandBits, bits)}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointBits(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BitVecExpr[c, e+s]
+func FloatingPointBits(value FloatingPointExpr) BitVecExpr {
+	switch __gp_m203 := any(value).(type) {
+	case floatingPointExprValue:
+		contextID := __gp_m203.contextID
+		core := __gp_m203.value
+
+		return bitVecExprValue{contextID: contextID, term: smt.BitVectorTerm(smt.FloatingPointBits(core)), fast: bitVectorFast{}}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointIsNaN(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointIsNaN(value FloatingPointExpr) BoolExpr {
+	switch __gp_m204 := any(value).(type) {
+	case floatingPointExprValue:
+		contextID := __gp_m204.contextID
+		core := __gp_m204.value
+		return boolExprValue{contextID: contextID, term: smt.Bool{Value: smt.FloatingPointIsNaN(core)}, fast: booleanFast{}}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointIsInfinite(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointIsInfinite(value FloatingPointExpr) BoolExpr {
+	switch __gp_m205 := any(value).(type) {
+	case floatingPointExprValue:
+		contextID := __gp_m205.contextID
+		core := __gp_m205.value
+		return boolExprValue{contextID: contextID, term: smt.Bool{Value: smt.FloatingPointIsInfinite(core)}, fast: booleanFast{}}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointIsZero(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointIsZero(value FloatingPointExpr) BoolExpr {
+	switch __gp_m206 := any(value).(type) {
+	case floatingPointExprValue:
+		contextID := __gp_m206.contextID
+		core := __gp_m206.value
+		return boolExprValue{contextID: contextID, term: smt.Bool{Value: smt.FloatingPointIsZero(core)}, fast: booleanFast{}}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointIsSubnormal(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointIsSubnormal(value FloatingPointExpr) BoolExpr {
+	switch __gp_m207 := any(value).(type) {
+	case floatingPointExprValue:
+		contextID := __gp_m207.contextID
+		core := __gp_m207.value
+		return boolExprValue{contextID: contextID, term: smt.Bool{Value: smt.FloatingPointIsSubnormal(core)}, fast: booleanFast{}}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointIsNormal(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointIsNormal(value FloatingPointExpr) BoolExpr {
+	switch __gp_m208 := any(value).(type) {
+	case floatingPointExprValue:
+		contextID := __gp_m208.contextID
+		core := __gp_m208.value
+		return boolExprValue{contextID: contextID, term: smt.Bool{Value: smt.FloatingPointIsNormal(core)}, fast: booleanFast{}}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointIsNegative(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointIsNegative(value FloatingPointExpr) BoolExpr {
+	switch __gp_m209 := any(value).(type) {
+	case floatingPointExprValue:
+		contextID := __gp_m209.contextID
+		core := __gp_m209.value
+		return boolExprValue{contextID: contextID, term: smt.Bool{Value: smt.FloatingPointIsNegative(core)}, fast: booleanFast{}}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointIsPositive(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointIsPositive(value FloatingPointExpr) BoolExpr {
+	switch __gp_m210 := any(value).(type) {
+	case floatingPointExprValue:
+		contextID := __gp_m210.contextID
+		core := __gp_m210.value
+		return boolExprValue{contextID: contextID, term: smt.Bool{Value: smt.FloatingPointIsPositive(core)}, fast: booleanFast{}}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}
+
+//goplus:dep FloatingPointEqual(0 c nat, 0 e nat, 0 s nat, left FloatingPointExpr[c, e, s], right FloatingPointExpr[c, e, s]) BoolExpr[c]
+func FloatingPointEqual(left FloatingPointExpr, right FloatingPointExpr) BoolExpr {
+	switch __gp_m211 := any(left).(type) {
+	case floatingPointExprValue:
+		contextID := __gp_m211.contextID
+		leftCore := __gp_m211.value
+
+		switch __gp_m212 := any(right).(type) {
+		case floatingPointExprValue:
+			rightContextID := __gp_m212.contextID
+			rightCore := __gp_m212.value
+
+			if contextID != rightContextID {
+				panic("gosmt: erased floating-point context mismatch")
+			}
+			return boolExprValue{contextID: contextID, term: smt.Bool{Value: smt.FloatingPointEqual(leftCore, rightCore)}, fast: booleanFast{}}
+		default:
+			panic("goplus: impossible enum value in match")
+		}
+	default:
+		panic("goplus: impossible enum value in match")
+	}
+}

@@ -7340,6 +7340,54 @@ func BenchmarkRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	})
 }
 
+func BenchmarkGroundFloatingPointPredicatesCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(134)
+			positiveZero := gosmt.FloatingPointFromUint64(8, 24, context, 0x00000000)
+			negativeZero := gosmt.FloatingPointFromUint64(8, 24, context, 0x80000000)
+			infinity := gosmt.FloatingPointFromUint64(8, 24, context, 0x7f800000)
+			nan := gosmt.FloatingPointFromUint64(8, 24, context, 0x7fc00000)
+			formula := gosmt.And(
+				gosmt.FloatingPointIsZero(positiveZero),
+				gosmt.FloatingPointIsZero(negativeZero),
+				gosmt.FloatingPointIsInfinite(infinity),
+				gosmt.FloatingPointIsNaN(nan),
+				gosmt.FloatingPointEqual(positiveZero, negativeZero),
+				gosmt.Not(gosmt.FloatingPointEqual(nan, nan)),
+			)
+			if _, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), formula)).(gosmt.Sat); !ok {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			positiveZero := context.MkFPZero(sort, false)
+			negativeZero := context.MkFPZero(sort, true)
+			infinity := context.MkFPInf(sort, false)
+			nan := context.MkFPNaN(sort)
+			formula := context.MkAnd(
+				context.MkFPIsZero(positiveZero),
+				context.MkFPIsZero(negativeZero),
+				context.MkFPIsInf(infinity),
+				context.MkFPIsNaN(nan),
+				context.MkFPEq(positiveZero, negativeZero),
+				context.MkNot(context.MkFPEq(nan, nan)),
+			)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(formula)
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

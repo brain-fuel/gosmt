@@ -5,6 +5,14 @@ Microsoft Z3 4.16.0 (`ddb49568d3520e99799e364fb22f35fc67d887b1`, MIT).
 It does not bind to Z3: differential tests use Z3 as an oracle while released
 artifacts remain pure generated Go.
 
+Ground floating-point values retain their context, exponent width, and
+significand width as Go+ indices. Exact IEEE/SMT-LIB bit-pattern construction
+and round trips cover arbitrary valid formats, with NaN, infinity, zero,
+subnormal, normal, positive, and negative classification plus exact `fp.eq`
+semantics for NaNs and signed zeros. This is deliberately a ground foundation:
+symbolic FP terms, rounding modes, arithmetic, conversions, SMT-LIB execution,
+and QF_FP/QF_FPBV solving remain future work.
+
 The essential, solver-neutral surface lives in `goforge.dev/goplus/std/smt`:
 sorted terms, exhaustive results, context-indexed models and proofs, checked
 incremental scopes, temporary assumptions, minimized unsat cores, and native

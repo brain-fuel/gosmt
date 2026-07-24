@@ -34,6 +34,33 @@ func TestContextIndexedBooleanSolve(t *testing.T) {
 	}
 }
 
+func TestContextIndexedGroundFloatingPoint(t *testing.T) {
+	context := NewContext(71)
+	positiveZero := FloatingPointFromUint64(8, 24, context, 0x00000000)
+	negativeZero := FloatingPointFromUint64(8, 24, context, 0x80000000)
+	one := FloatingPointFromUint64(8, 24, context, 0x3f800000)
+	leastSubnormal := FloatingPointFromUint64(8, 24, context, 0x00000001)
+	infinity := FloatingPointFromUint64(8, 24, context, 0x7f800000)
+	nan := FloatingPointFromUint64(8, 24, context, 0x7fc00000)
+	formula := And(
+		FloatingPointIsZero(positiveZero),
+		FloatingPointIsPositive(positiveZero),
+		FloatingPointIsNegative(negativeZero),
+		FloatingPointIsNormal(one),
+		FloatingPointIsSubnormal(leastSubnormal),
+		FloatingPointIsInfinite(infinity),
+		FloatingPointIsNaN(nan),
+		FloatingPointEqual(positiveZero, negativeZero),
+		Not(FloatingPointEqual(nan, nan)),
+		EqBitVec(FloatingPointBits(one), BitVecValue(32, context, 0x3f800000)),
+	)
+	if result := Check(Assert(1, NewSolver(context), formula)); any(result) == nil {
+		t.Fatal("nil result")
+	} else if _, ok := result.(Sat); !ok {
+		t.Fatalf("result=%T", result)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)
