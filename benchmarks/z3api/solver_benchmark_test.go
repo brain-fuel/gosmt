@@ -8466,6 +8466,101 @@ func BenchmarkSymbolicFloatingPointFromRealCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicFloatingPointToRealCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(152)
+			positive := gosmt.FloatingPointConst(
+				8, 24, context, "positive", 1,
+			)
+			negative := gosmt.FloatingPointConst(
+				8, 24, context, "negative", 2,
+			)
+			positiveReal := gosmt.FloatingPointToReal(positive)
+			negativeReal := gosmt.FloatingPointToReal(negative)
+			positiveValue := gosmt.FloatingPointFromUint64(
+				8, 24, context, 0x3fc00000,
+			)
+			negativeValue := gosmt.FloatingPointFromUint64(
+				8, 24, context, 0xc0600000,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), gosmt.And(
+					gosmt.EqBitVec(
+						gosmt.FloatingPointBits(positive),
+						gosmt.FloatingPointBits(positiveValue),
+					),
+					gosmt.EqBitVec(
+						gosmt.FloatingPointBits(negative),
+						gosmt.FloatingPointBits(negativeValue),
+					),
+					gosmt.EqReal(
+						positiveReal,
+						gosmt.RealVal(context, gosmt.Rational(3, 2)),
+					),
+					gosmt.EqReal(
+						negativeReal,
+						gosmt.RealVal(context, gosmt.Rational(-7, 2)),
+					),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			positiveModel, positiveFound := gosmt.EvalReal(
+				result.Value, positiveReal,
+			)
+			negativeModel, negativeFound := gosmt.EvalReal(
+				result.Value, negativeReal,
+			)
+			if !positiveFound || !negativeFound ||
+				gosmt.CompareRational(
+					positiveModel, gosmt.Rational(3, 2),
+				) != 0 ||
+				gosmt.CompareRational(
+					negativeModel, gosmt.Rational(-7, 2),
+				) != 0 {
+				b.Fatal("invalid conversion model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			positive := context.MkConst(
+				context.MkStringSymbol("positive"), sort,
+			)
+			negative := context.MkConst(
+				context.MkStringSymbol("negative"), sort,
+			)
+			positiveValue := context.MkFPNumeral("1.5", sort)
+			negativeValue := context.MkFPNumeral("-3.5", sort)
+			positiveReal := z3FloatingPointToReal(context, positive)
+			negativeReal := z3FloatingPointToReal(context, negative)
+			solver := context.NewSolver()
+			solver.Assert(context.MkAnd(
+				context.MkEq(positive, positiveValue),
+				context.MkEq(negative, negativeValue),
+				context.MkEq(positiveReal, context.MkReal(3, 2)),
+				context.MkEq(negativeReal, context.MkReal(-7, 2)),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(positiveReal, true); !found {
+				b.Fatal("invalid positive conversion model")
+			}
+			if _, found := model.Eval(negativeReal, true); !found {
+				b.Fatal("invalid negative conversion model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

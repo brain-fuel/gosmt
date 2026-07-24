@@ -39,7 +39,10 @@
    arbitrary source and target formats across all five modes, with compact
    assigned-symbol constraints. Exact `((_ to_fp e s) rm Real)` conversion
    handles arbitrary-precision rationals and directly assigned Real symbols,
-   completing the SMT-LIB numeric conversion overload family.
+   completing the SMT-LIB numeric conversion overload family. Exact
+   `fp.to_real` now converts every finite arbitrary-format value to a rational,
+   with compact directly assigned floating-point-symbol equality and model
+   extraction; broader mixed symbolic linear-real use remains planned.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline

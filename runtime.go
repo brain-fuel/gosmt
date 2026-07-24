@@ -159,6 +159,7 @@ const (
 	booleanFastFloatingPointFromBitVector
 	booleanFastFloatingPointFormatConversion
 	booleanFastFloatingPointFromReal
+	booleanFastFloatingPointToReal
 	booleanFastFloatingPointAdd
 	booleanFastFloatingPointSub
 	booleanFastFloatingPointMul
@@ -218,6 +219,7 @@ type booleanFast struct {
 	floatingPointFromBitVector    smt.FloatingPointFromBitVectorRelation
 	floatingPointFormatConversion smt.FloatingPointFormatConversionRelation
 	floatingPointFromReal         smt.FloatingPointFromRealRelation
+	floatingPointToReal           smt.FloatingPointToRealRelation
 	floatingPointAdd              smt.FloatingPointAddRelation
 	floatingPointSub              smt.FloatingPointSubRelation
 	floatingPointMul              smt.FloatingPointMulRelation
@@ -605,6 +607,11 @@ func assertBoolean(assertion int, solver smt.Solver, term smt.Term[smt.BoolSort]
 	if fast.kind == booleanFastFloatingPointFromReal {
 		return smt.AssertFloatingPointFromRealRelation(
 			assertion, solver, fast.floatingPointFromReal,
+		)
+	}
+	if fast.kind == booleanFastFloatingPointToReal {
+		return smt.AssertFloatingPointToRealRelation(
+			assertion, solver, fast.floatingPointToReal,
 		)
 	}
 	if fast.kind == booleanFastFloatingPointAdd {
@@ -3742,6 +3749,59 @@ func floatingPointFromReal(
 	panic("gosmt: real to floating-point conversion currently requires an exact value or direct symbol")
 }
 
+func floatingPointToReal(value FloatingPointExpr) RealExpr {
+	if value.bits.fast.kind == bitVectorFastValue {
+		converted, valid := smt.FloatingPointToRational(
+			smt.FloatingPointFromBits(
+				value.exponentBits, value.significandBits,
+				value.bits.fast.value,
+			),
+		)
+		if !valid {
+			converted = smt.Rational{}
+		}
+		return fastRealValue(value.contextID, converted)
+	}
+	if value.bits.fast.kind == bitVectorFastSymbol {
+		return realExprValue{
+			contextID: value.contextID,
+			fast: realFast{
+				floatingPointToReal:          true,
+				floatingPointExponentBits:    value.exponentBits,
+				floatingPointSignificandBits: value.significandBits,
+				floatingPointSymbolID:        value.bits.fast.id,
+			},
+		}
+	}
+	panic("gosmt: floating-point to Real conversion currently requires a ground value or direct symbol")
+}
+
+func modelRealValue(
+	model smt.Model,
+	term smt.Term[smt.RealSort],
+	fast realFast,
+) (smt.Rational, bool) {
+	if fast.floatingPointToReal {
+		bits, found := smt.FloatingPointSymbolModelBits(
+			model, fast.floatingPointSymbolID,
+		)
+		if !found {
+			return smt.Rational{}, false
+		}
+		value, valid := smt.FloatingPointToRational(
+			smt.FloatingPointFromBits(
+				fast.floatingPointExponentBits,
+				fast.floatingPointSignificandBits, bits,
+			),
+		)
+		if !valid {
+			return smt.Rational{}, true
+		}
+		return value, true
+	}
+	return smt.RealValue(model, materializeReal(term, fast))
+}
+
 func compactFloatingPointComparison(
 	left, right FloatingPointExpr,
 	comparison uint8,
@@ -3772,22 +3832,26 @@ type realCoefficient struct {
 }
 
 type realFast struct {
-	valid            bool
-	integerToReal    bool
-	rationalScaled   bool
-	integerTerm      smt.Term[smt.IntSort]
-	integerOffset    smt.Rational
-	rationalScale    smt.Rational
-	eufValid         bool
-	eufArity         uint8
-	functionID       int
-	argumentID       int
-	secondArgumentID int
-	thirdArgumentID  int
-	count            uint8
-	inline           [4]realCoefficient
-	overflow         []realCoefficient
-	constant         smt.Rational
+	valid                        bool
+	integerToReal                bool
+	rationalScaled               bool
+	integerTerm                  smt.Term[smt.IntSort]
+	integerOffset                smt.Rational
+	rationalScale                smt.Rational
+	eufValid                     bool
+	eufArity                     uint8
+	functionID                   int
+	argumentID                   int
+	secondArgumentID             int
+	thirdArgumentID              int
+	count                        uint8
+	inline                       [4]realCoefficient
+	overflow                     []realCoefficient
+	constant                     smt.Rational
+	floatingPointToReal          bool
+	floatingPointExponentBits    int
+	floatingPointSignificandBits int
+	floatingPointSymbolID        int
 }
 
 type realFunctionFast struct {
@@ -3987,6 +4051,22 @@ func applyRealTernaryFunction(
 
 func fastEqReal(left, right RealExpr) BoolExpr {
 	context := realPairContext(left, right)
+	if relation, ok := compactFloatingPointToRealRelation(
+		left.fast, right.fast,
+	); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind:                booleanFastFloatingPointToReal,
+			floatingPointToReal: relation,
+		}}
+	}
+	if relation, ok := compactFloatingPointToRealRelation(
+		right.fast, left.fast,
+	); ok {
+		return boolExprValue{contextID: context, fast: booleanFast{
+			kind:                booleanFastFloatingPointToReal,
+			floatingPointToReal: relation,
+		}}
+	}
 	if symbolID, ok := fastRealSymbolID(left.fast); ok {
 		if value, exact := fastRealConstant(right.fast); exact {
 			return boolExprValue{contextID: context, fast: booleanFast{
@@ -4045,6 +4125,23 @@ func fastEqReal(left, right RealExpr) BoolExpr {
 		Left:  materializeReal(left.term, left.fast),
 		Right: materializeReal(right.term, right.fast),
 	})
+}
+
+func compactFloatingPointToRealRelation(
+	expression, constant realFast,
+) (smt.FloatingPointToRealRelation, bool) {
+	if !expression.floatingPointToReal {
+		return smt.FloatingPointToRealRelation{}, false
+	}
+	value, exact := fastRealConstant(constant)
+	if !exact {
+		return smt.FloatingPointToRealRelation{}, false
+	}
+	return smt.NewFloatingPointToRealRelation(
+		expression.floatingPointExponentBits,
+		expression.floatingPointSignificandBits,
+		expression.floatingPointSymbolID, value,
+	), true
 }
 
 func fastAffineIntegerRealEquality(left, right RealExpr) (BoolExpr, bool) {
@@ -4686,6 +4783,11 @@ func fastNot(value BoolExpr) BoolExpr {
 	if value.fast.kind == booleanFastFloatingPointFromReal {
 		value.fast.floatingPointFromReal.Negated =
 			!value.fast.floatingPointFromReal.Negated
+		return value
+	}
+	if value.fast.kind == booleanFastFloatingPointToReal {
+		value.fast.floatingPointToReal.Negated =
+			!value.fast.floatingPointToReal.Negated
 		return value
 	}
 	if value.fast.kind == booleanFastFloatingPointAdd {
@@ -5714,6 +5816,8 @@ func materializeBoolean(term smt.Term[smt.BoolSort], fast booleanFast) smt.Term[
 		return fast.floatingPointFormatConversion
 	case booleanFastFloatingPointFromReal:
 		return fast.floatingPointFromReal
+	case booleanFastFloatingPointToReal:
+		return fast.floatingPointToReal
 	case booleanFastFloatingPointAdd:
 		return fast.floatingPointAdd
 	case booleanFastFloatingPointSub:

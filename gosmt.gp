@@ -1313,7 +1313,7 @@ func EvalReal(0 c nat, 0 a nat, model Model[c, a], expression RealExpr[c]) (smt.
 		match expression {
 		case realExprValue(expressionContext, term, fast):
 			if context != expressionContext { panic("gosmt: erased model/expression context mismatch") }
-			return smt.RealValue(core, materializeReal(term, fast))
+			return modelRealValue(core, term, fast)
 		}
 	}
 }
@@ -1534,6 +1534,13 @@ func FloatingPointFromReal(exponentBits nat, significandBits nat, 0 c nat, mode 
 	return floatingPointFromReal(
 		int(exponentBits), int(significandBits), mode, value,
 	)
+}
+
+// FloatingPointToReal implements SMT-LIB fp.to_real. Finite values are exact;
+// NaN and infinities use the stable zero choice permitted for unspecified
+// results.
+func FloatingPointToReal(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) RealExpr[c] {
+	return floatingPointToReal(value)
 }
 
 func ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool) {

@@ -582,6 +582,28 @@ func TestContextIndexedFloatingPointFromReal(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointToReal(t *testing.T) {
+	context := NewContext(771)
+	source := FloatingPointConst(8, 24, context, "source", 1)
+	converted := FloatingPointToReal(source)
+	sourceValue := FloatingPointFromUint64(8, 24, context, 0x3fc00000)
+	expected := RealVal(context, Rational(3, 2))
+	solver := Assert(1, NewSolver(context), And(
+		EqBitVec(
+			FloatingPointBits(source), FloatingPointBits(sourceValue),
+		),
+		EqReal(converted, expected),
+	))
+	result, ok := Check(solver).(Sat)
+	if !ok {
+		t.Fatalf("expected sat fp.to_real, got %T", Check(solver))
+	}
+	value, found := EvalReal(result.Value, converted)
+	if !found || CompareRational(value, Rational(3, 2)) != 0 {
+		t.Fatalf("converted value=%s,%v", value, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

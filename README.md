@@ -45,6 +45,11 @@ preserving signed zero and infinities and selecting a deterministic target NaN.
 The Real overload `((_ to_fp e s) rm Real)` rounds exact arbitrary-precision
 rationals directly, with compact directly assigned Real-symbol constraints and
 no intermediate host floating-point value.
+`fp.to_real` performs the inverse finite conversion exactly for arbitrary
+formats. Ground terms and directly assigned floating-point symbols use compact
+relations for equality and model evaluation; NaN and infinities use a stable
+zero convention for SMT-LIB's unspecified result. General mixed symbolic
+linear-real arithmetic over converted terms remains staged.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Broader unconstrained symbolic

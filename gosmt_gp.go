@@ -3469,7 +3469,7 @@ func EvalReal(model Model, expression RealExpr) (smt.Rational, bool) {
 			if context != expressionContext {
 				panic("gosmt: erased model/expression context mismatch")
 			}
-			return smt.RealValue(core, materializeReal(term, fast))
+			return modelRealValue(core, term, fast)
 		default:
 			panic("goplus: impossible enum value in match")
 		}
@@ -3794,6 +3794,15 @@ func FloatingPointFromReal(exponentBits int, significandBits int, mode smt.Float
 	return floatingPointFromReal(
 		int(exponentBits), int(significandBits), mode, value,
 	)
+}
+
+// FloatingPointToReal implements SMT-LIB fp.to_real. Finite values are exact;
+// NaN and infinities use the stable zero choice permitted for unspecified
+// results.
+//
+//goplus:dep FloatingPointToReal(0 c nat, 0 e nat, 0 s nat, value FloatingPointExpr[c, e, s]) RealExpr[c]
+func FloatingPointToReal(value FloatingPointExpr) RealExpr {
+	return floatingPointToReal(value)
 }
 
 //goplus:dep ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool)

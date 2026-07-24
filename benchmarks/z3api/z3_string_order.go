@@ -296,6 +296,10 @@ static void *gosmt_z3_mk_fpa_from_real(
 	);
 }
 
+static void *gosmt_z3_mk_fpa_to_real(void *context, void *value) {
+	return Z3_mk_fpa_to_real((Z3_context)context, (Z3_ast)value);
+}
+
 static void gosmt_z3_inc_ref(void *context, void *value) {
 	Z3_inc_ref((Z3_context)context, (Z3_ast)value);
 }
@@ -555,6 +559,19 @@ func z3FloatingPointFromReal(
 		C.gosmt_z3_mk_fpa_from_real(
 			contextPointer, C.int(mode), valuePointer, sortPointer,
 		),
+	)
+}
+
+func z3FloatingPointToReal(
+	context *z3.Context,
+	value *z3.Expr,
+) *z3.Expr {
+	contextPointer := *(*unsafe.Pointer)(unsafe.Pointer(context))
+	valuePointer := (*z3ExpressionLayout)(unsafe.Pointer(value)).pointer
+	return z3ManagedExpression(
+		context,
+		contextPointer,
+		C.gosmt_z3_mk_fpa_to_real(contextPointer, valuePointer),
 	)
 }
 
