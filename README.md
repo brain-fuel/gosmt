@@ -52,6 +52,9 @@ rounding mode; `fp.fma` synthesizes three. Indexed
 `fp.to_ubv` and `fp.to_sbv` perform exact five-mode conversion into
 arbitrary-width bit vectors, with compact assigned-symbol validation and a
 stable zero model for SMT-LIB's unspecified out-of-range cases.
+Unconstrained FP sources use integer-derived candidates and exact
+defined-result validation; result integers outside the conversion image
+remain unknown.
 The reverse numeric bridge accepts arbitrary-width bit vectors through the
 signed two-argument `(_ to_fp e s)` overload and `(_ to_fp_unsigned e s)`.
 Both preserve exact five-mode rounding, including wide two's-complement inputs,

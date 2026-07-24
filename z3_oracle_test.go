@@ -8370,6 +8370,60 @@ func TestSMTLibSymbolicFloatingPointToBitVectorAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestUnconstrainedFloatingPointToBitVectorAgreesWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	modeNames := []string{"RNE", "RNA", "RTP", "RTN", "RTZ"}
+	modes := []smt.FloatingPointRoundingMode{
+		smt.RoundNearestTiesToEven(), smt.RoundNearestTiesToAway(),
+		smt.RoundTowardPositive(), smt.RoundTowardNegative(),
+		smt.RoundTowardZero(),
+	}
+	random := rand.New(rand.NewSource(0x55464256))
+	for example := 0; example < 64; example++ {
+		signed := example%2 != 0
+		pattern := random.Uint32()&0x807fffff |
+			uint32(124+random.Intn(10))<<23
+		if !signed {
+			pattern &^= 0x80000000
+		}
+		modeName, mode := modeNames[example%5], modes[example%5]
+		operator := "fp.to_ubv"
+		value := smt.FloatingPointFromUint64(8, 24, uint64(pattern))
+		var target smt.BitVectorValue
+		var valid bool
+		if signed {
+			operator = "fp.to_sbv"
+			target, valid = smt.FloatingPointToSignedBitVector(16, mode, value)
+		} else {
+			target, valid = smt.FloatingPointToUnsignedBitVector(16, mode, value)
+		}
+		if !valid {
+			t.Fatalf("test generator produced invalid example %d", example)
+		}
+		raw, _ := target.Uint64()
+		script := fmt.Sprintf(
+			"(set-logic QF_FP)\n(declare-const x (_ FloatingPoint 8 24))\n(assert (= ((_ %s 16) %s x) #x%04x))\n(check-sat)\n",
+			operator, modeName, uint16(raw),
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf(
+				"example %d (%s, target=%#04x): gosmt=%s z3=%s\n%s",
+				example, operator, uint16(raw), got, want, script,
+			)
+		}
+	}
+}
+
 func TestSMTLibFloatingPointFromBitVectorAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

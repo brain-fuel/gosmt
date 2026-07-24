@@ -732,6 +732,31 @@ func TestContextIndexedFloatingPointToBitVector(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointToBitVectorSynthesizesSource(t *testing.T) {
+	context := NewContext(785)
+	source := FloatingPointConst(8, 24, context, "source", 1)
+	converted := FloatingPointToSignedBitVector(
+		8, RoundNearestTiesToEven(), source,
+	)
+	result, ok := Check(Assert(
+		1, NewSolver(context),
+		EqBitVec(converted, BitVecValue(8, context, 0xfd)),
+	)).(Sat)
+	if !ok {
+		t.Fatal("expected fp.to_sbv to synthesize a source")
+	}
+	sourceBits, found := ModelFloatingPointBits(result.Value, source)
+	raw, inline := sourceBits.Uint64()
+	if !found || !inline || raw != 0xc0400000 {
+		t.Fatalf("source model=%#x, found=%v", raw, found)
+	}
+	bits, found := ModelBitVec(result.Value, converted)
+	convertedRaw, convertedInline := bits.Uint64()
+	if !found || !convertedInline || convertedRaw != 0xfd {
+		t.Fatalf("converted model=%#x, found=%v", convertedRaw, found)
+	}
+}
+
 func TestContextIndexedFloatingPointFromBitVector(t *testing.T) {
 	context := NewContext(768)
 	signedInput := BitVecConst(8, context, "signed", 1)

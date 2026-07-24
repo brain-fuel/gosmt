@@ -31,7 +31,9 @@
    `fp.add`/`fp.sub`/`fp.mul`/`fp.div`/`fp.fma`/`fp.sqrt` semantics plus exact
    nearest-even-quotient `fp.rem`. Exact arbitrary-width `fp.to_ubv` and
    `fp.to_sbv` cover all five rounding modes, including compact assigned-symbol
-   constraints and explicit unspecified-result handling. Exact signed
+   constraints and explicit unspecified-result handling. Unconstrained FP
+   sources synthesize integer-derived, forward-validated preimages for defined
+   results in the conversion image. Exact signed
    `(_ to_fp e s) rm bv` and unsigned `(_ to_fp_unsigned e s) rm bv`
    conversions cover arbitrary source widths, all five modes, compact
    assigned-symbol constraints, and preserve the separate IEEE-reinterpretation

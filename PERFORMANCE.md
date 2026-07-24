@@ -1252,6 +1252,16 @@ conservative-endpoint throughput. The separately gated typed workload uses
 allocations and 1.279–1.387 ms: 55.2% fewer allocations and over 112x
 conservative-endpoint throughput.
 
+The unconstrained floating-point-to-bit-vector workload fixes only signed
+eight-bit result `-3` and synthesizes a binary32 source. GoSMT's
+integer-derived, forward-validated path uses 5 allocations and 3.991–4.034 us
+versus pinned Z3's 14 visible Go allocations and 2.500–2.923 ms: 64.3% fewer
+allocations and over 619x conservative-endpoint throughput. The four-image
+SMT-LIB workload covers signed and unsigned results from 8 through 32 bits,
+using 29 allocations and 6.012–6.089 us versus the complete parser's 282
+allocations and 17.385–20.992 us: 89.7% fewer allocations and over 2.85x
+conservative-endpoint throughput.
+
 The unconstrained floating-point format-conversion workload fixes only a
 binary16 result and synthesizes a binary32 source. GoSMT's reverse-converted,
 forward-validated path uses 5 allocations and 4.159–4.812 us versus pinned
