@@ -38,6 +38,11 @@ share exact LRA/EUF equality exchange.
 Ternary `Real × Real × Real -> Real` functions likewise retain context and
 arity indices, purify affine arguments, aggregate exact rational bounds, and
 participate in fixed-point QF_UFLRA congruence.
+Ground `Int`/`Real` coercions are exact and arbitrary precision: `ToReal`
+preserves every integer, `ToIntReal` implements SMT-LIB floor semantics, and
+`IsIntReal` decides exact integrality. Their Go+ façade retains the context
+index. Symbolic `to_real`, `to_int`, and `is_int` deliberately remain
+`unknown` until mixed LIA/LRA integrality solving is complete.
 Strings include exact ground regular-language membership, constructive
 symbolic, shared-conjunction, and bounded non-conjunctive witnesses,
 equality-forced and singleton-intersection contradiction proofs, constructive

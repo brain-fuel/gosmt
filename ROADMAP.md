@@ -6,7 +6,10 @@
 4. Exact rationals plus simplex/cuts for LRA/LIA and difference logic. LRA,
    difference logic, branch-and-bound QF_LIA, and bounded Boolean-QF_LIA
    foundations plus nonzero constant-divisor Euclidean div/mod are
-   implemented; cutting planes and full shared-theory exchange remain.
+   implemented. Exact arbitrary-precision ground `to_real`, floor-correct
+   `to_int`, and `is_int` are implemented in typed and SMT-LIB surfaces;
+   symbolic mixed LIA/LRA coercions, cutting planes, and full shared-theory
+   exchange remain.
 5. Bit-blasting, arrays, algebraic datatypes, strings/sequences, floating point.
    Finite enumerations plus arbitrary-arity same-sort recursive datatypes with
    arity-indexed Go+ constructor vectors, bounded selector proofs,

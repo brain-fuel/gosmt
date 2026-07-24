@@ -4255,6 +4255,59 @@ func TestRandomTernaryRealApplicationsAgreeWithPinnedZ3(t *testing.T) {
 	}
 }
 
+func TestRandomGroundIntegerRealCoercionsAgreeWithPinnedZ3(t *testing.T) {
+	z3 := os.Getenv("GOSMT_Z3")
+	if z3 == "" {
+		t.Skip("set GOSMT_Z3 to the pinned Z3 4.16.0 binary")
+	}
+	random := rand.New(rand.NewSource(0x434f455243494f4e))
+	for example := 0; example < 64; example++ {
+		integer := random.Intn(41) - 20
+		integerText := fmt.Sprintf("%d", integer)
+		integerRealText := fmt.Sprintf("%d.0", integer)
+		if integer < 0 {
+			integerText = fmt.Sprintf("(- %d)", -integer)
+			integerRealText = fmt.Sprintf("(- %d.0)", -integer)
+		}
+		rationalText := integerRealText
+		floor, integral := integer, true
+		if example&1 != 0 {
+			integral = false
+			if integer >= 0 {
+				rationalText = fmt.Sprintf("%d.5", integer)
+			} else {
+				rationalText = fmt.Sprintf("(- %d.5)", -integer)
+				floor--
+			}
+		}
+		integralityAssertion := fmt.Sprintf("(assert (is_int %s))", rationalText)
+		if !integral {
+			integralityAssertion = fmt.Sprintf("(assert (not (is_int %s)))", rationalText)
+		}
+		floorText := fmt.Sprintf("%d", floor)
+		if floor < 0 {
+			floorText = fmt.Sprintf("(- %d)", -floor)
+		}
+		script := fmt.Sprintf(`(set-logic QF_LIRA)
+(assert (= (to_real %s) %s))
+(assert (= (to_int %s) %s))
+%s
+(check-sat)`,
+			integerText, integerRealText, rationalText, floorText, integralityAssertion,
+		)
+		ours := smtLIBExecutionStatuses(t, ExecuteSMTLib(script))
+		command := exec.Command(z3, "-in", "-smt2")
+		command.Stdin = strings.NewReader(script)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("example %d: run Z3: %v\n%s\n%s", example, err, output, script)
+		}
+		if got, want := fmt.Sprint(ours), "["+strings.TrimSpace(string(output))+"]"; got != want {
+			t.Fatalf("example %d: gosmt=%s z3=%s\n%s", example, got, want, script)
+		}
+	}
+}
+
 func TestRandomConditionalIntegerApplicationsAgreeWithPinnedZ3(t *testing.T) {
 	z3 := os.Getenv("GOSMT_Z3")
 	if z3 == "" {

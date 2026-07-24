@@ -10,6 +10,22 @@ import (
 )
 
 var benchmarkCharacterString StringCharacterBenchmarkSink
+var benchmarkGroundCoercionGoSMT GroundCoercionGoSMTSink
+var benchmarkGroundCoercionZ3Contexts []*z3.Context
+
+type GroundCoercionGoSMTSink struct {
+	ToReal   gosmt.RealExpr
+	ToInt    gosmt.IntExpr
+	IsInt    gosmt.BoolExpr
+	IsNotInt gosmt.BoolExpr
+}
+
+type GroundCoercionZ3Sink struct {
+	ToReal   *z3.Expr
+	ToInt    *z3.Expr
+	IsInt    *z3.Expr
+	IsNotInt *z3.Expr
+}
 
 type StringCharacterBenchmarkSink struct {
 	GoSMT gosmt.StringExpr
@@ -6207,6 +6223,46 @@ func BenchmarkPurifiedTernaryRealEUFArithmeticCold(b *testing.B) {
 				b.Fatal("unexpected result")
 			}
 		}
+	})
+}
+
+func BenchmarkGroundIntegerRealCoercionConstruction(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		context := gosmt.NewContext(126)
+		integer := gosmt.IntVal(context, 123)
+		negativeFraction := gosmt.RealVal(context, gosmt.Rational(-3, 2))
+		integral := gosmt.RealVal(context, gosmt.Rational(4, 2))
+		nonIntegral := gosmt.RealVal(context, gosmt.Rational(3, 2))
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchmarkGroundCoercionGoSMT = GroundCoercionGoSMTSink{
+				ToReal:   gosmt.ToReal(integer),
+				ToInt:    gosmt.ToIntReal(negativeFraction),
+				IsInt:    gosmt.IsIntReal(integral),
+				IsNotInt: gosmt.IsIntReal(nonIntegral),
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		context := z3.NewContext()
+		benchmarkGroundCoercionZ3Contexts = append(benchmarkGroundCoercionZ3Contexts, context)
+		integerSort := context.MkIntSort()
+		var sink GroundCoercionZ3Sink
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			// The pinned official Go binding does not expose Z3_mk_int2real,
+			// Z3_mk_real2int, or Z3_mk_is_int. Ground coercions have unique
+			// exact normal forms, so construct those same normalized terms.
+			sink = GroundCoercionZ3Sink{
+				ToReal:   context.MkReal(123, 1),
+				ToInt:    context.MkInt(-2, integerSort),
+				IsInt:    context.MkTrue(),
+				IsNotInt: context.MkFalse(),
+			}
+		}
+		_ = sink
 	})
 }
 

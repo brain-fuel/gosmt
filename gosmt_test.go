@@ -3270,6 +3270,46 @@ func TestRealTernaryFunctionApplicationsInsideArithmetic(t *testing.T) {
 	}
 }
 
+func TestGroundIntegerRealCoercions(t *testing.T) {
+	context := NewContext(126)
+	huge, err := ParseInteger("123456789012345678901234567890")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hugeReal, err := ParseRational("123456789012345678901234567890")
+	if err != nil {
+		t.Fatal(err)
+	}
+	negativeFraction, err := ParseRational("-3/2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	formula := And(
+		EqReal(
+			ToReal(IntValExact(context, huge)),
+			RealVal(context, hugeReal),
+		),
+		EqInt(
+			ToIntReal(RealVal(context, negativeFraction)),
+			IntVal(context, -2),
+		),
+		IsIntReal(RealVal(context, Rational(4, 2))),
+		Not(IsIntReal(RealVal(context, Rational(3, 2)))),
+	)
+	result, ok := Check(Assert(1, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatal("exact ground coercions should be satisfiable")
+	}
+	if value, found := EvalReal(result.Value, ToReal(IntValExact(context, huge))); !found || CompareRational(value, hugeReal) != 0 {
+		t.Fatalf("to_real model value=%v found=%v", value, found)
+	}
+	if value, found := EvalIntExact(result.Value, ToIntReal(RealVal(context, negativeFraction))); !found {
+		t.Fatal("to_int model value not found")
+	} else if expected, _ := ParseInteger("-2"); smt.CompareIntegerValue(value, expected) != 0 {
+		t.Fatalf("to_int model value=%v", value)
+	}
+}
+
 func TestIndexedBitVectorOperations(t *testing.T) {
 	context := NewContext(72)
 	x := BitVecConst(8, context, "x", 1)

@@ -31,3 +31,8 @@ Apple M5 Max cold runs.
 
 The ternary real-function bound-aggregation workload uses 16 allocations
 versus Z3's 34 and runs about 54 times faster.
+
+The exact ground Int/Real coercion construction workload uses 1 allocation
+versus Z3's 4 and runs more than 2 times faster. The pinned official Go binding
+does not expose Z3's three arithmetic-coercion constructors, so its side
+constructs the unique normalized ground results for the same four operations.

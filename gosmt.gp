@@ -1167,6 +1167,24 @@ func ScaleReal(0 c nat, coefficient smt.Rational, value RealExpr[c]) RealExpr[c]
 	return fastScaleReal(coefficient, value)
 }
 
+func ToReal(0 c nat, value IntExpr[c]) RealExpr[c] {
+	match value { case intExprValue(contextID, term, fast):
+		return fastToReal(contextID, term, fast)
+	}
+}
+
+func ToIntReal(0 c nat, value RealExpr[c]) IntExpr[c] {
+	match value { case realExprValue(contextID, term, fast):
+		return fastToIntReal(contextID, term, fast)
+	}
+}
+
+func IsIntReal(0 c nat, value RealExpr[c]) BoolExpr[c] {
+	match value { case realExprValue(contextID, term, fast):
+		return fastIsIntReal(contextID, term, fast)
+	}
+}
+
 func LeReal(0 c nat, left RealExpr[c], right RealExpr[c]) BoolExpr[c] {
 	return fastRealRelation(left, right, false)
 }

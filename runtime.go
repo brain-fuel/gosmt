@@ -2442,6 +2442,28 @@ func fastRealValue(context int, value smt.Rational) RealExpr {
 	return realExprValue{contextID: context, fast: realFast{valid: true, constant: value}}
 }
 
+func fastToReal(context int, term smt.Term[smt.IntSort], fast integerFast) RealExpr {
+	materialized := materializeInteger(term, fast)
+	if value, ok := smt.ExactIntegerConstant(materialized); ok {
+		return fastRealValue(context, smt.RationalFromInteger(value))
+	}
+	return realExprValue{contextID: context, term: smt.IntToReal(materialized)}
+}
+
+func fastToIntReal(context int, term smt.Term[smt.RealSort], fast realFast) IntExpr {
+	if value, ok := fastRealConstant(fast); ok {
+		return intExprValue{contextID: context, term: smt.IntegerTerm(smt.FloorRational(value))}
+	}
+	return intExprValue{contextID: context, term: smt.RealToInt(materializeReal(term, fast))}
+}
+
+func fastIsIntReal(context int, term smt.Term[smt.RealSort], fast realFast) BoolExpr {
+	if value, ok := fastRealConstant(fast); ok {
+		return boolExprValue{contextID: context, term: smt.Bool{Value: value.IsInteger()}}
+	}
+	return boolExprValue{contextID: context, term: smt.RealIsInt(materializeReal(term, fast))}
+}
+
 func fastAddReal(values []RealExpr) RealExpr {
 	context := realContext(values)
 	fast := realFast{valid: true}
