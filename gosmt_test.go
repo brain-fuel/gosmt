@@ -428,6 +428,27 @@ func TestContextIndexedFloatingPointFMA(t *testing.T) {
 	}
 }
 
+func TestContextIndexedFloatingPointSqrt(t *testing.T) {
+	context := NewContext(765)
+	valueBits := FloatingPointFromUint64(8, 24, context, 0x40000000)
+	expected := FloatingPointFromUint64(8, 24, context, 0x3fb504f3)
+	value := FloatingPointConst(8, 24, context, "value", 1)
+	root := FloatingPointSqrt(RoundNearestTiesToEven(), value)
+	formula := And(
+		EqBitVec(FloatingPointBits(value), FloatingPointBits(valueBits)),
+		EqBitVec(FloatingPointBits(root), FloatingPointBits(expected)),
+	)
+	result, ok := Check(Assert(2, NewSolver(context), formula)).(Sat)
+	if !ok {
+		t.Fatalf("symbolic fp.sqrt result=%T", Check(Assert(2, NewSolver(context), formula)))
+	}
+	bits, found := ModelFloatingPointBits(result.Value, root)
+	raw, inline := bits.Uint64()
+	if !found || !inline || raw != 0x3fb504f3 {
+		t.Fatalf("root bits=%#x,%v,%v", raw, inline, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

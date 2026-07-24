@@ -29,9 +29,9 @@ short and long rounding-mode names, and ground or assigned-symbol
 `fp.roundToIntegral`, plus all seven ground and symbolic classification
 predicates, exact `fp.eq`, `fp.lt`, `fp.leq`, `fp.gt`, and `fp.geq`, exact
 `fp.abs`/`fp.neg`, and operand-selecting `fp.min`/`fp.max`.
-Exact arbitrary-format `fp.add`, `fp.sub`, `fp.mul`, `fp.div`, and single-
-rounding `fp.fma` cover all five rounding modes for ground values and compact
-assigned-symbol constraints.
+Exact arbitrary-format `fp.add`, `fp.sub`, `fp.mul`, `fp.div`, single-rounding
+`fp.fma`, and `fp.sqrt` cover all five rounding modes for ground values and
+compact assigned-symbol constraints.
 The supported QF_FP fragment executes through a
 streaming, fixed-inline command/symbol path and falls back to the complete
 S-expression parser for broader scripts. Broader unconstrained symbolic

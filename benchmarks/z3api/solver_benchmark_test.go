@@ -7982,6 +7982,56 @@ func BenchmarkSymbolicFloatingPointFMACold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicFloatingPointSqrtCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(146)
+			value := gosmt.FloatingPointConst(8, 24, context, "value", 1)
+			valueBits := gosmt.FloatingPointFromUint64(8, 24, context, 0x40000000)
+			expected := gosmt.FloatingPointFromUint64(8, 24, context, 0x3fb504f3)
+			root := gosmt.FloatingPointSqrt(
+				gosmt.RoundNearestTiesToEven(), value,
+			)
+			result, ok := gosmt.Check(gosmt.Assert(1, gosmt.NewSolver(context), gosmt.And(
+				gosmt.EqBitVec(gosmt.FloatingPointBits(value), gosmt.FloatingPointBits(valueBits)),
+				gosmt.EqBitVec(gosmt.FloatingPointBits(root), gosmt.FloatingPointBits(expected)),
+			))).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			bits, found := gosmt.ModelFloatingPointBits(result.Value, root)
+			raw, inline := bits.Uint64()
+			if !found || !inline || raw != 0x3fb504f3 {
+				b.Fatal("invalid model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			value := context.MkConst(context.MkStringSymbol("value"), sort)
+			valueBits := context.MkFPNumeral("2", sort)
+			expected := z3FloatingPointSqrt(context, 0, valueBits)
+			root := z3FloatingPointSqrt(context, 0, value)
+			solver := context.NewSolverForLogic("QF_FP")
+			solver.Assert(context.MkAnd(
+				context.MkEq(value, valueBits),
+				context.MkFPEq(root, expected),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(root, true); !found {
+				b.Fatal("invalid root model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

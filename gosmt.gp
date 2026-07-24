@@ -1496,6 +1496,10 @@ func FloatingPointFMA(0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingM
 	return floatingPointFMA(mode, left, right, addend)
 }
 
+func FloatingPointSqrt(0 c nat, 0 e nat, 0 s nat, mode smt.FloatingPointRoundingMode, value FloatingPointExpr[c, e, s]) FloatingPointExpr[c, e, s] {
+	return floatingPointSqrt(mode, value)
+}
+
 func ModelFloatingPointBits(0 c nat, 0 a nat, 0 e nat, 0 s nat, model Model[c, a], value FloatingPointExpr[c, e, s]) (smt.BitVectorValue, bool) {
 	return modelFloatingPointValueBits(model, value)
 }
