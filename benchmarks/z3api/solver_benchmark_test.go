@@ -8649,6 +8649,87 @@ func BenchmarkSymbolicAffineFloatingPointToRealCold(b *testing.B) {
 	})
 }
 
+func BenchmarkSymbolicMixedFloatingPointToRealCold(b *testing.B) {
+	b.Run("gosmt", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := gosmt.NewContext(154)
+			source := gosmt.FloatingPointConst(
+				8, 24, context, "source", 1,
+			)
+			realSymbol := gosmt.RealConst(context, "r", 7)
+			converted := gosmt.FloatingPointToReal(source)
+			difference := gosmt.SubReal(converted, realSymbol)
+			result, ok := gosmt.Check(gosmt.Assert(
+				1, gosmt.NewSolver(context), gosmt.And(
+					gosmt.EqBitVec(
+						gosmt.FloatingPointBits(source),
+						gosmt.FloatingPointBits(
+							gosmt.FloatingPointFromUint64(
+								8, 24, context, 0x3fc00000,
+							),
+						),
+					),
+					gosmt.EqReal(
+						difference,
+						gosmt.RealVal(context, gosmt.Rational(0, 1)),
+					),
+					gosmt.LtReal(
+						realSymbol,
+						gosmt.RealVal(context, gosmt.Rational(2, 1)),
+					),
+				),
+			)).(gosmt.Sat)
+			if !ok {
+				b.Fatal("unexpected result")
+			}
+			if value, found := gosmt.EvalReal(
+				result.Value, realSymbol,
+			); !found || gosmt.CompareRational(
+				value, gosmt.Rational(3, 2),
+			) != 0 {
+				b.Fatal("invalid mixed Real model")
+			}
+			if value, found := gosmt.EvalReal(
+				result.Value, difference,
+			); !found || gosmt.CompareRational(
+				value, gosmt.Rational(0, 1),
+			) != 0 {
+				b.Fatal("invalid mixed difference model")
+			}
+		}
+	})
+	b.Run("z3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			context := z3.NewContext()
+			sort := context.MkFPSort32()
+			source := context.MkConst(
+				context.MkStringSymbol("source"), sort,
+			)
+			realSymbol := context.MkRealConst("r")
+			converted := z3FloatingPointToReal(context, source)
+			difference := context.MkSub(converted, realSymbol)
+			solver := context.NewSolver()
+			solver.Assert(context.MkAnd(
+				context.MkEq(source, context.MkFPNumeral("1.5", sort)),
+				context.MkEq(difference, context.MkReal(0, 1)),
+				context.MkLt(realSymbol, context.MkReal(2, 1)),
+			))
+			if solver.Check() != z3.Satisfiable {
+				b.Fatal("unexpected result")
+			}
+			model := solver.Model()
+			if _, found := model.Eval(realSymbol, true); !found {
+				b.Fatal("invalid mixed Real model")
+			}
+			if _, found := model.Eval(difference, true); !found {
+				b.Fatal("invalid mixed difference model")
+			}
+		}
+	})
+}
+
 func BenchmarkAffineRationalScaledIntegerRealCoercionCold(b *testing.B) {
 	b.Run("gosmt", func(b *testing.B) {
 		b.ReportAllocs()

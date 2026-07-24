@@ -79,4 +79,11 @@ func AcceptedFloatingPoint() {
 		gosmt.ScaleReal(gosmt.Rational(2, 1), symbolicReal),
 		gosmt.RealVal(context, gosmt.Rational(1, 2)),
 	)
+	_ = gosmt.EqReal(
+		gosmt.SubReal(
+			symbolicReal,
+			gosmt.RealConst(context, "fp_real_bridge", 99),
+		),
+		gosmt.RealVal(context, gosmt.Rational(0, 1)),
+	)
 }

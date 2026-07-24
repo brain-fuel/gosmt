@@ -651,6 +651,39 @@ func TestContextIndexedAffineFloatingPointToReal(t *testing.T) {
 	}
 }
 
+func TestContextIndexedMixedFloatingPointToReal(t *testing.T) {
+	context := NewContext(773)
+	source := FloatingPointConst(8, 24, context, "source", 1)
+	realSymbol := RealConst(context, "r", 7)
+	converted := FloatingPointToReal(source)
+	difference := SubReal(converted, realSymbol)
+	solver := Assert(1, NewSolver(context), And(
+		EqBitVec(
+			FloatingPointBits(source),
+			FloatingPointBits(
+				FloatingPointFromUint64(8, 24, context, 0x3fc00000),
+			),
+		),
+		EqReal(
+			difference,
+			RealVal(context, Rational(0, 1)),
+		),
+		LtReal(realSymbol, RealVal(context, Rational(2, 1))),
+	))
+	result, ok := Check(solver).(Sat)
+	if !ok {
+		t.Fatalf("expected mixed fp.to_real sat, got %T", Check(solver))
+	}
+	value, found := EvalReal(result.Value, realSymbol)
+	if !found || CompareRational(value, Rational(3, 2)) != 0 {
+		t.Fatalf("mixed Real value=%s,%v", value, found)
+	}
+	value, found = EvalReal(result.Value, difference)
+	if !found || CompareRational(value, Rational(0, 1)) != 0 {
+		t.Fatalf("mixed difference=%s,%v", value, found)
+	}
+}
+
 func TestContextIndexedStringSolve(t *testing.T) {
 	context := NewContext(8)
 	x := StringConst(context, "x", 1)

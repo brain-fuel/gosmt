@@ -43,8 +43,9 @@
    `fp.to_real` now converts every finite arbitrary-format value to a rational,
    with compact affine arithmetic across directly assigned floating-point
    symbols, exact rational coefficients and offsets, equality/order, and model
-   extraction; coupling to otherwise unconstrained Real symbols remains
-   planned.
+   extraction. Assigned FP symbols now bridge into otherwise unconstrained
+   Real variables with exact combined models and contradiction propagation;
+   solving wholly unconstrained FP sources remains planned.
    Solver-neutral compact std
    relations and arbitrary-term bit-vector constructors preserve the general
    QF_FPBV fallback. The corresponding SMT-LIB QF_FP fragment has fixed-inline

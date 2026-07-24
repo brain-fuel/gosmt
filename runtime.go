@@ -3790,6 +3790,15 @@ func modelRealValue(
 ) (smt.Rational, bool) {
 	if fast.floatingPointCount != 0 {
 		result := fast.constant
+		for _, coefficient := range fast.coefficients() {
+			value, found := smt.DirectRealSymbolModelValue(model, coefficient.symbol)
+			if !found {
+				return smt.Rational{}, false
+			}
+			result = smt.AddRational(
+				result, smt.MultiplyRational(coefficient.value, value),
+			)
+		}
 		for _, coefficient := range fast.floatingPointCoefficients() {
 			bits, found := smt.FloatingPointSymbolModelBits(
 				model, coefficient.symbolID,
@@ -3805,6 +3814,19 @@ func modelRealValue(
 			)
 			if !valid {
 				value = smt.Rational{}
+			}
+			result = smt.AddRational(
+				result, smt.MultiplyRational(coefficient.value, value),
+			)
+		}
+		return result, true
+	}
+	if fast.valid {
+		result := fast.constant
+		for _, coefficient := range fast.coefficients() {
+			value, found := smt.DirectRealSymbolModelValue(model, coefficient.symbol)
+			if !found {
+				return smt.Rational{}, false
 			}
 			result = smt.AddRational(
 				result, smt.MultiplyRational(coefficient.value, value),
@@ -4165,7 +4187,6 @@ func compactFloatingPointToRealAffineRelation(
 	comparison uint8,
 ) (smt.FloatingPointToRealRelation, bool) {
 	if !left.valid || !right.valid ||
-		left.count != 0 || right.count != 0 ||
 		left.floatingPointCount+right.floatingPointCount == 0 {
 		return smt.FloatingPointToRealRelation{}, false
 	}
@@ -4191,6 +4212,26 @@ func compactFloatingPointToRealAffineRelation(
 	}
 	if count == 0 {
 		return smt.FloatingPointToRealRelation{}, false
+	}
+	var realTerms [4]smt.FloatingPointToRealRealTerm
+	realCount := 0
+	for _, coefficient := range difference.coefficients() {
+		if coefficient.value.Sign() == 0 {
+			continue
+		}
+		if realCount == len(realTerms) {
+			return smt.FloatingPointToRealRelation{}, false
+		}
+		realTerms[realCount] = smt.FloatingPointToRealRealTerm{
+			SymbolID: coefficient.symbol, Coefficient: coefficient.value,
+		}
+		realCount++
+	}
+	if realCount != 0 {
+		return smt.NewMixedFloatingPointToRealInlineRelation(
+			inline, count, realTerms, realCount,
+			difference.constant, comparison,
+		), true
 	}
 	return smt.NewFloatingPointToRealInlineRelation(
 		inline, count, difference.constant, comparison,
@@ -5080,6 +5121,45 @@ func fastAnd(values []BoolExpr) BoolExpr {
 	}
 	if allConstants {
 		return boolExprValue{contextID: context, term: smt.Bool{Value: result}}
+	}
+	fpAtomCount, fpRealCount := 0, 0
+	allFloatingPointRealBridge := len(values) > 0
+	hasFloatingPointRealBridge := false
+	for _, value := range values {
+		switch value.fast.kind {
+		case booleanFastBitVectorRelation:
+			fpAtomCount++
+		case booleanFastFloatingPointToReal:
+			fpAtomCount++
+			hasFloatingPointRealBridge =
+				hasFloatingPointRealBridge ||
+					value.fast.floatingPointToReal.RealCount != 0
+		case booleanFastRealConstraint:
+			fpRealCount++
+		default:
+			allFloatingPointRealBridge = false
+		}
+	}
+	if allFloatingPointRealBridge && hasFloatingPointRealBridge &&
+		fpAtomCount <= 4 && fpRealCount <= 4 {
+		conjunction := smt.TheoryConjunction{
+			AtomCount: fpAtomCount, RealCount: fpRealCount,
+		}
+		atomIndex, realIndex := 0, 0
+		for _, value := range values {
+			switch value.fast.kind {
+			case booleanFastBitVectorRelation:
+				conjunction.Atoms[atomIndex] = value.fast.bitVectorRelation
+				atomIndex++
+			case booleanFastFloatingPointToReal:
+				conjunction.Atoms[atomIndex] = value.fast.floatingPointToReal
+				atomIndex++
+			case booleanFastRealConstraint:
+				conjunction.Reals[realIndex] = value.fast.real
+				realIndex++
+			}
+		}
+		return boolExprValue{contextID: context, term: conjunction}
 	}
 	groundEvaluation := &smt.CompactGroundStringEvaluationFormula{}
 	allGroundEvaluation := len(values) > 0
